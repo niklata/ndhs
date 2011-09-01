@@ -46,7 +46,8 @@ class ClientListener
 {
 public:
     ClientListener(boost::asio::io_service &io_service,
-                   const boost::asio::ip::udp::endpoint &endpoint);
+                   const boost::asio::ip::udp::endpoint &endpoint,
+                   const std::string &ifname);
 private:
     void start_receive(const boost::system::error_code &error,
                        std::size_t bytes_xferred);
@@ -66,11 +67,11 @@ private:
                         std::size_t bytes_xferred);
 
     boost::asio::ip::udp::socket socket_;
-    boost::asio::ip::udp::socket broadcast_socket_;
+    //boost::asio::ip::udp::socket broadcast_socket_;
     boost::asio::ip::udp::endpoint remote_endpoint_;
     boost::array<uint8_t, 1024> recv_buffer_;
     struct dhcpmsg dhcpmsg_;
-
+    boost::asio::ip::address local_ip_;
 };
 
 #endif /* NK_DHCPCLIENT_H */

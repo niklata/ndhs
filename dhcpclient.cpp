@@ -36,6 +36,7 @@
 
 #include <net/if.h>
 #include <sys/socket.h>
+#include <ifaddrs.h>
 
 #include <boost/bind.hpp>
 #include <boost/lexical_cast.hpp>
@@ -166,21 +167,51 @@ private:
 ClientStates client_states;
 
 ClientListener::ClientListener(ba::io_service &io_service,
-                               const ba::ip::udp::endpoint &endpoint)
+                               const ba::ip::udp::endpoint &endpoint,
+                               const std::string &ifname)
  : socket_(io_service, endpoint)
 {
-    std::cout << "ClientListener constructed" << std::endl;
     socket_.set_option(ba::ip::udp::socket::broadcast(true));
     socket_.set_option(ba::ip::udp::socket::do_not_route(true));
     socket_.set_option(ba::ip::udp::socket::reuse_address(true));
     int fd = socket_.native();
+
     struct ifreq ifr;
     memset(&ifr, 0, sizeof (struct ifreq));
-    std::string ifname("eth2");
     memcpy(ifr.ifr_name, ifname.c_str(), ifname.size());
     if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
         log_error("failed to bind socket to device: %s", strerror(errno));
+        exit(-1);
     }
+
+    struct ifaddrs *ifaddr, *ifa;
+    if (getifaddrs(&ifaddr) == -1) {
+        log_error("failed to get list of interface ips: %s", strerror(errno));
+        exit(-1);
+    }
+    for (ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
+        if (!ifa->ifa_addr)
+            continue;
+        if (strcmp(ifa->ifa_name, ifname.c_str()))
+            continue;
+        if (ifa->ifa_addr->sa_family != AF_INET)
+            continue;
+        char lipbuf[INET_ADDRSTRLEN];
+        if (!inet_ntop(AF_INET, &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr,
+                       lipbuf, sizeof lipbuf)) {
+            log_error("failed to parse IP for interface (%s): %s",
+                       ifname.c_str(), strerror(errno));
+            exit(-1);
+        }
+        local_ip_ = ba::ip::address::from_string(lipbuf);
+        break;
+    }
+    freeifaddrs(ifaddr);
+    if (!local_ip_.is_v4()) {
+        log_error("interface (%s) has no IP address", ifname.c_str());
+        exit(-1);
+    }
+
     socket_.async_receive_from(ba::buffer(recv_buffer_), remote_endpoint_,
                                boost::bind(&ClientListener::start_receive,
                                            this, ba::placeholders::error,
@@ -214,9 +245,10 @@ void ClientListener::dhcpmsg_init(struct dhcpmsg *dm, char type) const
 uint32_t ClientListener::local_ip() const
 {
     uint32_t ret;
-    std::string addr(socket_.local_endpoint().address().to_string());
-    if (inet_pton(AF_INET, addr.c_str(), &ret) != 1)
+    if (inet_pton(AF_INET, local_ip_.to_string().c_str(), &ret) != 1) {
+        log_warning("inet_pton failed: %s", strerror(errno));
         return 0;
+    }
     return ret;
 }
 
@@ -233,8 +265,9 @@ void ClientListener::send_reply(struct dhcpmsg *dm)
     socket_.send_to(boost::asio::buffer(msgbuf), remote_endpoint_,
                     0, ignored_error);
     #endif
-    socket_.send_to(boost::asio::buffer(msgbuf), ba::ip::udp::endpoint(remote_endpoint_.address().to_v4().broadcast(), 68),
-                    0, ignored_error);
+    socket_.send_to(boost::asio::buffer(msgbuf),
+     ba::ip::udp::endpoint(remote_endpoint_.address().to_v4().broadcast(), 68),
+     0, ignored_error);
 }
 
 std::string ClientListener::ipStr(uint32_t ip) const
@@ -257,7 +290,7 @@ void ClientListener::reply_discover(ClientState *cs, const std::string &chaddr)
     struct dhcpmsg reply;
 
     dhcpmsg_init(&reply, DHCPOFFER);
-    gLua->reply_discover(&reply, socket_.local_endpoint().address().to_string(),
+    gLua->reply_discover(&reply, local_ip_.to_string(),
                          remote_endpoint_.address().to_string(), chaddr);
     send_reply(&reply);
     std::cout << "Leaving CL::reply_discover()" << std::endl;
@@ -270,14 +303,13 @@ void ClientListener::reply_request(ClientState *cs, const std::string &chaddr,
     std::string leaseip;
     
     dhcpmsg_init(&reply, DHCPACK);
-    gLua->reply_request(&reply, socket_.local_endpoint().address().to_string(),
+    gLua->reply_request(&reply, local_ip_.to_string(),
                         remote_endpoint_.address().to_string(), chaddr);
 
     leaseip = ipStr(reply.yiaddr);
     if (!leaseip.size())
         goto out;
-    gLeaseStore->addLease(socket_.local_endpoint().address().to_string(),
-                          chaddr, leaseip,
+    gLeaseStore->addLease(local_ip_.to_string(), chaddr, leaseip,
                           getNowTs() + get_option_leasetime(&reply));
     send_reply(&reply);
 out:
@@ -289,14 +321,12 @@ void ClientListener::reply_inform(ClientState *cs, const std::string &chaddr)
     // XXX: send a DHCPACK that just non-LEASET options.
 }
 
-void ClientListener::do_release(ClientState *cs, const std::string &chaddr)
-{
+void ClientListener::do_release(ClientState *cs, const std::string &chaddr) {
     std::string lip =
         gLeaseStore->getLease(socket_.local_endpoint().address().to_string(),
                               chaddr);
     if (lip != remote_endpoint_.address().to_string()) {
-        log_line("do_release: ignoring spoofed release request.  %s != %s.",
-                 remote_endpoint_.address().to_string().c_str(), lip.c_str());
+        log_line("do_release: ignoring spoofed release request.  %s != %s.", remote_endpoint_.address().to_string().c_str(), lip.c_str());
         return;
     }
     gLeaseStore->delLease(socket_.local_endpoint().address().to_string(),

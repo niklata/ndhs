@@ -110,7 +110,7 @@ int main(int ac, char *av[]) {
     int uid = 0, gid = 0;
     std::string pidfile, chroot_path, leasefile_path, configfile_path;
     std::vector<ClientListener *> listeners;
-    std::vector<std::string> addrlist;
+    std::vector<std::string> iflist;
 
     gflags_log_name = const_cast<char *>("ndhs");
 
@@ -129,8 +129,8 @@ int main(int ac, char *av[]) {
          "path to process id file")
         ("chroot,C", po::value<std::string>(),
          "path in which ndhs should chroot itself")
-	("address,a", po::value<std::vector<std::string> >(),
-	 "'address[:port]' on which to listen (default all local)")
+	("interface,i", po::value<std::vector<std::string> >(),
+	 "'interface' on which to listen (must specify at least one)")
 	("user,u", po::value<std::string>(),
 	 "user name that ndhs should run as")
 	("group,g", po::value<std::string>(),
@@ -196,8 +196,8 @@ int main(int ac, char *av[]) {
 	pidfile = vm["pidfile"].as<std::string>();
     if (vm.count("chroot"))
 	chroot_path = vm["chroot"].as<std::string>();
-    if (vm.count("address"))
-	addrlist = vm["address"].as<std::vector<std::string> >();
+    if (vm.count("interface"))
+	iflist = vm["interface"].as<std::vector<std::string> >();
     if (vm.count("user")) {
 	auto t = vm["user"].as<std::string>();
 	try {
@@ -237,29 +237,22 @@ int main(int ac, char *av[]) {
     gLeaseStore = new LeaseStore(leasefile_path);
     gLua = new DhcpLua(configfile_path);
 
-#if 0
-    if (!addrlist.size()) {
-        suicide("at least one listening address must be specified");
+    if (!iflist.size()) {
+        suicide("at least one listening interface must be specified");
     } else
-	for (auto i = addrlist.cbegin(); i != addrlist.cend(); ++i) {
-	    std::string addr = *i;
+	for (auto i = iflist.cbegin(); i != iflist.cend(); ++i) {
+	    std::string iface = *i;
 	    try {
-		auto addy = boost::asio::ip::address::from_string(addr);
+        auto addy = boost::asio::ip::address_v4::any();
 		auto ep = boost::asio::ip::udp::endpoint(addy, 67);
-		auto cl = new ClientListener(io_service, ep);
+		auto cl = new ClientListener(io_service, ep, iface);
 		listeners.push_back(cl);
 	    } catch (boost::system::error_code &ec) {
-		std::cout << "bad address: " << addr << std::endl;
+		std::cout << "bad interface: " << iface << std::endl;
 	    }
 	}
-    addrlist.clear();
-#endif
-    {
-        auto addy = boost::asio::ip::address_v4::any();
-        auto ep = boost::asio::ip::udp::endpoint(addy, 67);
-        auto cl = new ClientListener(io_service, ep);
-        listeners.push_back(cl);
-    }   
+    iflist.clear();
+
     if (chroot_path.size()) {
 	if (getuid())
 	    suicide("root required for chroot\n");
