@@ -50,10 +50,9 @@ int dlua_set_lease_time(lua_State *L)
     if (lua_gettop(L) != 2 || !lua_islightuserdata(L, 1) ||
         !lua_isnumber(L, 2))
         return 0;
-    printf("called dlua_set_lease_time\n");
     struct dhcpmsg *dm = static_cast<struct dhcpmsg *>(lua_touserdata(L, 1));
     uint32_t ltime = lua_tointeger(L, 2);
-    add_u32_option(dm, DCODE_LEASET, htons(ltime));
+    add_u32_option(dm, DCODE_LEASET, htonl(ltime));
     return 0;
 }
 
