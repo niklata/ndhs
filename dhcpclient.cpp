@@ -252,6 +252,7 @@ uint32_t ClientListener::local_ip() const
     return ret;
 }
 
+// XXX: in some cases we want to reply by unicast, not broadcast.
 void ClientListener::send_reply(struct dhcpmsg *dm)
 {
     ssize_t endloc = get_end_option_idx(dm);
@@ -261,13 +262,11 @@ void ClientListener::send_reply(struct dhcpmsg *dm)
                        (sizeof (dm->options) - 1 - endloc));
     boost::system::error_code ignored_error;
     std::cout << "remote_endpoint is " << remote_endpoint_ << std::endl;
-    #if 0
-    socket_.send_to(boost::asio::buffer(msgbuf), remote_endpoint_,
-                    0, ignored_error);
-    #endif
+    // socket_.send_to(boost::asio::buffer(msgbuf), remote_endpoint_,
+    //                 0, ignored_error);
+    auto remotebcast = remote_endpoint_.address().to_v4().broadcast();
     socket_.send_to(boost::asio::buffer(msgbuf),
-     ba::ip::udp::endpoint(remote_endpoint_.address().to_v4().broadcast(), 68),
-     0, ignored_error);
+                    ba::ip::udp::endpoint(remotebcast, 68), 0, ignored_error);
 }
 
 std::string ClientListener::ipStr(uint32_t ip) const
@@ -301,7 +300,7 @@ void ClientListener::reply_request(ClientState *cs, const std::string &chaddr,
 {
     struct dhcpmsg reply;
     std::string leaseip;
-    
+
     dhcpmsg_init(&reply, DHCPACK);
     gLua->reply_request(&reply, local_ip_.to_string(),
                         remote_endpoint_.address().to_string(), chaddr);
