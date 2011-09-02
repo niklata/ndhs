@@ -232,13 +232,13 @@ void ClientListener::start_receive(const boost::system::error_code &error,
 }
 
 void ClientListener::dhcpmsg_init(struct dhcpmsg *dm, char type,
-                                  const std::string &chaddr) const
+                                  uint32_t xid, const std::string &chaddr) const
 {
     memset(dm, 0, sizeof (struct dhcpmsg));
     dm->op = 2; // BOOTREPLY (server)
     dm->htype = 1;
     dm->hlen = 6;
-    dm->xid = dhcpmsg_.xid;
+    dm->xid = xid;
     dm->cookie = htonl(DHCP_MAGIC);
     dm->options[0] = DCODE_END;
     for (int i = 0; i < 6; ++i)
@@ -257,21 +257,25 @@ uint32_t ClientListener::local_ip() const
     return ret;
 }
 
-// XXX: in some cases we want to reply by unicast, not broadcast.
-void ClientListener::send_reply(struct dhcpmsg *dm)
+void ClientListener::send_reply(struct dhcpmsg *dm, bool broadcast)
 {
     ssize_t endloc = get_end_option_idx(dm);
     if (endloc < 0)
         return;
+
+    boost::system::error_code ignored_error;
     std::string msgbuf((const char *)dm, sizeof (struct dhcpmsg) -
                        (sizeof (dm->options) - 1 - endloc));
-    boost::system::error_code ignored_error;
-    std::cout << "remote_endpoint is " << remote_endpoint_ << std::endl;
-    // socket_.send_to(boost::asio::buffer(msgbuf), remote_endpoint_,
-    //                 0, ignored_error);
-    auto remotebcast = remote_endpoint_.address().to_v4().broadcast();
-    socket_.send_to(boost::asio::buffer(msgbuf),
-                    ba::ip::udp::endpoint(remotebcast, 68), 0, ignored_error);
+
+    if (broadcast) {
+        auto remotebcast = remote_endpoint_.address().to_v4().broadcast();
+        socket_.send_to(boost::asio::buffer(msgbuf),
+                        ba::ip::udp::endpoint(remotebcast, 68),
+                        0, ignored_error);
+    } else {
+        socket_.send_to(boost::asio::buffer(msgbuf), remote_endpoint_,
+                        0, ignored_error);
+    }
 }
 
 std::string ClientListener::ipStr(uint32_t ip) const
@@ -295,10 +299,10 @@ void ClientListener::reply_discover(ClientState *cs, const std::string &chaddr)
 
     std::cout << "reply_discover" << std::endl;
 
-    dhcpmsg_init(&reply, DHCPOFFER, chaddr);
+    dhcpmsg_init(&reply, DHCPOFFER, dhcpmsg_.xid, chaddr);
     gLua->reply_discover(&reply, local_ip_.to_string(),
                          remote_endpoint_.address().to_string(), chaddr);
-    send_reply(&reply);
+    send_reply(&reply, true);
     std::cout << "Leaving CL::reply_discover()" << std::endl;
 }
 
@@ -310,7 +314,7 @@ void ClientListener::reply_request(ClientState *cs, const std::string &chaddr,
 
     std::cout << "reply_request: is_direct == " << is_direct << std::endl;
 
-    dhcpmsg_init(&reply, DHCPACK, chaddr);
+    dhcpmsg_init(&reply, DHCPACK, dhcpmsg_.xid, chaddr);
     gLua->reply_request(&reply, local_ip_.to_string(),
                         remote_endpoint_.address().to_string(), chaddr);
 
@@ -319,16 +323,22 @@ void ClientListener::reply_request(ClientState *cs, const std::string &chaddr,
         goto out;
     gLeaseStore->addLease(local_ip_.to_string(), chaddr, leaseip,
                           getNowTs() + get_option_leasetime(&reply));
-    send_reply(&reply);
+    send_reply(&reply, true);
 out:
     client_states.stateKill(dhcpmsg_.xid, chaddr);
 }
 
 void ClientListener::reply_inform(ClientState *cs, const std::string &chaddr)
 {
-    // XXX: send a DHCPACK that just non-LEASET options.
+    struct dhcpmsg reply;
+
     std::cout << "reply_inform" << std::endl;
-    reply_request(cs, chaddr, true);
+
+    dhcpmsg_init(&reply, DHCPACK, dhcpmsg_.xid, chaddr);
+    gLua->reply_request(&reply, local_ip_.to_string(),
+                        remote_endpoint_.address().to_string(), chaddr);
+    reply.yiaddr = 0;
+    send_reply(&reply, false);
 }
 
 void ClientListener::do_release(ClientState *cs, const std::string &chaddr) {
