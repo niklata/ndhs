@@ -52,7 +52,8 @@ private:
     void start_receive(const boost::system::error_code &error,
                        std::size_t bytes_xferred);
     uint64_t getNowTs(void) const;
-    void dhcpmsg_init(struct dhcpmsg *dm, char type) const;
+    void dhcpmsg_init(struct dhcpmsg *dm, char type,
+                      const std::string &chaddr) const;
     uint32_t local_ip() const;
     std::string ipStr(uint32_t ip) const;
     void send_reply(struct dhcpmsg *dm);

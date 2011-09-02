@@ -169,11 +169,13 @@ ClientStates client_states;
 ClientListener::ClientListener(ba::io_service &io_service,
                                const ba::ip::udp::endpoint &endpoint,
                                const std::string &ifname)
- : socket_(io_service, endpoint)
+ : socket_(io_service)
 {
+    socket_.open(endpoint.protocol());
     socket_.set_option(ba::ip::udp::socket::broadcast(true));
     socket_.set_option(ba::ip::udp::socket::do_not_route(true));
     socket_.set_option(ba::ip::udp::socket::reuse_address(true));
+    socket_.bind(endpoint);
     int fd = socket_.native();
 
     struct ifreq ifr;
@@ -229,7 +231,8 @@ void ClientListener::start_receive(const boost::system::error_code &error,
                                            ba::placeholders::bytes_transferred));
 }
 
-void ClientListener::dhcpmsg_init(struct dhcpmsg *dm, char type) const
+void ClientListener::dhcpmsg_init(struct dhcpmsg *dm, char type,
+                                  const std::string &chaddr) const
 {
     memset(dm, 0, sizeof (struct dhcpmsg));
     dm->op = 2; // BOOTREPLY (server)
@@ -238,6 +241,8 @@ void ClientListener::dhcpmsg_init(struct dhcpmsg *dm, char type) const
     dm->xid = dhcpmsg_.xid;
     dm->cookie = htonl(DHCP_MAGIC);
     dm->options[0] = DCODE_END;
+    for (int i = 0; i < 6; ++i)
+        dm->chaddr[i] = chaddr[i];
     add_option_msgtype(dm, type);
     add_option_serverid(dm, local_ip());
 }
@@ -288,7 +293,9 @@ void ClientListener::reply_discover(ClientState *cs, const std::string &chaddr)
 {
     struct dhcpmsg reply;
 
-    dhcpmsg_init(&reply, DHCPOFFER);
+    std::cout << "reply_discover" << std::endl;
+
+    dhcpmsg_init(&reply, DHCPOFFER, chaddr);
     gLua->reply_discover(&reply, local_ip_.to_string(),
                          remote_endpoint_.address().to_string(), chaddr);
     send_reply(&reply);
@@ -301,7 +308,9 @@ void ClientListener::reply_request(ClientState *cs, const std::string &chaddr,
     struct dhcpmsg reply;
     std::string leaseip;
 
-    dhcpmsg_init(&reply, DHCPACK);
+    std::cout << "reply_request: is_direct == " << is_direct << std::endl;
+
+    dhcpmsg_init(&reply, DHCPACK, chaddr);
     gLua->reply_request(&reply, local_ip_.to_string(),
                         remote_endpoint_.address().to_string(), chaddr);
 
@@ -318,6 +327,8 @@ out:
 void ClientListener::reply_inform(ClientState *cs, const std::string &chaddr)
 {
     // XXX: send a DHCPACK that just non-LEASET options.
+    std::cout << "reply_inform" << std::endl;
+    reply_request(cs, chaddr, true);
 }
 
 void ClientListener::do_release(ClientState *cs, const std::string &chaddr) {
