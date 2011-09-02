@@ -234,7 +234,6 @@ int main(int ac, char *av[]) {
     fix_signals();
     ncm_fix_env(uid, 0);
 
-    gLeaseStore = new LeaseStore(leasefile_path);
     gLua = new DhcpLua(configfile_path);
 
     if (!iflist.size()) {
@@ -269,6 +268,7 @@ int main(int ac, char *av[]) {
     /* Cover our tracks... */
     pidfile.clear();
 
+    gLeaseStore = new LeaseStore(leasefile_path);
     io_service.run();
 
     exit(EXIT_SUCCESS);
