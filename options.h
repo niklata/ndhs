@@ -60,6 +60,8 @@ ssize_t get_dhcp_opt(struct dhcpmsg *packet, uint8_t code, uint8_t *dbuf,
                      ssize_t dlen);
 ssize_t get_end_option_idx(struct dhcpmsg *packet);
 
+size_t add_option_string(struct dhcpmsg *packet, uint8_t code, const char *str,
+                         size_t slen);
 size_t add_u32_option(struct dhcpmsg *packet, uint8_t code, uint32_t data);
 
 size_t add_option_request_list(struct dhcpmsg *packet);

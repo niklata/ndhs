@@ -42,8 +42,52 @@ static std::string macstr_to_raw(const std::string &macstr)
 }
 
 extern "C" {
-#include "log.h"
 #include "options.h"
+}
+
+static int add_option_iplist(lua_State *L, uint8_t code)
+{
+    if (lua_gettop(L) != 2 || !lua_islightuserdata(L, 1))
+        return 0;
+    struct dhcpmsg *dm = static_cast<struct dhcpmsg *>(lua_touserdata(L, 1));
+    size_t iplen;
+    uint32_t ip;
+    if (lua_isstring(L, 2)) {
+        const char *ipstr = lua_tolstring(L, 2, &iplen);
+        if (inet_pton(AF_INET, ipstr, &ip) != 1)
+            return 0;
+        add_u32_option(dm, code, ip);
+    } else if (lua_istable(L, 2)) {
+        union {
+            uint32_t ip32;
+            uint8_t ip8[4];
+        };
+        std::string iplist;
+        lua_pushnil(L);
+        while (lua_next(L, 2) != 0) {
+            if (!lua_isstring(L, -1)) {
+                lua_pop(L, 1);
+                continue;
+            }
+            const char *ipstr = lua_tolstring(L, -1, &iplen);
+            if (inet_pton(AF_INET, ipstr, &ip32) != 1) {
+                lua_pop(L, 1);
+                continue;
+            }
+            iplist.push_back(ip8[0]);
+            iplist.push_back(ip8[1]);
+            iplist.push_back(ip8[2]);
+            iplist.push_back(ip8[3]);
+            lua_pop(L, 1);
+        }
+        if (iplist.size())
+            add_option_string(dm, code, iplist.c_str(), iplist.size());
+    }
+    return 0;
+}
+
+extern "C" {
+#include "log.h"
 
 int dlua_set_lease_time(lua_State *L)
 {
@@ -121,53 +165,17 @@ int dlua_set_broadcast(lua_State *L)
 
 int dlua_set_routers(lua_State *L)
 {
-    if (lua_gettop(L) != 2 || !lua_islightuserdata(L, 1) ||
-        !lua_isstring(L, 2))
-        return 0;
-    struct dhcpmsg *dm = static_cast<struct dhcpmsg *>(lua_touserdata(L, 1));
-    size_t routerlen;
-    const char *routerstr = lua_tolstring(L, 2, &routerlen);
-    uint32_t router;
-    int r = inet_pton(AF_INET, routerstr, &router);
-    if (r != 1)
-        return 0;
-    // XXX: support multiple routers
-    add_option_router(dm, router);
-    return 0;
+    return add_option_iplist(L, DCODE_ROUTER);
 }
 
 int dlua_set_dns(lua_State *L)
 {
-    if (lua_gettop(L) != 2 || !lua_islightuserdata(L, 1) ||
-        !lua_isstring(L, 2))
-        return 0;
-    struct dhcpmsg *dm = static_cast<struct dhcpmsg *>(lua_touserdata(L, 1));
-    size_t dnslen;
-    const char *dnsstr = lua_tolstring(L, 2, &dnslen);
-    uint32_t dns;
-    int r = inet_pton(AF_INET, dnsstr, &dns);
-    if (r != 1)
-        return 0;
-    // XXX: support multiple dns
-    add_option_dns(dm, dns);
-    return 0;
+    return add_option_iplist(L, DCODE_DNS);
 }
 
 int dlua_set_ntp(lua_State *L)
 {
-    if (lua_gettop(L) != 2 || !lua_islightuserdata(L, 1) ||
-        !lua_isstring(L, 2))
-        return 0;
-    struct dhcpmsg *dm = static_cast<struct dhcpmsg *>(lua_touserdata(L, 1));
-    size_t ntplen;
-    const char *ntpstr = lua_tolstring(L, 2, &ntplen);
-    uint32_t ntp;
-    int r = inet_pton(AF_INET, ntpstr, &ntp);
-    if (r != 1)
-        return 0;
-    // XXX: support multiple ntp
-    add_option_ntp(dm, ntp);
-    return 0;
+    return add_option_iplist(L, DCODE_NTPSVR);
 }
 
 int dlua_assign_range(lua_State *L)

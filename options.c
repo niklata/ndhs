@@ -138,8 +138,8 @@ static inline size_t sizeof_option_str(uint8_t code, size_t datalen)
 // Add a raw data string to the options.  It will take a binary string suitable
 // for use with eg memcpy() and will append it to the options[] field of
 // a dhcp packet with the requested option code and proper length specifier.
-static size_t add_option_string(struct dhcpmsg *packet, uint8_t code,
-                                char *str, size_t slen)
+size_t add_option_string(struct dhcpmsg *packet, uint8_t code, const char *str,
+                         size_t slen)
 {
     size_t len = sizeof_option_str(code, slen);
     if (slen > 255 || len != slen + 2) {
@@ -249,24 +249,6 @@ void add_option_subnet_mask(struct dhcpmsg *packet, uint32_t subnet)
 void add_option_broadcast(struct dhcpmsg *packet, uint32_t bc)
 {
     add_u32_option(packet, DCODE_BROADCAST, bc);
-}
-
-// XXX: support multiple routers
-void add_option_router(struct dhcpmsg *packet, uint32_t router)
-{
-    add_u32_option(packet, DCODE_ROUTER, router);
-}
-
-// XXX: support multiple dns
-void add_option_dns(struct dhcpmsg *packet, uint32_t dns)
-{
-    add_u32_option(packet, DCODE_DNS, dns);
-}
-
-// XXX: support multiple ntp
-void add_option_ntp(struct dhcpmsg *packet, uint32_t ntp)
-{
-    add_u32_option(packet, DCODE_NTPSVR, ntp);
 }
 
 void add_option_msgtype(struct dhcpmsg *packet, uint8_t type)
