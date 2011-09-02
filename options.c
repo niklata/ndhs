@@ -33,6 +33,9 @@
 
 #include "options.h"
 #include "log.h"
+#ifndef NDHS_BUILD
+#include "ifch_proto.h"
+#endif
 
 static int do_overload_value(uint8_t *buf, ssize_t blen, int overload)
 {
