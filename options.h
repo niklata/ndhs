@@ -68,17 +68,15 @@ size_t add_option_request_list(struct dhcpmsg *packet);
 size_t add_option_domain_name(struct dhcpmsg *packet, char *dom, size_t domlen);
 void add_option_subnet_mask(struct dhcpmsg *packet, uint32_t subnet);
 void add_option_broadcast(struct dhcpmsg *packet, uint32_t bc);
-void add_option_router(struct dhcpmsg *packet, uint32_t router);
-void add_option_dns(struct dhcpmsg *packet, uint32_t dns);
-void add_option_ntp(struct dhcpmsg *packet, uint32_t ntp);
 void add_option_msgtype(struct dhcpmsg *packet, uint8_t type);
 void add_option_reqip(struct dhcpmsg *packet, uint32_t ip);
-void add_option_maxsize(struct dhcpmsg *packet);
 void add_option_serverid(struct dhcpmsg *packet, uint32_t sid);
+#ifndef NDHS_BUILD
+void add_option_maxsize(struct dhcpmsg *packet);
 void add_option_vendor(struct dhcpmsg *packet);
 void add_option_clientid(struct dhcpmsg *packet);
 void add_option_hostname(struct dhcpmsg *packet);
-
+#endif
 uint32_t get_option_router(struct dhcpmsg *packet);
 uint8_t get_option_msgtype(struct dhcpmsg *packet);
 uint32_t get_option_serverid(struct dhcpmsg *packet, int *found);

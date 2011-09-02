@@ -2,8 +2,8 @@ project (ndhs)
 
 cmake_minimum_required (VERSION 2.6)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s -std=gnu99 -ldl -Wall -DHAVE_CLEARENV -DLINUX")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s -std=gnu++0x -ldl -Wall -DHAVE_CLEARENV -DLINUX")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s -std=gnu99 -ldl -Wall -DHAVE_CLEARENV -DLINUX -DNDHS_BUILD")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s -std=gnu++0x -ldl -Wall -DHAVE_CLEARENV -DLINUX -DNDHS_BUILD")
 
 include_directories("${PROJECT_SOURCE_DIR}/ncmlib")
 add_subdirectory(ncmlib)
