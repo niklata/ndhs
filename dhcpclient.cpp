@@ -76,25 +76,17 @@ extern DhcpLua *gLua;
 // making it so that clients will need to complete their transactions quickly.
 class ClientStates {
 public:
-    ClientStates() {
+    ClientStates(ba::io_service &io_service)
+            : swapTimer_(io_service)
+        {
         currentMap_ = 0;
         swapInterval_ = 60; // 1m
-        nextSwapTs_ = 0; // never
     }
     ~ClientStates() {
         for (auto elt = map_[0].begin(); elt != map_[0].end(); ++elt)
             delete elt->second;
         for (auto elt = map_[1].begin(); elt != map_[1].end(); ++elt)
             delete elt->second;
-    }
-    void doSwap(void) {
-        int killMap = !currentMap_;
-        for (auto elt = map_[killMap].begin(); elt != map_[killMap].end();
-             ++elt)
-            delete elt->second;
-        map_[killMap].clear();
-        currentMap_ = killMap;
-        nextSwapTs_ = getNowTs() + swapInterval_;
     }
     bool stateExists(uint32_t xid, const std::string &chaddr) const {
         std::string key(generateKey(xid, chaddr));
@@ -108,6 +100,9 @@ public:
             return;
         stateKill(xid, chaddr);
         map_[currentMap_][key] = state;
+        if (swapTimer_.expires_from_now() <=
+            boost::posix_time::time_duration(0,0,0,0))
+            setTimer();
     }
     struct ClientState *stateGet(uint32_t xid, const std::string &chaddr) {
         std::string key(generateKey(xid, chaddr));
@@ -151,20 +146,38 @@ private:
         r.append(chaddr);
         return r;
     }
-    uint64_t getNowTs(void) const {
-        struct timeval tv;
-        gettimeofday(&tv, NULL);
-        return tv.tv_sec;
+    void doSwap(void) {
+        size_t removed = 0;
+        int killMap = !currentMap_;
+        for (auto elt = map_[killMap].begin(); elt != map_[killMap].end();
+             ++elt, ++removed)
+            delete elt->second;
+        map_[killMap].clear();
+        currentMap_ = killMap;
+    }
+    void setTimer(void) {
+        swapTimer_.expires_from_now(boost::posix_time::seconds(swapInterval_));
+        swapTimer_.async_wait(boost::bind(&ClientStates::timerHandler,
+                                          this, ba::placeholders::error));
+    }
+    void timerHandler(const boost::system::error_code& error) {
+        doSwap();
+        if (map_[0].size() || map_[1].size())
+            setTimer();
     }
     // Key is concatenation of xid|chaddr.  Neither of these need to be stored
     // in explicit fields in the state structure.
     int currentMap_; // Either 0 or 1.
     int swapInterval_;
+    ba::deadline_timer swapTimer_;
     std::unordered_map<std::string, ClientState *> map_[2];
-    uint64_t nextSwapTs_;
 };
 
-ClientStates client_states;
+ClientStates *client_states;
+void init_client_states(ba::io_service &io_service)
+{
+    client_states = new ClientStates(io_service);
+}
 
 ClientListener::ClientListener(ba::io_service &io_service,
                                const ba::ip::udp::endpoint &endpoint,
@@ -325,7 +338,7 @@ void ClientListener::reply_request(ClientState *cs, const std::string &chaddr,
                           getNowTs() + get_option_leasetime(&reply));
     send_reply(&reply, true);
 out:
-    client_states.stateKill(dhcpmsg_.xid, chaddr);
+    client_states->stateKill(dhcpmsg_.xid, chaddr);
 }
 
 void ClientListener::reply_inform(ClientState *cs, const std::string &chaddr)
@@ -384,8 +397,8 @@ void ClientListener::handle_receive(const boost::system::error_code &error,
 
     uint8_t msgtype = get_option_msgtype(&dhcpmsg_);
     std::string chaddr = getChaddr(dhcpmsg_);
-    
-    auto cs = client_states.stateGet(dhcpmsg_.xid, chaddr);
+
+    auto cs = client_states->stateGet(dhcpmsg_.xid, chaddr);
     if (!cs) {
         switch (msgtype) {
         case DHCPREQUEST:
@@ -393,7 +406,7 @@ void ClientListener::handle_receive(const boost::system::error_code &error,
         case DHCPDISCOVER:
             cs = new ClientState;
             cs->state = msgtype;
-            client_states.stateAdd(dhcpmsg_.xid, chaddr, cs);
+            client_states->stateAdd(dhcpmsg_.xid, chaddr, cs);
             break;
         case DHCPINFORM:
         case DHCPRELEASE:

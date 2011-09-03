@@ -38,6 +38,8 @@
 
 #include "dhcp.h"
 
+void init_client_states(boost::asio::io_service &io_service);
+
 struct ClientState {
     uint8_t state;
 };
