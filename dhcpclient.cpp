@@ -147,10 +147,9 @@ private:
         return r;
     }
     void doSwap(void) {
-        size_t removed = 0;
         int killMap = !currentMap_;
         for (auto elt = map_[killMap].begin(); elt != map_[killMap].end();
-             ++elt, ++removed)
+             ++elt)
             delete elt->second;
         map_[killMap].clear();
         currentMap_ = killMap;
