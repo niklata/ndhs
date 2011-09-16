@@ -94,7 +94,7 @@ static void fix_signals(void) {
     sigaddset(&mask, SIGTTIN);
     sigaddset(&mask, SIGHUP);
     if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0)
-	suicide("sigprocmask failed");
+        suicide("sigprocmask failed");
 
     struct sigaction sa;
     memset(&sa, 0, sizeof (struct sigaction));
@@ -116,8 +116,8 @@ int main(int ac, char *av[]) {
 
     po::options_description desc("Options");
     desc.add_options()
-	("paranoid,p",
-	 "return UNKNOWN-ERROR for all errors except INVALID-PORT (prevents inference of used ports)")
+        ("paranoid,p",
+         "return UNKNOWN-ERROR for all errors except INVALID-PORT (prevents inference of used ports)")
         ("detach,d", "run as a background daemon (default)")
         ("nodetach,n", "stay attached to TTY")
         ("quiet,q", "don't print to std(out|err) or log")
@@ -129,12 +129,12 @@ int main(int ac, char *av[]) {
          "path to process id file")
         ("chroot,C", po::value<std::string>(),
          "path in which ndhs should chroot itself")
-	("interface,i", po::value<std::vector<std::string> >(),
-	 "'interface' on which to listen (must specify at least one)")
-	("user,u", po::value<std::string>(),
-	 "user name that ndhs should run as")
-	("group,g", po::value<std::string>(),
-	 "group name that ndhs should run as")
+        ("interface,i", po::value<std::vector<std::string> >(),
+         "'interface' on which to listen (must specify at least one)")
+        ("user,u", po::value<std::string>(),
+         "user name that ndhs should run as")
+        ("group,g", po::value<std::string>(),
+         "group name that ndhs should run as")
         ("help,h", "print help message")
         ("version,v", "print version information")
         ;
@@ -151,84 +151,84 @@ int main(int ac, char *av[]) {
 
     if (vm.count("help")) {
         std::cout << "ndhs " << NDHS_VERSION << ", dhcp server.\n"
-		  << "Copyright (c) 2011 Nicholas J. Kain\n"
-		  << av[0] << " [options] addresses...\n"
-		  << desc << std::endl;
+                  << "Copyright (c) 2011 Nicholas J. Kain\n"
+                  << av[0] << " [options] addresses...\n"
+                  << desc << std::endl;
         return 1;
     }
     if (vm.count("version")) {
-	std::cout << "ndhs " << NDHS_VERSION << ", dhcp server.\n" <<
-	    "Copyright (c) 2011 Nicholas J. Kain\n"
-	    "All rights reserved.\n\n"
-	    "Redistribution and use in source and binary forms, with or without\n"
-	    "modification, are permitted provided that the following conditions are met:\n\n"
-	    "- Redistributions of source code must retain the above copyright notice,\n"
-	    "  this list of conditions and the following disclaimer.\n"
-	    "- Redistributions in binary form must reproduce the above copyright notice,\n"
-	    "  this list of conditions and the following disclaimer in the documentation\n"
-	    "  and/or other materials provided with the distribution.\n\n"
-	    "THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\"\n"
-	    "AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE\n"
-	    "IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE\n"
-	    "ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE\n"
-	    "LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR\n"
-	    "CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF\n"
-	    "SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS\n"
-	    "INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN\n"
-	    "CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)\n"
-	    "ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE\n"
-	    "POSSIBILITY OF SUCH DAMAGE.\n";
+        std::cout << "ndhs " << NDHS_VERSION << ", dhcp server.\n" <<
+            "Copyright (c) 2011 Nicholas J. Kain\n"
+            "All rights reserved.\n\n"
+            "Redistribution and use in source and binary forms, with or without\n"
+            "modification, are permitted provided that the following conditions are met:\n\n"
+            "- Redistributions of source code must retain the above copyright notice,\n"
+            "  this list of conditions and the following disclaimer.\n"
+            "- Redistributions in binary form must reproduce the above copyright notice,\n"
+            "  this list of conditions and the following disclaimer in the documentation\n"
+            "  and/or other materials provided with the distribution.\n\n"
+            "THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\"\n"
+            "AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE\n"
+            "IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE\n"
+            "ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE\n"
+            "LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR\n"
+            "CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF\n"
+            "SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS\n"
+            "INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN\n"
+            "CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)\n"
+            "ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE\n"
+            "POSSIBILITY OF SUCH DAMAGE.\n";
         return 1;
     }
     if (vm.count("paranoid"))
-	gParanoid = true;
+        gParanoid = true;
     if (vm.count("detach"))
-	gflags_detach = 1;
+        gflags_detach = 1;
     if (vm.count("nodetach"))
-	gflags_detach = 0;
+        gflags_detach = 0;
     if (vm.count("quiet"))
-	gflags_quiet = 1;
+        gflags_quiet = 1;
     if (vm.count("config"))
         configfile_path = vm["config"].as<std::string>();
     if (vm.count("leasefile"))
         leasefile_path = vm["leasefile"].as<std::string>();
     if (vm.count("pidfile"))
-	pidfile = vm["pidfile"].as<std::string>();
+        pidfile = vm["pidfile"].as<std::string>();
     if (vm.count("chroot"))
-	chroot_path = vm["chroot"].as<std::string>();
+        chroot_path = vm["chroot"].as<std::string>();
     if (vm.count("interface"))
-	iflist = vm["interface"].as<std::vector<std::string> >();
+        iflist = vm["interface"].as<std::vector<std::string> >();
     if (vm.count("user")) {
-	auto t = vm["user"].as<std::string>();
-	try {
-	    uid = boost::lexical_cast<unsigned int>(t);
-	} catch (boost::bad_lexical_cast &) {
-	    auto pws = getpwnam(t.c_str());
-	    if (pws) {
-		uid = (int)pws->pw_uid;
-		if (!gid)
-		    gid = (int)pws->pw_gid;
-	    } else suicide("invalid uid specified");
-	}
+        auto t = vm["user"].as<std::string>();
+        try {
+            uid = boost::lexical_cast<unsigned int>(t);
+        } catch (boost::bad_lexical_cast &) {
+            auto pws = getpwnam(t.c_str());
+            if (pws) {
+                uid = (int)pws->pw_uid;
+                if (!gid)
+                    gid = (int)pws->pw_gid;
+            } else suicide("invalid uid specified");
+        }
     }
     if (vm.count("group")) {
-	auto t = vm["group"].as<std::string>();
-	try {
-	    gid = boost::lexical_cast<unsigned int>(t);
-	} catch (boost::bad_lexical_cast &) {
-	    auto grp = getgrnam(t.c_str());
-	    if (grp) {
-		gid = (int)grp->gr_gid;
-	    } else suicide("invalid gid specified");
-	}
+        auto t = vm["group"].as<std::string>();
+        try {
+            gid = boost::lexical_cast<unsigned int>(t);
+        } catch (boost::bad_lexical_cast &) {
+            auto grp = getgrnam(t.c_str());
+            if (grp) {
+                gid = (int)grp->gr_gid;
+            } else suicide("invalid gid specified");
+        }
     }
 
     if (gflags_detach)
-	if (daemon(0,0))
-	    suicide("detaching fork failed");
+        if (daemon(0,0))
+            suicide("detaching fork failed");
 
     if (pidfile.size() && file_exists(pidfile.c_str(), "w"))
-	write_pid(pidfile.c_str());
+        write_pid(pidfile.c_str());
 
     umask(077);
     fix_signals();
@@ -239,31 +239,31 @@ int main(int ac, char *av[]) {
     if (!iflist.size()) {
         suicide("at least one listening interface must be specified");
     } else
-	for (auto i = iflist.cbegin(); i != iflist.cend(); ++i) {
-	    std::string iface = *i;
-	    try {
-		auto addy = boost::asio::ip::address_v4::any();
-		auto ep = boost::asio::ip::udp::endpoint(addy, 67);
-		auto cl = new ClientListener(io_service, ep, iface);
-		listeners.push_back(cl);
-	    } catch (boost::system::error_code &ec) {
-		std::cout << "bad interface: " << iface << std::endl;
-	    }
-	}
+        for (auto i = iflist.cbegin(); i != iflist.cend(); ++i) {
+            std::string iface = *i;
+            try {
+                auto addy = boost::asio::ip::address_v4::any();
+                auto ep = boost::asio::ip::udp::endpoint(addy, 67);
+                auto cl = new ClientListener(io_service, ep, iface);
+                listeners.push_back(cl);
+            } catch (boost::system::error_code &ec) {
+                std::cout << "bad interface: " << iface << std::endl;
+            }
+        }
     iflist.clear();
 
     if (chroot_path.size()) {
-	if (getuid())
-	    suicide("root required for chroot\n");
-	if (chdir(chroot_path.c_str()))
-	    suicide("failed to chdir(%s)\n", chroot_path.c_str());
-	if (chroot(chroot_path.c_str()))
-	    suicide("failed to chroot(%s)\n", chroot_path.c_str());
-	gChrooted = true;
-	chroot_path.clear();
+        if (getuid())
+            suicide("root required for chroot\n");
+        if (chdir(chroot_path.c_str()))
+            suicide("failed to chdir(%s)\n", chroot_path.c_str());
+        if (chroot(chroot_path.c_str()))
+            suicide("failed to chroot(%s)\n", chroot_path.c_str());
+        gChrooted = true;
+        chroot_path.clear();
     }
     if (uid != 0 || gid != 0)
-	drop_root(uid, gid);
+        drop_root(uid, gid);
 
     /* Cover our tracks... */
     pidfile.clear();
