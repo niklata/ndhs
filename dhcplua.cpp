@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <stdio.h>
 #include <ctype.h>
 #include <arpa/inet.h>
 
@@ -73,16 +72,13 @@ int dlua_set_ip(lua_State *L)
     if (lua_gettop(L) != 2 || !lua_islightuserdata(L, 1) ||
         !lua_isstring(L, 2))
         return 0;
-    printf("called dlua_set_ip\n");
     struct dhcpmsg *dm = static_cast<struct dhcpmsg *>(lua_touserdata(L, 1));
     size_t ipstrlen;
     const char *ipstr = lua_tolstring(L, 2, &ipstrlen);
     uint32_t ip;
     int r = inet_pton(AF_INET, ipstr, &ip);
-    printf("called dlua_set_ip::inet_pton\n");
     if (r != 1)
         return 0;
-    printf("yiaddr == %s\n", ipstr);
     dm->yiaddr = ip;
     return 0;
 }

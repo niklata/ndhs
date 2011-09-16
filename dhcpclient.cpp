@@ -27,7 +27,6 @@
  */
 
 #include <sstream>
-#include <iostream>
 #include <unordered_map>
 
 #include <unistd.h>
@@ -235,7 +234,6 @@ ClientListener::ClientListener(ba::io_service &io_service,
 void ClientListener::start_receive(const boost::system::error_code &error,
                                    std::size_t bytes_xferred)
 {
-    std::cout << "start_receive triggered" << std::endl;
     handle_receive(error, bytes_xferred);
     socket_.async_receive_from(ba::buffer(recv_buffer_), remote_endpoint_,
                                boost::bind(&ClientListener::start_receive,
@@ -309,13 +307,10 @@ void ClientListener::reply_discover(ClientState *cs, const std::string &chaddr)
 {
     struct dhcpmsg reply;
 
-    std::cout << "reply_discover" << std::endl;
-
     dhcpmsg_init(&reply, DHCPOFFER, dhcpmsg_.xid, chaddr);
     if (gLua->reply_discover(&reply, local_ip_.to_string(),
                              remote_endpoint_.address().to_string(), chaddr))
         send_reply(&reply, true);
-    std::cout << "Leaving CL::reply_discover()" << std::endl;
 }
 
 void ClientListener::reply_request(ClientState *cs, const std::string &chaddr,
@@ -323,8 +318,6 @@ void ClientListener::reply_request(ClientState *cs, const std::string &chaddr,
 {
     struct dhcpmsg reply;
     std::string leaseip;
-
-    std::cout << "reply_request: is_direct == " << is_direct << std::endl;
 
     dhcpmsg_init(&reply, DHCPACK, dhcpmsg_.xid, chaddr);
     if (gLua->reply_request(&reply, local_ip_.to_string(),
@@ -343,8 +336,6 @@ out:
 void ClientListener::reply_inform(ClientState *cs, const std::string &chaddr)
 {
     struct dhcpmsg reply;
-
-    std::cout << "reply_inform" << std::endl;
 
     dhcpmsg_init(&reply, DHCPACK, dhcpmsg_.xid, chaddr);
     gLua->reply_request(&reply, local_ip_.to_string(),
@@ -387,7 +378,6 @@ void ClientListener::handle_receive(const boost::system::error_code &error,
                                     std::size_t bytes_xferred)
 {
     bool direct_request = false;
-    std::cout << "handle_receive triggered" << std::endl;
     memset(&dhcpmsg_, 0, sizeof dhcpmsg_);
     memcpy(&dhcpmsg_, recv_buffer_.c_array(),
            bytes_xferred <= sizeof dhcpmsg_ ? bytes_xferred : sizeof dhcpmsg_);
