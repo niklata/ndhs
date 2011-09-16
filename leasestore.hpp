@@ -18,6 +18,8 @@ public:
     bool delLease(const std::string &ifip, const std::string &chaddr);
     const std::string getLease(const std::string &ifip,
                                const std::string &chaddr);
+    bool ipTaken(const std::string &ifip, const std::string &chaddr,
+                 const std::string &ip);
     void clean(void);
 private:
     bool execSql(const std::string &sql, const std::string &parentfn);

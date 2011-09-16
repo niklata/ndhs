@@ -59,14 +59,14 @@ extern bool gChrooted;
 extern LeaseStore *gLeaseStore;
 extern DhcpLua *gLua;
 
-// XXX: still need to implement the timers
-
 // There are two hashtables, a 'new' and a 'marked for death' table.  If these
 // tables are not empty, a timer with period t will wake up and delete all
 // entries on the 'm4d' table and move the 'new' table to replace the 'm4d'
 // table.  If an entry on the 'm4d' table is accessed, it will be moved to the
 // 'new' table.  New entries will be added to the 'new' table.  If both tables
-// are emptied, the timer can stop until a new entry is added.
+// are emptied, the timer can stop until a new entry is added.  We optimize
+// the scheme by not actually performing moves: instead, we store an index
+// to the 'new' table, and the 'marked for death' table is the unindexed table.
 //
 // This scheme requires no timestamping and will bound the lifetime of any
 // object to be p < lifetime < 2p.  A further refinement would be to scale
@@ -312,9 +312,9 @@ void ClientListener::reply_discover(ClientState *cs, const std::string &chaddr)
     std::cout << "reply_discover" << std::endl;
 
     dhcpmsg_init(&reply, DHCPOFFER, dhcpmsg_.xid, chaddr);
-    gLua->reply_discover(&reply, local_ip_.to_string(),
-                         remote_endpoint_.address().to_string(), chaddr);
-    send_reply(&reply, true);
+    if (gLua->reply_discover(&reply, local_ip_.to_string(),
+                             remote_endpoint_.address().to_string(), chaddr))
+        send_reply(&reply, true);
     std::cout << "Leaving CL::reply_discover()" << std::endl;
 }
 
@@ -327,15 +327,15 @@ void ClientListener::reply_request(ClientState *cs, const std::string &chaddr,
     std::cout << "reply_request: is_direct == " << is_direct << std::endl;
 
     dhcpmsg_init(&reply, DHCPACK, dhcpmsg_.xid, chaddr);
-    gLua->reply_request(&reply, local_ip_.to_string(),
-                        remote_endpoint_.address().to_string(), chaddr);
-
-    leaseip = ipStr(reply.yiaddr);
-    if (!leaseip.size())
-        goto out;
-    gLeaseStore->addLease(local_ip_.to_string(), chaddr, leaseip,
-                          getNowTs() + get_option_leasetime(&reply));
-    send_reply(&reply, true);
+    if (gLua->reply_request(&reply, local_ip_.to_string(),
+                        remote_endpoint_.address().to_string(), chaddr)) {
+        leaseip = ipStr(reply.yiaddr);
+        if (!leaseip.size())
+            goto out;
+        gLeaseStore->addLease(local_ip_.to_string(), chaddr, leaseip,
+                              getNowTs() + get_option_leasetime(&reply));
+        send_reply(&reply, true);
+    }
 out:
     client_states->stateKill(dhcpmsg_.xid, chaddr);
 }

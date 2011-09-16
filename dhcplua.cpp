@@ -4,11 +4,14 @@
 #include <arpa/inet.h>
 
 #include "dhcplua.hpp"
+#include "leasestore.hpp"
 #include "macstr.hpp"
 
 extern "C" {
 #include "options.h"
 }
+
+extern LeaseStore *gLeaseStore;
 
 static int add_option_iplist(lua_State *L, uint8_t code)
 {
@@ -143,12 +146,47 @@ int dlua_set_ntp(lua_State *L)
     return add_option_iplist(L, DCODE_NTPSVR);
 }
 
-int dlua_assign_range(lua_State *L)
+int dlua_is_ip_leased(lua_State *L)
 {
-    // XXX: dm, rlo<str>, rhi<str>
-    // XXX: complete
+    std::string ifip, ip, chaddr;
+    if (lua_gettop(L) != 3 || !lua_isstring(L, 1) || !lua_isstring(L, 2) ||
+        !lua_isstring(L, 3))
+        return 0;
+    size_t maclen;
+    const char *macstr = lua_tolstring(L, 3, &maclen);
+    if (maclen != 6)
+        return 0;
+    chaddr = std::string(macstr, maclen);
+    size_t ifiplen;
+    const char *ifipstr = lua_tolstring(L, 1, &ifiplen);
+    ifip = std::string(ifipstr, ifiplen);
+    size_t iplen;
+    const char *ipstr = lua_tolstring(L, 2, &iplen);
+    ip = std::string(ipstr, iplen);
+    lua_pushboolean(L, gLeaseStore->ipTaken(ifip, chaddr, ip) ? 1 : 0);
+    return 1;
+}
 
-    return 0;
+// Returns str or nil, args(ifip:str, chaddr:str)
+int dlua_get_current_lease(lua_State *L)
+{
+    std::string ifip, chaddr;
+    if (lua_gettop(L) != 2 || !lua_isstring(L, 1) || !lua_isstring(L, 2))
+        return 0;
+    size_t maclen;
+    const char *macstr = lua_tolstring(L, 2, &maclen);
+    if (maclen != 6)
+        return 0;
+    chaddr = std::string(macstr, maclen);
+    size_t ifiplen;
+    const char *ifipstr = lua_tolstring(L, 1, &ifiplen);
+    ifip = std::string(ifipstr, ifiplen);
+    std::string leaseip = gLeaseStore->getLease(ifip, chaddr);
+    if (leaseip.size())
+        lua_pushlstring(L, leaseip.c_str(), leaseip.size());
+    else
+        lua_pushnil(L);
+    return 1;
 }
 
 }
@@ -174,8 +212,10 @@ DhcpLua::DhcpLua(const std::string &cfg)
     lua_setglobal(L_, "dhcpmsg_set_dns");
     lua_pushcfunction(L_, dlua_set_ntp);
     lua_setglobal(L_, "dhcpmsg_set_ntp");
-    lua_pushcfunction(L_, dlua_assign_range);
-    lua_setglobal(L_, "dhcpmsg_assign_range");
+    lua_pushcfunction(L_, dlua_is_ip_leased);
+    lua_setglobal(L_, "dhcp_is_ip_leased");
+    lua_pushcfunction(L_, dlua_get_current_lease);
+    lua_setglobal(L_, "dhcp_get_current_lease");
     int r = luaL_loadfile(L_, cfg.c_str());
     if (r) {
         std::string errmsg("Unknown error in config file: %s");
@@ -201,7 +241,7 @@ DhcpLua::~DhcpLua()
     lua_close(L_);
 }
 
-void DhcpLua::reply_discover(struct dhcpmsg *dm, const std::string &lip,
+bool DhcpLua::reply_discover(struct dhcpmsg *dm, const std::string &lip,
                              const std::string &rip, const std::string &chaddr)
 {
     auto macstr = macraw_to_str(chaddr);
@@ -210,12 +250,13 @@ void DhcpLua::reply_discover(struct dhcpmsg *dm, const std::string &lip,
     lua_pushlstring(L_, lip.c_str(), lip.size());
     lua_pushlstring(L_, rip.c_str(), rip.size());
     lua_pushlstring(L_, macstr.c_str(), macstr.size());
-    if (lua_pcall(L_, 4, 0, 0) != 0)
+    if (lua_pcall(L_, 4, 1, 0) != 0)
         log_warning("failed to call Lua function dhcp_reply_discover(): %s",
                     lua_tostring(L_, -1));
+    return lua_toboolean(L_, 1);
 }
 
-void DhcpLua::reply_request(struct dhcpmsg *dm, const std::string &lip,
+bool DhcpLua::reply_request(struct dhcpmsg *dm, const std::string &lip,
                             const std::string &rip, const std::string &chaddr)
 {
     auto macstr = macraw_to_str(chaddr);
@@ -224,8 +265,9 @@ void DhcpLua::reply_request(struct dhcpmsg *dm, const std::string &lip,
     lua_pushlstring(L_, lip.c_str(), lip.size());
     lua_pushlstring(L_, rip.c_str(), rip.size());
     lua_pushlstring(L_, macstr.c_str(), macstr.size());
-    if (lua_pcall(L_, 4, 0, 0) != 0)
+    if (lua_pcall(L_, 4, 1, 0) != 0)
         log_warning("failed to call Lua function dhcp_reply_request(): %s",
                     lua_tostring(L_, -1));
+    return lua_toboolean(L_, 1);
 }
 

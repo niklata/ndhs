@@ -104,12 +104,52 @@ const std::string LeaseStore::getLease(const std::string &ifip,
             break;
         if (rc == SQLITE_ROW) {
             uint64_t ets = sqlite3_column_int64(ss, 2);
-            if (ets > nowTs())
+            if (ets >= nowTs()) {
                 ret = std::string(reinterpret_cast<const char *>(
                                   sqlite3_column_text(ss, 1)));
-            break;
+                break;
+            } else
+                delLease(ifip, chaddr);
         }
         log_warning("LeaseStore::getLease - step error %d", rc);
+        break;
+    }
+    sqlite3_finalize(ss);
+    return ret;
+}
+
+bool LeaseStore::ipTaken(const std::string &ifip, const std::string &chaddr,
+                         const std::string &ip)
+{
+    sqlite3_stmt *ss;
+    bool ret = false;
+    std::string sql("SELECT FROM '");
+    sql.append(ifip);
+    sql.append("' WHERE ip LIKE '");
+    sql.append(ip);
+    sql.append("'");
+
+    int rc = sqlite3_prepare(db_, sql.c_str(), sql.size(), &ss, NULL);
+    if (rc != SQLITE_OK)
+        return ret;
+    for (;;) {
+        rc = sqlite3_step(ss);
+        if (rc == SQLITE_DONE || rc == SQLITE_OK)
+            break;
+        if (rc == SQLITE_ROW) {
+            uint64_t ets = sqlite3_column_int64(ss, 2);
+            if (ets >= nowTs()) {
+                std::string mac(reinterpret_cast<const char *>
+                                (sqlite3_column_text(ss, 0)));
+                if (mac != macraw_to_str(chaddr))
+                    ret = true;
+                break;
+            } else {
+                delLease(ifip, chaddr);
+                break;
+            }
+        }
+        log_warning("LeaseStore::ipTaken - step error %d", rc);
         break;
     }
     sqlite3_finalize(ss);
