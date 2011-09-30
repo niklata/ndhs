@@ -26,7 +26,6 @@ bool LeaseStore::execSql(const std::string &sql, const std::string &parentfn)
 {
     bool ret = false;
     sqlite3_stmt *ss;
-    log_line("sql: '%s'", sql.c_str());
     int rc = sqlite3_prepare_v2(db_, sql.c_str(), sql.size(), &ss, NULL);
     if (rc != SQLITE_OK) {
         log_warning("LeaseStore::execSql() prepare failed!  rc == %d", rc);
