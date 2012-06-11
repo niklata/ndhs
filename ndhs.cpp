@@ -268,7 +268,7 @@ int main(int ac, char *av[]) {
     /* Cover our tracks... */
     pidfile.clear();
 
-    init_client_states(io_service);
+    init_client_states_v4(io_service);
     gLeaseStore = new LeaseStore(leasefile_path);
     io_service.run();
 

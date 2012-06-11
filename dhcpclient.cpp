@@ -27,7 +27,6 @@
  */
 
 #include <sstream>
-#include <unordered_map>
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -37,7 +36,6 @@
 #include <sys/socket.h>
 #include <ifaddrs.h>
 
-#include <boost/bind.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include "dhcpclient.hpp"
@@ -58,123 +56,11 @@ extern bool gChrooted;
 extern LeaseStore *gLeaseStore;
 extern DhcpLua *gLua;
 
-// There are two hashtables, a 'new' and a 'marked for death' table.  If these
-// tables are not empty, a timer with period t will wake up and delete all
-// entries on the 'm4d' table and move the 'new' table to replace the 'm4d'
-// table.  If an entry on the 'm4d' table is accessed, it will be moved to the
-// 'new' table.  New entries will be added to the 'new' table.  If both tables
-// are emptied, the timer can stop until a new entry is added.  We optimize
-// the scheme by not actually performing moves: instead, we store an index
-// to the 'new' table, and the 'marked for death' table is the unindexed table.
-//
-// This scheme requires no timestamping and will bound the lifetime of any
-// object to be p < lifetime < 2p.  A further refinement would be to scale
-// p to be inversely proportional to the number of entries on the 'new'
-// and 'm4d' tables.  This change would cause the deletion rate to increase
-// smoothly under heavy load, providing resistance to OOM DoS at the cost of
-// making it so that clients will need to complete their transactions quickly.
-class ClientStates {
-public:
-    ClientStates(ba::io_service &io_service)
-            : swapTimer_(io_service)
-        {
-        currentMap_ = 0;
-        swapInterval_ = 60; // 1m
-    }
-    ~ClientStates() {
-        for (auto elt = map_[0].begin(); elt != map_[0].end(); ++elt)
-            delete elt->second;
-        for (auto elt = map_[1].begin(); elt != map_[1].end(); ++elt)
-            delete elt->second;
-    }
-    bool stateExists(uint32_t xid, const std::string &chaddr) const {
-        std::string key(generateKey(xid, chaddr));
-        return (map_[0].find(key) != map_[0].end()) ||
-               (map_[1].find(key) != map_[1].end());
-    }
-    void stateAdd(uint32_t xid, const std::string &chaddr, ClientState *state)
-    {
-        std::string key(generateKey(xid, chaddr));
-        if (!state)
-            return;
-        stateKill(xid, chaddr);
-        map_[currentMap_][key] = state;
-        if (swapTimer_.expires_from_now() <=
-            boost::posix_time::time_duration(0,0,0,0))
-            setTimer();
-    }
-    struct ClientState *stateGet(uint32_t xid, const std::string &chaddr) {
-        std::string key(generateKey(xid, chaddr));
-        auto r = map_[currentMap_].find(key);
-        if (r != map_[currentMap_].end())
-            return r->second;
-        r = map_[!currentMap_].find(key);
-        if (r != map_[!currentMap_].end()) {
-            map_[!currentMap_].erase(r);
-            map_[currentMap_][key] = r->second;
-            return r->second;
-        }
-        return NULL;
-    }
-    void stateKill(uint32_t xid, const std::string &chaddr) {
-        std::string key(generateKey(xid, chaddr));
-        auto elt = map_[currentMap_].find(key);
-        if (elt != map_[currentMap_].end()) {
-            delete elt->second;
-            map_[currentMap_].erase(elt);
-            return;
-        }
-        elt = map_[!currentMap_].find(key);
-        if (elt != map_[!currentMap_].end()) {
-            delete elt->second;
-            map_[!currentMap_].erase(elt);
-        }
-    }
-private:
-    std::string generateKey(uint32_t xid, const std::string &chaddr) const {
-        std::string r;
-        union {
-            uint8_t c[4];
-            uint32_t n;
-        } xia;
-        xia.n = xid;
-        r.push_back(xia.c[0]);
-        r.push_back(xia.c[1]);
-        r.push_back(xia.c[2]);
-        r.push_back(xia.c[3]);
-        r.append(chaddr);
-        return r;
-    }
-    void doSwap(void) {
-        int killMap = !currentMap_;
-        for (auto elt = map_[killMap].begin(); elt != map_[killMap].end();
-             ++elt)
-            delete elt->second;
-        map_[killMap].clear();
-        currentMap_ = killMap;
-    }
-    void setTimer(void) {
-        swapTimer_.expires_from_now(boost::posix_time::seconds(swapInterval_));
-        swapTimer_.async_wait(boost::bind(&ClientStates::timerHandler,
-                                          this, ba::placeholders::error));
-    }
-    void timerHandler(const boost::system::error_code& error) {
-        doSwap();
-        if (map_[0].size() || map_[1].size())
-            setTimer();
-    }
-    // Key is concatenation of xid|chaddr.  Neither of these need to be stored
-    // in explicit fields in the state structure.
-    int currentMap_; // Either 0 or 1.
-    int swapInterval_;
-    ba::deadline_timer swapTimer_;
-    std::unordered_map<std::string, ClientState *> map_[2];
-};
-
-ClientStates *client_states;
-void init_client_states(ba::io_service &io_service)
+typedef ClientStates<ClientStateV4> ClientStatesV4;
+ClientStatesV4 *client_states_v4;
+void init_client_states_v4(ba::io_service &io_service)
 {
-    client_states = new ClientStates(io_service);
+    client_states_v4 = new ClientStatesV4(io_service);
 }
 
 ClientListener::ClientListener(ba::io_service &io_service,
@@ -303,7 +189,7 @@ uint64_t ClientListener::getNowTs(void) const {
     return tv.tv_sec;
 }
 
-void ClientListener::reply_discover(ClientState *cs, const std::string &chaddr)
+void ClientListener::reply_discover(ClientStateV4 *cs, const std::string &chaddr)
 {
     struct dhcpmsg reply;
 
@@ -313,7 +199,7 @@ void ClientListener::reply_discover(ClientState *cs, const std::string &chaddr)
         send_reply(&reply, true);
 }
 
-void ClientListener::reply_request(ClientState *cs, const std::string &chaddr,
+void ClientListener::reply_request(ClientStateV4 *cs, const std::string &chaddr,
                                    bool is_direct)
 {
     struct dhcpmsg reply;
@@ -330,10 +216,10 @@ void ClientListener::reply_request(ClientState *cs, const std::string &chaddr,
         send_reply(&reply, true);
     }
 out:
-    client_states->stateKill(dhcpmsg_.xid, chaddr);
+    client_states_v4->stateKill(dhcpmsg_.xid, chaddr);
 }
 
-void ClientListener::reply_inform(ClientState *cs, const std::string &chaddr)
+void ClientListener::reply_inform(ClientStateV4 *cs, const std::string &chaddr)
 {
     struct dhcpmsg reply;
 
@@ -344,7 +230,7 @@ void ClientListener::reply_inform(ClientState *cs, const std::string &chaddr)
     send_reply(&reply, false);
 }
 
-void ClientListener::do_release(ClientState *cs, const std::string &chaddr) {
+void ClientListener::do_release(ClientStateV4 *cs, const std::string &chaddr) {
     std::string lip =
         gLeaseStore->getLease(socket_.local_endpoint().address().to_string(),
                               chaddr);
@@ -387,15 +273,15 @@ void ClientListener::handle_receive(const boost::system::error_code &error,
     uint8_t msgtype = get_option_msgtype(&dhcpmsg_);
     std::string chaddr = getChaddr(dhcpmsg_);
 
-    auto cs = client_states->stateGet(dhcpmsg_.xid, chaddr);
+    auto cs = client_states_v4->stateGet(dhcpmsg_.xid, chaddr);
     if (!cs) {
         switch (msgtype) {
         case DHCPREQUEST:
             direct_request = true;
         case DHCPDISCOVER:
-            cs = new ClientState;
+            cs = new ClientStateV4;
             cs->state = msgtype;
-            client_states->stateAdd(dhcpmsg_.xid, chaddr, cs);
+            client_states_v4->stateAdd(dhcpmsg_.xid, chaddr, cs);
             break;
         case DHCPINFORM:
         case DHCPRELEASE:
