@@ -67,6 +67,7 @@ extern "C" {
 #include "exec.h"
 #include "network.h"
 #include "strlist.h"
+#include "seccomp-bpf.h"
 }
 
 namespace po = boost::program_options;
@@ -104,6 +105,55 @@ static void fix_signals(void) {
     sigaddset(&sa.sa_mask, SIGTERM);
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
+}
+
+static int enforce_seccomp(void)
+{
+    struct sock_filter filter[] = {
+        VALIDATE_ARCHITECTURE,
+        EXAMINE_SYSCALL,
+        ALLOW_SYSCALL(sendmsg),
+        ALLOW_SYSCALL(recvmsg),
+        ALLOW_SYSCALL(read),
+        ALLOW_SYSCALL(write),
+        ALLOW_SYSCALL(sendto), // used for glibc syslog routines
+        ALLOW_SYSCALL(epoll_wait),
+        ALLOW_SYSCALL(epoll_ctl),
+        ALLOW_SYSCALL(getpeername),
+        ALLOW_SYSCALL(getsockname),
+        ALLOW_SYSCALL(stat),
+        ALLOW_SYSCALL(open),
+        ALLOW_SYSCALL(close),
+        ALLOW_SYSCALL(socket),
+        ALLOW_SYSCALL(accept),
+        ALLOW_SYSCALL(ioctl),
+        ALLOW_SYSCALL(timerfd_settime),
+        ALLOW_SYSCALL(fcntl),
+        ALLOW_SYSCALL(access),
+        ALLOW_SYSCALL(fstat),
+        ALLOW_SYSCALL(lseek),
+        ALLOW_SYSCALL(brk),
+        ALLOW_SYSCALL(umask),
+        ALLOW_SYSCALL(geteuid),
+        ALLOW_SYSCALL(fsync),
+        ALLOW_SYSCALL(unlink),
+        ALLOW_SYSCALL(rt_sigreturn),
+#ifdef __NR_sigreturn
+        ALLOW_SYSCALL(sigreturn),
+#endif
+        ALLOW_SYSCALL(exit_group),
+        ALLOW_SYSCALL(exit),
+        KILL_PROCESS,
+    };
+    struct sock_fprog prog;
+    memset(&prog, 0, sizeof prog);
+    prog.len = (unsigned short)(sizeof filter / sizeof filter[0]);
+    prog.filter = filter;
+    if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0))
+        return -1;
+    if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog))
+        return -1;
+    return 0;
 }
 
 int main(int ac, char *av[]) {
@@ -270,6 +320,10 @@ int main(int ac, char *av[]) {
 
     init_client_states_v4(io_service);
     gLeaseStore = new LeaseStore(leasefile_path);
+
+    if (enforce_seccomp())
+        log_line("seccomp filter cannot be installed");
+
     io_service.run();
 
     exit(EXIT_SUCCESS);
