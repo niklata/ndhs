@@ -1,6 +1,6 @@
 /* ndhs.c - dhcp server
  *
- * (c) 2011 Nicholas J. Kain <njkain at gmail dot com>
+ * (c) 2011-2012 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -201,14 +201,14 @@ int main(int ac, char *av[]) {
 
     if (vm.count("help")) {
         std::cout << "ndhs " << NDHS_VERSION << ", dhcp server.\n"
-                  << "Copyright (c) 2011 Nicholas J. Kain\n"
+                  << "Copyright (c) 2011-2012 Nicholas J. Kain\n"
                   << av[0] << " [options] addresses...\n"
                   << desc << std::endl;
         return 1;
     }
     if (vm.count("version")) {
         std::cout << "ndhs " << NDHS_VERSION << ", dhcp server.\n" <<
-            "Copyright (c) 2011 Nicholas J. Kain\n"
+            "Copyright (c) 2011-2012 Nicholas J. Kain\n"
             "All rights reserved.\n\n"
             "Redistribution and use in source and binary forms, with or without\n"
             "modification, are permitted provided that the following conditions are met:\n\n"
