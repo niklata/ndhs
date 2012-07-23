@@ -160,17 +160,15 @@ void ClientListener::send_reply(struct dhcpmsg *dm, bool broadcast)
         return;
 
     boost::system::error_code ignored_error;
-    std::string msgbuf((const char *)dm, sizeof (struct dhcpmsg) -
-                       (sizeof (dm->options) - 1 - endloc));
+    auto buf = boost::asio::buffer((const char *)dm, sizeof (struct dhcpmsg) -
+                                   (sizeof (dm->options) - 1 - endloc));
 
     if (broadcast) {
         auto remotebcast = remote_endpoint_.address().to_v4().broadcast();
-        socket_.send_to(boost::asio::buffer(msgbuf),
-                        ba::ip::udp::endpoint(remotebcast, 68),
+        socket_.send_to(buf, ba::ip::udp::endpoint(remotebcast, 68),
                         0, ignored_error);
     } else {
-        socket_.send_to(boost::asio::buffer(msgbuf), remote_endpoint_,
-                        0, ignored_error);
+        socket_.send_to(buf, remote_endpoint_, 0, ignored_error);
     }
 }
 
