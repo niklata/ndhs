@@ -126,6 +126,7 @@ static int enforce_seccomp(void)
         ALLOW_SYSCALL(close),
         ALLOW_SYSCALL(socket),
         ALLOW_SYSCALL(accept),
+        ALLOW_SYSCALL(connect),
         ALLOW_SYSCALL(ioctl),
         ALLOW_SYSCALL(timerfd_settime),
         ALLOW_SYSCALL(fcntl),
