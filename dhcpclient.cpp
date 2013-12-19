@@ -56,11 +56,10 @@ extern bool gChrooted;
 extern std::unique_ptr<LeaseStore> gLeaseStore;
 extern std::unique_ptr<DhcpLua> gLua;
 
-typedef ClientStates<ClientStateV4> ClientStatesV4;
-std::unique_ptr<ClientStatesV4> client_states_v4;
+std::unique_ptr<ClientStates> client_states_v4;
 void init_client_states_v4(ba::io_service &io_service)
 {
-    client_states_v4 = nk::make_unique<ClientStatesV4>(io_service);
+    client_states_v4 = nk::make_unique<ClientStates>(io_service);
 }
 
 ClientListener::ClientListener(ba::io_service &io_service,
@@ -187,7 +186,7 @@ uint64_t ClientListener::getNowTs(void) const {
     return tv.tv_sec;
 }
 
-void ClientListener::reply_discover(ClientStateV4 *cs, const std::string &chaddr)
+void ClientListener::reply_discover(const std::string &chaddr)
 {
     struct dhcpmsg reply;
 
@@ -197,8 +196,7 @@ void ClientListener::reply_discover(ClientStateV4 *cs, const std::string &chaddr
         send_reply(&reply, true);
 }
 
-void ClientListener::reply_request(ClientStateV4 *cs, const std::string &chaddr,
-                                   bool is_direct)
+void ClientListener::reply_request(const std::string &chaddr, bool is_direct)
 {
     struct dhcpmsg reply;
     std::string leaseip;
@@ -217,7 +215,7 @@ out:
     client_states_v4->stateKill(dhcpmsg_.xid, chaddr);
 }
 
-void ClientListener::reply_inform(ClientStateV4 *cs, const std::string &chaddr)
+void ClientListener::reply_inform(const std::string &chaddr)
 {
     struct dhcpmsg reply;
 
@@ -228,7 +226,7 @@ void ClientListener::reply_inform(ClientStateV4 *cs, const std::string &chaddr)
     send_reply(&reply, false);
 }
 
-void ClientListener::do_release(ClientStateV4 *cs, const std::string &chaddr) {
+void ClientListener::do_release(const std::string &chaddr) {
     std::string lip =
         gLeaseStore->getLease(socket_.local_endpoint().address().to_string(),
                               chaddr);
@@ -272,13 +270,12 @@ void ClientListener::handle_receive(const boost::system::error_code &error,
     std::string chaddr = getChaddr(dhcpmsg_);
 
     auto cs = client_states_v4->stateGet(dhcpmsg_.xid, chaddr);
-    if (!cs) {
+    if (cs == DHCPNULL) {
         switch (msgtype) {
         case DHCPREQUEST:
             direct_request = true;
         case DHCPDISCOVER:
-            cs = new ClientStateV4;
-            cs->state = msgtype;
+            cs = msgtype;
             client_states_v4->stateAdd(dhcpmsg_.xid, chaddr, cs);
             break;
         case DHCPINFORM:
@@ -287,15 +284,15 @@ void ClientListener::handle_receive(const boost::system::error_code &error,
             return;
         }
     } else {
-        if (cs->state == DHCPDISCOVER && msgtype == DHCPREQUEST)
-            cs->state = DHCPREQUEST;
+        if (cs == DHCPDISCOVER && msgtype == DHCPREQUEST)
+            cs = DHCPREQUEST;
     }
 
-    switch (cs->state) {
-    case DHCPDISCOVER: reply_discover(cs, chaddr); break;
-    case DHCPREQUEST:  reply_request(cs, chaddr, direct_request); break;
-    case DHCPINFORM:   reply_inform(cs, chaddr); break;
-    case DHCPRELEASE:  do_release(cs, chaddr); break;
+    switch (cs) {
+    case DHCPDISCOVER: reply_discover(chaddr); break;
+    case DHCPREQUEST:  reply_request(chaddr, direct_request); break;
+    case DHCPINFORM:   reply_inform(chaddr); break;
+    case DHCPRELEASE:  do_release(chaddr); break;
     }
 }
 

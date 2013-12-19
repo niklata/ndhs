@@ -35,6 +35,7 @@
 #define DHCP_MAGIC              0x63825363
 
 enum {
+    DHCPNULL = 0,
     DHCPDISCOVER = 1,
     DHCPOFFER    = 2,
     DHCPREQUEST  = 3,

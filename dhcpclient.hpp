@@ -55,7 +55,6 @@
 // and 'm4d' tables.  This change would cause the deletion rate to increase
 // smoothly under heavy load, providing resistance to OOM DoS at the cost of
 // making it so that clients will need to complete their transactions quickly.
-template <typename T>
 class ClientStates {
 public:
     ClientStates(boost::asio::io_service &io_service)
@@ -64,18 +63,13 @@ public:
         currentMap_ = 0;
         swapInterval_ = 60; // 1m
     }
-    ~ClientStates() {
-        for (auto elt = map_[0].begin(); elt != map_[0].end(); ++elt)
-            delete elt->second;
-        for (auto elt = map_[1].begin(); elt != map_[1].end(); ++elt)
-            delete elt->second;
-    }
+    ~ClientStates() {}
     bool stateExists(uint32_t xid, const std::string &chaddr) const {
         std::string key(generateKey(xid, chaddr));
         return (map_[0].find(key) != map_[0].end()) ||
                (map_[1].find(key) != map_[1].end());
     }
-    void stateAdd(uint32_t xid, const std::string &chaddr, T *state)
+    void stateAdd(uint32_t xid, const std::string &chaddr, uint8_t state)
     {
         std::string key(generateKey(xid, chaddr));
         if (!state)
@@ -86,7 +80,7 @@ public:
             boost::posix_time::time_duration(0,0,0,0))
             setTimer();
     }
-    T *stateGet(uint32_t xid, const std::string &chaddr) {
+    uint8_t stateGet(uint32_t xid, const std::string &chaddr) {
         std::string key(generateKey(xid, chaddr));
         auto r = map_[currentMap_].find(key);
         if (r != map_[currentMap_].end())
@@ -97,21 +91,18 @@ public:
             map_[currentMap_][key] = r->second;
             return r->second;
         }
-        return NULL;
+        return DHCPNULL;
     }
     void stateKill(uint32_t xid, const std::string &chaddr) {
         std::string key(generateKey(xid, chaddr));
         auto elt = map_[currentMap_].find(key);
         if (elt != map_[currentMap_].end()) {
-            delete elt->second;
             map_[currentMap_].erase(elt);
             return;
         }
         elt = map_[!currentMap_].find(key);
-        if (elt != map_[!currentMap_].end()) {
-            delete elt->second;
+        if (elt != map_[!currentMap_].end())
             map_[!currentMap_].erase(elt);
-        }
     }
 private:
     std::string generateKey(uint32_t xid, const std::string &chaddr) const {
@@ -130,9 +121,6 @@ private:
     }
     void doSwap(void) {
         int killMap = !currentMap_;
-        for (auto elt = map_[killMap].begin(); elt != map_[killMap].end();
-             ++elt)
-            delete elt->second;
         map_[killMap].clear();
         currentMap_ = killMap;
     }
@@ -151,14 +139,10 @@ private:
     int currentMap_; // Either 0 or 1.
     int swapInterval_;
     boost::asio::deadline_timer swapTimer_;
-    std::unordered_map<std::string, T*> map_[2];
+    std::unordered_map<std::string, uint8_t> map_[2];
 };
 
 void init_client_states_v4(boost::asio::io_service &io_service);
-
-struct ClientStateV4 {
-    uint8_t state;
-};
 
 class ClientListener
 {
@@ -175,11 +159,10 @@ private:
     uint32_t local_ip() const;
     std::string ipStr(uint32_t ip) const;
     void send_reply(struct dhcpmsg *dm, bool broadcast);
-    void reply_discover(ClientStateV4 *cs, const std::string &chaddr);
-    void reply_request(ClientStateV4 *cs, const std::string &chaddr,
-                       bool is_direct);
-    void reply_inform(ClientStateV4 *cs, const std::string &chaddr);
-    void do_release(ClientStateV4 *cs, const std::string &chaddr);
+    void reply_discover(const std::string &chaddr);
+    void reply_request(const std::string &chaddr, bool is_direct);
+    void reply_inform(const std::string &chaddr);
+    void do_release(const std::string &chaddr);
     std::string getChaddr(const struct dhcpmsg &dm) const;
     bool validate_dhcp(void) const;
     void handle_receive(const boost::system::error_code &error,
