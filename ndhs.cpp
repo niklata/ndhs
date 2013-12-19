@@ -30,6 +30,7 @@
 
 #include <string>
 #include <vector>
+#include <fstream>
 
 #include <unistd.h>
 #include <stdio.h>
@@ -74,6 +75,8 @@ extern "C" {
 namespace po = boost::program_options;
 
 boost::asio::io_service io_service;
+static std::vector<std::unique_ptr<ClientListener>> listeners;
+static int ndhs_uid, ndhs_gid;
 bool gChrooted = false;
 
 std::unique_ptr<LeaseStore> gLeaseStore;
@@ -168,21 +171,25 @@ static int enforce_seccomp(void)
     return 0;
 }
 
-int main(int ac, char *av[]) {
-    int uid = 0, gid = 0;
-    std::string pidfile, chroot_path, leasefile_path, configfile_path;
-    std::vector<std::unique_ptr<ClientListener>> listeners;
-    std::vector<std::string> iflist;
+static po::variables_map fetch_options(int ac, char *av[])
+{
+    std::string config_file;
 
-    gflags_log_name = const_cast<char *>("ndhs");
-
-    po::options_description desc("Options");
-    desc.add_options()
+    po::options_description cli_opts("Command-line-exclusive options");
+    cli_opts.add_options()
+        ("config,c", po::value<std::string>(&config_file),
+         "path to configuration file")
         ("detach,d", "run as a background daemon (default)")
         ("nodetach,n", "stay attached to TTY")
         ("quiet,q", "don't print to std(out|err) or log")
-        ("config,c", po::value<std::string>(),
-         "path to configuration file")
+        ("help,h", "print help message")
+        ("version,v", "print version information")
+        ;
+
+    po::options_description gopts("Options");
+    gopts.add_options()
+        ("script,s", po::value<std::string>(),
+         "path to response script file")
         ("leasefile,l", po::value<std::string>(),
          "path to lease database file")
         ("pidfile,f", po::value<std::string>(),
@@ -195,30 +202,44 @@ int main(int ac, char *av[]) {
          "user name that ndhs should run as")
         ("group,g", po::value<std::string>(),
          "group name that ndhs should run as")
-        ("help,h", "print help message")
-        ("version,v", "print version information")
         ;
+
+    po::options_description cmdline_options;
+    cmdline_options.add(cli_opts).add(gopts);
+    po::options_description cfgfile_options;
+    cfgfile_options.add(gopts);
+
     po::positional_options_description p;
-    p.add("address", -1);
+    p.add("interface", -1);
     po::variables_map vm;
     try {
         po::store(po::command_line_parser(ac, av).
-                  options(desc).positional(p).run(), vm);
-    } catch(std::exception& e) {
+                  options(cmdline_options).positional(p).run(), vm);
+    } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
     }
     po::notify(vm);
 
+    if (config_file.size()) {
+        std::ifstream ifs(config_file.c_str());
+        if (!ifs) {
+            std::cerr << "Could not open config file: " << config_file << "\n";
+            std::exit(EXIT_FAILURE);
+        }
+        po::store(po::parse_config_file(ifs, cfgfile_options), vm);
+        po::notify(vm);
+    }
+
     if (vm.count("help")) {
         std::cout << "ndhs " << NDHS_VERSION << ", dhcp server.\n"
-                  << "Copyright (c) 2011-2012 Nicholas J. Kain\n"
-                  << av[0] << " [options] addresses...\n"
-                  << desc << std::endl;
-        return 1;
+                  << "Copyright (c) 2011-2013 Nicholas J. Kain\n"
+                  << av[0] << " [options] interfaces...\n"
+                  << gopts << std::endl;
+        std::exit(EXIT_FAILURE);
     }
     if (vm.count("version")) {
         std::cout << "ndhs " << NDHS_VERSION << ", dhcp server.\n" <<
-            "Copyright (c) 2011-2012 Nicholas J. Kain\n"
+            "Copyright (c) 2011-2013 Nicholas J. Kain\n"
             "All rights reserved.\n\n"
             "Redistribution and use in source and binary forms, with or without\n"
             "modification, are permitted provided that the following conditions are met:\n\n"
@@ -238,16 +259,26 @@ int main(int ac, char *av[]) {
             "CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)\n"
             "ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE\n"
             "POSSIBILITY OF SUCH DAMAGE.\n";
-        return 1;
+        std::exit(EXIT_FAILURE);
     }
+    return vm;
+}
+
+static void process_options(int ac, char *av[])
+{
+    std::vector<std::string> iflist;
+    std::string pidfile, chroot_path, leasefile_path, scriptfile_path;
+
+    auto vm(fetch_options(ac, av));
+
     if (vm.count("detach"))
         gflags_detach = 1;
     if (vm.count("nodetach"))
         gflags_detach = 0;
     if (vm.count("quiet"))
         gflags_quiet = 1;
-    if (vm.count("config"))
-        configfile_path = vm["config"].as<std::string>();
+    if (vm.count("script"))
+        scriptfile_path = vm["script"].as<std::string>();
     if (vm.count("leasefile"))
         leasefile_path = vm["leasefile"].as<std::string>();
     if (vm.count("pidfile"))
@@ -259,40 +290,27 @@ int main(int ac, char *av[]) {
     if (vm.count("user")) {
         auto t = vm["user"].as<std::string>();
         try {
-            uid = boost::lexical_cast<unsigned int>(t);
+            ndhs_uid = boost::lexical_cast<unsigned int>(t);
         } catch (boost::bad_lexical_cast &) {
             auto pws = getpwnam(t.c_str());
             if (pws) {
-                uid = (int)pws->pw_uid;
-                if (!gid)
-                    gid = (int)pws->pw_gid;
+                ndhs_uid = (int)pws->pw_uid;
+                if (!ndhs_gid)
+                    ndhs_gid = (int)pws->pw_gid;
             } else suicide("invalid uid specified");
         }
     }
     if (vm.count("group")) {
         auto t = vm["group"].as<std::string>();
         try {
-            gid = boost::lexical_cast<unsigned int>(t);
+            ndhs_gid = boost::lexical_cast<unsigned int>(t);
         } catch (boost::bad_lexical_cast &) {
             auto grp = getgrnam(t.c_str());
             if (grp) {
-                gid = (int)grp->gr_gid;
+                ndhs_gid = (int)grp->gr_gid;
             } else suicide("invalid gid specified");
         }
     }
-
-    if (gflags_detach)
-        if (daemon(0,0))
-            suicide("detaching fork failed");
-
-    if (pidfile.size() && file_exists(pidfile.c_str(), "w"))
-        write_pid(pidfile.c_str());
-
-    umask(077);
-    fix_signals();
-    ncm_fix_env(uid, 0);
-
-    gLua = nk::make_unique<DhcpLua>(configfile_path);
 
     if (!iflist.size()) {
         suicide("at least one listening interface must be specified");
@@ -307,7 +325,19 @@ int main(int ac, char *av[]) {
                 std::cout << "bad interface: " << i << std::endl;
             }
         }
-    iflist.clear();
+
+    if (gflags_detach)
+        if (daemon(0,0))
+            suicide("detaching fork failed");
+
+    if (pidfile.size() && file_exists(pidfile.c_str(), "w"))
+        write_pid(pidfile.c_str());
+
+    umask(077);
+    fix_signals();
+    ncm_fix_env(ndhs_uid, 0);
+
+    gLua = nk::make_unique<DhcpLua>(scriptfile_path);
 
     if (chroot_path.size()) {
         if (getuid())
@@ -317,22 +347,25 @@ int main(int ac, char *av[]) {
         if (chroot(chroot_path.c_str()))
             suicide("failed to chroot(%s)\n", chroot_path.c_str());
         gChrooted = true;
-        chroot_path.clear();
     }
-    if (uid != 0 || gid != 0)
-        drop_root(uid, gid);
-
-    /* Cover our tracks... */
-    pidfile.clear();
+    if (ndhs_uid != 0 || ndhs_gid != 0)
+        drop_root(ndhs_uid, ndhs_gid);
 
     init_client_states_v4(io_service);
     gLeaseStore = nk::make_unique<LeaseStore>(leasefile_path);
 
     if (enforce_seccomp())
         log_line("seccomp filter cannot be installed");
+}
+
+int main(int ac, char *av[]) {
+
+    gflags_log_name = const_cast<char *>("ndhs");
+
+    process_options(ac, av);
 
     io_service.run();
 
-    exit(EXIT_SUCCESS);
+    std::exit(EXIT_SUCCESS);
 }
 
