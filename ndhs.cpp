@@ -77,7 +77,6 @@ namespace po = boost::program_options;
 boost::asio::io_service io_service;
 static std::vector<std::unique_ptr<ClientListener>> listeners;
 static int ndhs_uid, ndhs_gid;
-bool gChrooted = false;
 
 std::unique_ptr<LeaseStore> gLeaseStore;
 std::unique_ptr<DhcpLua> gLua;
@@ -346,7 +345,6 @@ static void process_options(int ac, char *av[])
             suicide("failed to chdir(%s)\n", chroot_path.c_str());
         if (chroot(chroot_path.c_str()))
             suicide("failed to chroot(%s)\n", chroot_path.c_str());
-        gChrooted = true;
     }
     if (ndhs_uid != 0 || ndhs_gid != 0)
         drop_root(ndhs_uid, ndhs_gid);
