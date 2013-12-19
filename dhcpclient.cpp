@@ -52,7 +52,6 @@ extern "C" {
 
 namespace ba = boost::asio;
 
-extern bool gParanoid;
 extern bool gChrooted;
 extern std::unique_ptr<LeaseStore> gLeaseStore;
 extern std::unique_ptr<DhcpLua> gLua;

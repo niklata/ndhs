@@ -74,7 +74,6 @@ extern "C" {
 namespace po = boost::program_options;
 
 boost::asio::io_service io_service;
-bool gParanoid = false;
 bool gChrooted = false;
 
 std::unique_ptr<LeaseStore> gLeaseStore;
@@ -179,8 +178,6 @@ int main(int ac, char *av[]) {
 
     po::options_description desc("Options");
     desc.add_options()
-        ("paranoid,p",
-         "return UNKNOWN-ERROR for all errors except INVALID-PORT (prevents inference of used ports)")
         ("detach,d", "run as a background daemon (default)")
         ("nodetach,n", "stay attached to TTY")
         ("quiet,q", "don't print to std(out|err) or log")
@@ -243,8 +240,6 @@ int main(int ac, char *av[]) {
             "POSSIBILITY OF SUCH DAMAGE.\n";
         return 1;
     }
-    if (vm.count("paranoid"))
-        gParanoid = true;
     if (vm.count("detach"))
         gflags_detach = 1;
     if (vm.count("nodetach"))
