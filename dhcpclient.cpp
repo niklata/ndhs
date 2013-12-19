@@ -1,6 +1,6 @@
 /* dhcpclient.cpp - dhcp client request handling
  *
- * (c) 2011-2012 Nicholas J. Kain <njkain at gmail dot com>
+ * (c) 2011-2013 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,7 @@
 #include "dhcpclient.hpp"
 #include "leasestore.hpp"
 #include "dhcplua.hpp"
+#include "make_unique.hpp"
 
 extern "C" {
 #include "log.h"
@@ -53,14 +54,14 @@ namespace ba = boost::asio;
 
 extern bool gParanoid;
 extern bool gChrooted;
-extern LeaseStore *gLeaseStore;
-extern DhcpLua *gLua;
+extern std::unique_ptr<LeaseStore> gLeaseStore;
+extern std::unique_ptr<DhcpLua> gLua;
 
 typedef ClientStates<ClientStateV4> ClientStatesV4;
-ClientStatesV4 *client_states_v4;
+std::unique_ptr<ClientStatesV4> client_states_v4;
 void init_client_states_v4(ba::io_service &io_service)
 {
-    client_states_v4 = new ClientStatesV4(io_service);
+    client_states_v4 = nk::make_unique<ClientStatesV4>(io_service);
 }
 
 ClientListener::ClientListener(ba::io_service &io_service,

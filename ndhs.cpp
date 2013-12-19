@@ -1,6 +1,6 @@
 /* ndhs.c - dhcp server
  *
- * (c) 2011-2012 Nicholas J. Kain <njkain at gmail dot com>
+ * (c) 2011-2013 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -56,6 +56,7 @@
 #include "dhcpclient.hpp"
 #include "dhcplua.hpp"
 #include "leasestore.hpp"
+#include "make_unique.hpp"
 
 extern "C" {
 #include "defines.h"
@@ -76,8 +77,8 @@ boost::asio::io_service io_service;
 bool gParanoid = false;
 bool gChrooted = false;
 
-LeaseStore *gLeaseStore;
-DhcpLua *gLua;
+std::unique_ptr<LeaseStore> gLeaseStore;
+std::unique_ptr<DhcpLua> gLua;
 
 static void sighandler(int sig)
 {
@@ -171,7 +172,7 @@ static int enforce_seccomp(void)
 int main(int ac, char *av[]) {
     int uid = 0, gid = 0;
     std::string pidfile, chroot_path, leasefile_path, configfile_path;
-    std::vector<ClientListener *> listeners;
+    std::vector<std::unique_ptr<ClientListener>> listeners;
     std::vector<std::string> iflist;
 
     gflags_log_name = const_cast<char *>("ndhs");
@@ -296,7 +297,7 @@ int main(int ac, char *av[]) {
     fix_signals();
     ncm_fix_env(uid, 0);
 
-    gLua = new DhcpLua(configfile_path);
+    gLua = nk::make_unique<DhcpLua>(configfile_path);
 
     if (!iflist.size()) {
         suicide("at least one listening interface must be specified");
@@ -306,8 +307,8 @@ int main(int ac, char *av[]) {
             try {
                 auto addy = boost::asio::ip::address_v4::any();
                 auto ep = boost::asio::ip::udp::endpoint(addy, 67);
-                auto cl = new ClientListener(io_service, ep, iface);
-                listeners.push_back(cl);
+                listeners.emplace_back(nk::make_unique<ClientListener>
+                                       (io_service, ep, iface));
             } catch (boost::system::error_code &ec) {
                 std::cout << "bad interface: " << iface << std::endl;
             }
@@ -331,7 +332,7 @@ int main(int ac, char *av[]) {
     pidfile.clear();
 
     init_client_states_v4(io_service);
-    gLeaseStore = new LeaseStore(leasefile_path);
+    gLeaseStore = nk::make_unique<LeaseStore>(leasefile_path);
 
     if (enforce_seccomp())
         log_line("seccomp filter cannot be installed");
