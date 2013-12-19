@@ -297,15 +297,14 @@ int main(int ac, char *av[]) {
     if (!iflist.size()) {
         suicide("at least one listening interface must be specified");
     } else
-        for (auto i = iflist.cbegin(); i != iflist.cend(); ++i) {
-            std::string iface = *i;
+        for (const auto &i: iflist) {
             try {
                 auto addy = boost::asio::ip::address_v4::any();
                 auto ep = boost::asio::ip::udp::endpoint(addy, 67);
                 listeners.emplace_back(nk::make_unique<ClientListener>
-                                       (io_service, ep, iface));
+                                       (io_service, ep, i));
             } catch (boost::system::error_code &ec) {
-                std::cout << "bad interface: " << iface << std::endl;
+                std::cout << "bad interface: " << i << std::endl;
             }
         }
     iflist.clear();
