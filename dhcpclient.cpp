@@ -259,7 +259,7 @@ void ClientListener::handle_receive(const boost::system::error_code &error,
 {
     bool direct_request = false;
     memset(&dhcpmsg_, 0, sizeof dhcpmsg_);
-    memcpy(&dhcpmsg_, recv_buffer_.c_array(),
+    memcpy(&dhcpmsg_, recv_buffer_.data(),
            bytes_xferred <= sizeof dhcpmsg_ ? bytes_xferred : sizeof dhcpmsg_);
     if (!validate_dhcp())
         return;

@@ -33,7 +33,6 @@
 #include <unordered_map>
 #include <netdb.h>
 
-#include <boost/array.hpp>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <boost/enable_shared_from_this.hpp>
@@ -171,7 +170,7 @@ private:
     boost::asio::ip::udp::socket socket_;
     //boost::asio::ip::udp::socket broadcast_socket_;
     boost::asio::ip::udp::endpoint remote_endpoint_;
-    boost::array<uint8_t, 1024> recv_buffer_;
+    std::array<uint8_t, 1024> recv_buffer_;
     struct dhcpmsg dhcpmsg_;
     boost::asio::ip::address local_ip_;
 };
