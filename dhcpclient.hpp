@@ -30,12 +30,11 @@
 #define NK_DHCPCLIENT_H
 
 #include <string>
+#include <memory>
 #include <unordered_map>
 #include <netdb.h>
 
 #include <boost/asio.hpp>
-#include <boost/bind.hpp>
-#include <boost/enable_shared_from_this.hpp>
 
 #include "dhcp.h"
 
