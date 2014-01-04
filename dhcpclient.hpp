@@ -1,6 +1,6 @@
 /* dhcpclient.hpp - dhcp client request handling
  *
- * (c) 2011-2012 Nicholas J. Kain <njkain at gmail dot com>
+ * (c) 2011-2014 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -126,13 +126,14 @@ private:
     }
     void setTimer(void) {
         swapTimer_.expires_from_now(boost::posix_time::seconds(swapInterval_));
-        swapTimer_.async_wait(boost::bind(&ClientStates::timerHandler,
-                                          this, boost::asio::placeholders::error));
-    }
-    void timerHandler(const boost::system::error_code& error) {
-        doSwap();
-        if (map_[0].size() || map_[1].size())
-            setTimer();
+        swapTimer_.async_wait
+            ([this](const boost::system::error_code& error)
+            {
+                doSwap();
+                if (map_[0].size() || map_[1].size())
+                    setTimer();
+
+            });
     }
     // Key is concatenation of xid|chaddr.  Neither of these need to be stored
     // in explicit fields in the state structure.
@@ -151,8 +152,7 @@ public:
                    const boost::asio::ip::udp::endpoint &endpoint,
                    const std::string &ifname);
 private:
-    void start_receive(const boost::system::error_code &error,
-                       std::size_t bytes_xferred);
+    void start_receive();
     uint64_t getNowTs(void) const;
     void dhcpmsg_init(struct dhcpmsg *dm, char type,
                       uint32_t xid, const std::string &chaddr) const;

@@ -1,6 +1,6 @@
 /* dhcpclient.cpp - dhcp client request handling
  *
- * (c) 2011-2013 Nicholas J. Kain <njkain at gmail dot com>
+ * (c) 2011-2014 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -109,20 +109,19 @@ ClientListener::ClientListener(ba::io_service &io_service,
         exit(-1);
     }
 
-    socket_.async_receive_from(ba::buffer(recv_buffer_), remote_endpoint_,
-                               boost::bind(&ClientListener::start_receive,
-                                           this, ba::placeholders::error,
-                                           ba::placeholders::bytes_transferred));
+    start_receive();
 }
 
-void ClientListener::start_receive(const boost::system::error_code &error,
-                                   std::size_t bytes_xferred)
+void ClientListener::start_receive()
 {
-    handle_receive(error, bytes_xferred);
-    socket_.async_receive_from(ba::buffer(recv_buffer_), remote_endpoint_,
-                               boost::bind(&ClientListener::start_receive,
-                                           this, ba::placeholders::error,
-                                           ba::placeholders::bytes_transferred));
+    socket_.async_receive_from
+        (ba::buffer(recv_buffer_), remote_endpoint_,
+         [this](const boost::system::error_code &error,
+                std::size_t bytes_xferred)
+         {
+             handle_receive(error, bytes_xferred);
+             start_receive();
+         });
 }
 
 void ClientListener::dhcpmsg_init(struct dhcpmsg *dm, char type,
