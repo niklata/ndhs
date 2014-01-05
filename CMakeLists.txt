@@ -11,6 +11,7 @@ add_subdirectory(ncmlib)
 find_package( Boost COMPONENTS system program_options )
 link_directories ( ${Boost_LIBRARY_DIRS} )
 include_directories ( ${Boost_INCLUDE_DIRS} )
+find_package(Threads)
 
 file(GLOB LUA_SRCS "lua/*.c")
 add_library(lua ${LUA_SRCS})
@@ -22,4 +23,5 @@ file(GLOB NDHS_SRCS_CPP "*.cpp")
 list(APPEND NDHS_SRCS ${NDHS_SRCS_C} ${NDHS_SRCS_CPP})
 
 add_executable(ndhs ${NDHS_SRCS})
-target_link_libraries(ndhs ${Boost_LIBRARIES} ncmlib lua sqlite)
+target_link_libraries(ndhs ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES}
+                           ncmlib lua sqlite)
