@@ -35,6 +35,7 @@
 #include <netdb.h>
 
 #include <boost/asio.hpp>
+#include <boost/utility.hpp>
 
 #include "dhcp.h"
 
@@ -53,7 +54,8 @@
 // and 'm4d' tables.  This change would cause the deletion rate to increase
 // smoothly under heavy load, providing resistance to OOM DoS at the cost of
 // making it so that clients will need to complete their transactions quickly.
-class ClientStates {
+class ClientStates : boost::noncopyable
+{
 public:
     ClientStates(boost::asio::io_service &io_service)
             : swapTimer_(io_service)
@@ -143,7 +145,7 @@ private:
 
 void init_client_states_v4(boost::asio::io_service &io_service);
 
-class ClientListener
+class ClientListener : boost::noncopyable
 {
 public:
     ClientListener(boost::asio::io_service &io_service,

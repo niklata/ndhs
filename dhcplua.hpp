@@ -2,6 +2,7 @@
 #define NDHS_DHCPLUA_HPP_
 
 #include <string>
+#include <boost/utility.hpp>
 
 extern "C" {
 #include <lua.h>
@@ -9,7 +10,7 @@ extern "C" {
 #include <lualib.h>
 }
 
-class DhcpLua
+class DhcpLua : boost::noncopyable
 {
 public:
     DhcpLua(const std::string &cfg);

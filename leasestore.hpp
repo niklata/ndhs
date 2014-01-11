@@ -3,12 +3,14 @@
 
 #include <string>
 #include <stdint.h>
+#include <boost/utility.hpp>
 
 extern "C" {
 #include <sqlite3.h>
 }
 
-class LeaseStore {
+class LeaseStore : boost::noncopyable
+{
 public:
     LeaseStore(const std::string &path);
     ~LeaseStore();
