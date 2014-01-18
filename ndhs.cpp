@@ -1,6 +1,6 @@
 /* ndhs.c - dhcp server
  *
- * (c) 2011-2013 Nicholas J. Kain <njkain at gmail dot com>
+ * (c) 2011-2014 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -83,7 +83,7 @@ std::unique_ptr<DhcpLua> gLua;
 
 static void sighandler(int sig)
 {
-    exit(EXIT_SUCCESS);
+    io_service.stop();
 }
 
 static void fix_signals(void) {
