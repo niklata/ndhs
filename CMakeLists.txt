@@ -2,8 +2,25 @@ project (ndhs)
 
 cmake_minimum_required (VERSION 2.6)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s -std=gnu99 -ldl -Wall -DHAVE_CLEARENV -DLINUX -DNDHS_BUILD")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s -std=gnu++0x -ldl -Wall -DHAVE_CLEARENV -DLINUX -DNDHS_BUILD")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s -std=gnu99 -ldl -pedantic -Wall -Wextra -Wformat=2 -Wformat-security -Wpointer-arith -Wno-unused-parameter -DNDHS_BUILD")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s -std=gnu++0x -ldl -pedantic -Wall -Wextra -Wformat=2 -Wformat-security -Wpointer-arith -Wno-unused-parameter -DNDHS_BUILD")
+
+if (WIN32)
+  set(OSNAME "Win32")
+else()
+execute_process(
+  COMMAND uname
+  COMMAND tr "\n" " "
+  COMMAND sed "s/ //"
+  OUTPUT_VARIABLE OSNAME
+  )
+endif()
+
+if (${OSNAME} STREQUAL "Linux")
+  message("Detected that the current host is a Linux system.")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DLINUX -DHAVE_CLEARENV")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLINUX -DHAVE_CLEARENV")
+endif()
 
 include_directories("${PROJECT_SOURCE_DIR}/ncmlib")
 add_subdirectory(ncmlib)
