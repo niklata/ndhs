@@ -90,13 +90,16 @@ static ssize_t do_get_dhcp_opt(uint8_t *sbuf, ssize_t slen, uint8_t code,
             break;
         if (i >= slen - 2)
             break;
+        ssize_t soptsiz = sbuf[i+1];
         if (sbuf[i] == code) {
-            if (dlen - didx < sbuf[i+1])
+            if (dlen - didx < soptsiz)
                 return didx;
-            memcpy(dbuf+didx, sbuf+i+2, sbuf[i+1]);
-            didx += sbuf[i+1];
+            if (slen - i - 2 < soptsiz)
+                return didx;
+            memcpy(dbuf+didx, sbuf+i+2, soptsiz);
+            didx += soptsiz;
         }
-        i += sbuf[i+1] + 2;
+        i += soptsiz + 2;
     }
     return didx;
 }
@@ -151,7 +154,7 @@ size_t add_option_string(struct dhcpmsg *packet, uint8_t code, const char *str,
     }
 
     ssize_t end = get_end_option_idx(packet);
-    if (end == -1) {
+    if (end < 0) {
         log_warning("add_option_string: Buffer has no DCODE_END marker.");
         return 0;
     }
@@ -170,11 +173,11 @@ static ssize_t add_option_check(struct dhcpmsg *packet, uint8_t code,
                                 uint8_t rlen)
 {
     ssize_t end = get_end_option_idx(packet);
-    if (end == -1) {
+    if (end < 0) {
         log_warning("add_u%01u_option: Buffer has no DCODE_END marker.", rlen*8);
         return -1;
     }
-    if (end + 2 + rlen >= sizeof packet->options) {
+    if ((size_t)end + 2 + rlen >= sizeof packet->options) {
         log_warning("add_u%01u_option: No space for option 0x%02x.",
                     rlen*8, code);
         return -1;
