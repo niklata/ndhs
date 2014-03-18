@@ -22,17 +22,12 @@ bool is_macstr(const std::string &ms)
     return false;
 }
 
-std::string macstr_to_raw(const std::string &macstr)
+std::string macstr_to_raw(std::string macstr)
 {
-    char buf[7];
+    char buf[6];
     if (!is_macstr(macstr))
-        return std::string("\0\0\0\0\0\0\0", 6);
-    buf[0] = strtol(macstr.c_str(), NULL, 16);
-    buf[1] = strtol(macstr.c_str()+3, NULL, 16);
-    buf[2] = strtol(macstr.c_str()+6, NULL, 16);
-    buf[3] = strtol(macstr.c_str()+9, NULL, 16);
-    buf[4] = strtol(macstr.c_str()+12, NULL, 16);
-    buf[5] = strtol(macstr.c_str()+15, NULL, 16);
-    buf[6] = '\0';
+        return macstr;
+    for (size_t i = 0; i < 6; ++i)
+        buf[i] = strtol(macstr.c_str() + 3*i, NULL, 16);
     return std::string(buf, 6);
 }

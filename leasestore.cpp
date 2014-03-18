@@ -5,7 +5,6 @@ extern "C" {
 #include "log.h"
 }
 #include "leasestore.hpp"
-#include "macstr.hpp"
 
 LeaseStore::LeaseStore(const std::string &path)
 {
@@ -46,18 +45,18 @@ bool LeaseStore::execSql(const std::string &sql, const std::string &parentfn)
     return ret;
 }
 
-bool LeaseStore::addLease(const std::string &ifip, const std::string &chaddr,
+bool LeaseStore::addLease(const std::string &ifip, const ClientID &clientid,
                           const std::string &ip, uint64_t expirets)
 {
     std::string sql("CREATE TABLE IF NOT EXISTS '");
     sql.append(ifip);
-    sql.append("' (mac TEXT PRIMARY KEY, ip TEXT, expirets INTEGER)");
+    sql.append("' (clientid TEXT PRIMARY KEY, ip TEXT, expirets INTEGER)");
     execSql(sql, "LeaseStore::addLease");
     sql.clear();
     sql.append("INSERT OR REPLACE INTO '");
     sql.append(ifip);
     sql.append("' VALUES ('");
-    sql.append(macraw_to_str(chaddr));
+    sql.append(clientid.raw());
     sql.append("','");
     sql.append(ip);
     sql.append("',");
@@ -66,12 +65,12 @@ bool LeaseStore::addLease(const std::string &ifip, const std::string &chaddr,
     return execSql(sql, "LeaseStore::addLease");
 }
 
-bool LeaseStore::delLease(const std::string &ifip, const std::string &chaddr)
+bool LeaseStore::delLease(const std::string &ifip, const ClientID &clientid)
 {
     std::string sql("DELETE FROM '");
     sql.append(ifip);
-    sql.append("' WHERE mac LIKE '");
-    sql.append(macraw_to_str(chaddr));
+    sql.append("' WHERE clientid LIKE '");
+    sql.append(clientid.raw());
     sql.append("'");
     return execSql(sql, "LeaseStore::delLease");
 }
@@ -84,14 +83,14 @@ uint64_t LeaseStore::nowTs() const
 }
 
 const std::string LeaseStore::getLease(const std::string &ifip,
-                                       const std::string &chaddr)
+                                       const ClientID &clientid)
 {
     sqlite3_stmt *ss;
     std::string ret("");
     std::string sql("SELECT FROM '");
     sql.append(ifip);
-    sql.append("' WHERE mac LIKE '");
-    sql.append(macraw_to_str(chaddr));
+    sql.append("' WHERE clientid LIKE '");
+    sql.append(clientid.raw());
     sql.append("'");
 
     int rc = sqlite3_prepare(db_, sql.c_str(), sql.size(), &ss, NULL);
@@ -108,7 +107,7 @@ const std::string LeaseStore::getLease(const std::string &ifip,
                                   sqlite3_column_text(ss, 1)));
                 break;
             } else
-                delLease(ifip, chaddr);
+                delLease(ifip, clientid);
         }
         log_warning("LeaseStore::getLease - step error %d", rc);
         break;
@@ -117,7 +116,7 @@ const std::string LeaseStore::getLease(const std::string &ifip,
     return ret;
 }
 
-bool LeaseStore::ipTaken(const std::string &ifip, const std::string &chaddr,
+bool LeaseStore::ipTaken(const std::string &ifip, const ClientID &clientid,
                          const std::string &ip)
 {
     sqlite3_stmt *ss;
@@ -138,13 +137,13 @@ bool LeaseStore::ipTaken(const std::string &ifip, const std::string &chaddr,
         if (rc == SQLITE_ROW) {
             uint64_t ets = sqlite3_column_int64(ss, 2);
             if (ets >= nowTs()) {
-                std::string mac(reinterpret_cast<const char *>
-                                (sqlite3_column_text(ss, 0)));
-                if (mac != macraw_to_str(chaddr))
+                std::string id(reinterpret_cast<const char *>
+                               (sqlite3_column_text(ss, 0)));
+                if (id != clientid.raw())
                     ret = true;
                 break;
             } else {
-                delLease(ifip, chaddr);
+                delLease(ifip, clientid);
                 break;
             }
         }

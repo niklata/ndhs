@@ -38,6 +38,7 @@
 #include <boost/utility.hpp>
 
 #include "dhcp.h"
+#include "clientid.hpp"
 
 // There are two hashtables, a 'new' and a 'marked for death' table.  If these
 // tables are not empty, a timer with period t will wake up and delete all
@@ -64,24 +65,24 @@ public:
         swapInterval_ = 60; // 1m
     }
     ~ClientStates() {}
-    bool stateExists(uint32_t xid, const std::string &chaddr) const {
-        std::string key(generateKey(xid, chaddr));
+    bool stateExists(uint32_t xid, const ClientID &clientid) const {
+        std::string key(generateKey(xid, clientid));
         return (map_[0].find(key) != map_[0].end()) ||
                (map_[1].find(key) != map_[1].end());
     }
-    void stateAdd(uint32_t xid, const std::string &chaddr, uint8_t state)
+    void stateAdd(uint32_t xid, const ClientID &clientid, uint8_t state)
     {
-        std::string key(generateKey(xid, chaddr));
+        std::string key(generateKey(xid, clientid));
         if (!state)
             return;
-        stateKill(xid, chaddr);
+        stateKill(xid, clientid);
         map_[currentMap_][key] = state;
         if (swapTimer_.expires_from_now() <=
             boost::posix_time::time_duration(0,0,0,0))
             setTimer();
     }
-    uint8_t stateGet(uint32_t xid, const std::string &chaddr) {
-        std::string key(generateKey(xid, chaddr));
+    uint8_t stateGet(uint32_t xid, const ClientID &clientid) {
+        std::string key(generateKey(xid, clientid));
         auto r = map_[currentMap_].find(key);
         if (r != map_[currentMap_].end())
             return r->second;
@@ -93,8 +94,8 @@ public:
         }
         return DHCPNULL;
     }
-    void stateKill(uint32_t xid, const std::string &chaddr) {
-        std::string key(generateKey(xid, chaddr));
+    void stateKill(uint32_t xid, const ClientID &clientid) {
+        std::string key(generateKey(xid, clientid));
         auto elt = map_[currentMap_].find(key);
         if (elt != map_[currentMap_].end()) {
             map_[currentMap_].erase(elt);
@@ -105,18 +106,9 @@ public:
             map_[!currentMap_].erase(elt);
     }
 private:
-    std::string generateKey(uint32_t xid, const std::string &chaddr) const {
-        std::string r;
-        union {
-            uint8_t c[4];
-            uint32_t n;
-        } xia;
-        xia.n = xid;
-        r.push_back(xia.c[0]);
-        r.push_back(xia.c[1]);
-        r.push_back(xia.c[2]);
-        r.push_back(xia.c[3]);
-        r.append(chaddr);
+    std::string generateKey(uint32_t xid, const ClientID &clientid) const {
+        std::string r(boost::lexical_cast<std::string>(xid));
+        r.append(clientid.raw());
         return r;
     }
     void doSwap(void) {
@@ -128,15 +120,14 @@ private:
         swapTimer_.expires_from_now(boost::posix_time::seconds(swapInterval_));
         swapTimer_.async_wait
             ([this](const boost::system::error_code& error)
-            {
-                doSwap();
-                if (map_[0].size() || map_[1].size())
-                    setTimer();
-
-            });
+             {
+                 doSwap();
+                 if (map_[0].size() || map_[1].size())
+                     setTimer();
+             });
     }
-    // Key is concatenation of xid|chaddr.  Neither of these need to be stored
-    // in explicit fields in the state structure.
+    // Key is concatenation of xid|clientid.  Neither of these need to be
+    // stored in explicit fields in the state structure.
     int currentMap_; // Either 0 or 1.
     int swapInterval_;
     boost::asio::deadline_timer swapTimer_;
@@ -155,18 +146,17 @@ private:
     void start_receive();
     uint64_t getNowTs(void) const;
     void dhcpmsg_init(struct dhcpmsg *dm, char type,
-                      uint32_t xid, const std::string &chaddr) const;
+                      uint32_t xid, const ClientID &clientid) const;
     uint32_t local_ip() const;
     std::string ipStr(uint32_t ip) const;
     void send_reply(struct dhcpmsg *dm, bool broadcast);
-    void reply_discover(const std::string &chaddr);
-    void reply_request(const std::string &chaddr, bool is_direct);
-    void reply_inform(const std::string &chaddr);
-    void do_release(const std::string &chaddr);
+    void reply_discover(const ClientID &clientid);
+    void reply_request(const ClientID &clientid, bool is_direct);
+    void reply_inform(const ClientID &clientid);
+    void do_release(const ClientID &clientid);
     std::string getChaddr(const struct dhcpmsg &dm) const;
+    std::string getClientId(const struct dhcpmsg &dm) const;
     bool validate_dhcp(void) const;
-    void handle_receive(const boost::system::error_code &error,
-                        std::size_t bytes_xferred);
 
     boost::asio::ip::udp::socket socket_;
     //boost::asio::ip::udp::socket broadcast_socket_;

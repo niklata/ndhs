@@ -41,6 +41,7 @@
 #include "dhcpclient.hpp"
 #include "leasestore.hpp"
 #include "dhcplua.hpp"
+#include "clientid.hpp"
 #include "make_unique.hpp"
 
 extern "C" {
@@ -112,20 +113,8 @@ ClientListener::ClientListener(ba::io_service &io_service,
     start_receive();
 }
 
-void ClientListener::start_receive()
-{
-    socket_.async_receive_from
-        (ba::buffer(recv_buffer_), remote_endpoint_,
-         [this](const boost::system::error_code &error,
-                std::size_t bytes_xferred)
-         {
-             handle_receive(error, bytes_xferred);
-             start_receive();
-         });
-}
-
 void ClientListener::dhcpmsg_init(struct dhcpmsg *dm, char type,
-                                  uint32_t xid, const std::string &chaddr) const
+                                  uint32_t xid, const ClientID &clientid) const
 {
     memset(dm, 0, sizeof (struct dhcpmsg));
     dm->op = 2; // BOOTREPLY (server)
@@ -134,10 +123,13 @@ void ClientListener::dhcpmsg_init(struct dhcpmsg *dm, char type,
     dm->xid = xid;
     dm->cookie = htonl(DHCP_MAGIC);
     dm->options[0] = DCODE_END;
-    for (int i = 0; i < 6; ++i)
-        dm->chaddr[i] = chaddr[i];
+    memcpy(&dm->chaddr, &dhcpmsg_.chaddr, sizeof dhcpmsg_.chaddr);
     add_option_msgtype(dm, type);
     add_option_serverid(dm, local_ip());
+    if (clientid.had_option()) {
+        auto &cid = clientid.raw();
+        add_option_clientid(dm, cid.data(), cid.size());
+    }
 }
 
 uint32_t ClientListener::local_ip() const
@@ -184,68 +176,74 @@ uint64_t ClientListener::getNowTs(void) const {
     return tv.tv_sec;
 }
 
-void ClientListener::reply_discover(const std::string &chaddr)
+void ClientListener::reply_discover(const ClientID &clientid)
 {
     struct dhcpmsg reply;
 
-    dhcpmsg_init(&reply, DHCPOFFER, dhcpmsg_.xid, chaddr);
+    dhcpmsg_init(&reply, DHCPOFFER, dhcpmsg_.xid, clientid);
     if (gLua->reply_discover(&reply, local_ip_.to_string(),
-                             remote_endpoint_.address().to_string(), chaddr))
+                             remote_endpoint_.address().to_string(), clientid))
         send_reply(&reply, true);
 }
 
-void ClientListener::reply_request(const std::string &chaddr, bool is_direct)
+void ClientListener::reply_request(const ClientID &clientid, bool is_direct)
 {
     struct dhcpmsg reply;
     std::string leaseip;
 
-    dhcpmsg_init(&reply, DHCPACK, dhcpmsg_.xid, chaddr);
+    dhcpmsg_init(&reply, DHCPACK, dhcpmsg_.xid, clientid);
     if (gLua->reply_request(&reply, local_ip_.to_string(),
-                        remote_endpoint_.address().to_string(), chaddr)) {
+                            remote_endpoint_.address().to_string(),
+                            clientid)) {
         leaseip = ipStr(reply.yiaddr);
         if (!leaseip.size())
             goto out;
-        gLeaseStore->addLease(local_ip_.to_string(), chaddr, leaseip,
+        gLeaseStore->addLease(local_ip_.to_string(), clientid, leaseip,
                               getNowTs() + get_option_leasetime(&reply));
         send_reply(&reply, true);
     }
 out:
-    client_states_v4->stateKill(dhcpmsg_.xid, chaddr);
+    client_states_v4->stateKill(dhcpmsg_.xid, clientid);
 }
 
-void ClientListener::reply_inform(const std::string &chaddr)
+void ClientListener::reply_inform(const ClientID &clientid)
 {
     struct dhcpmsg reply;
 
-    dhcpmsg_init(&reply, DHCPACK, dhcpmsg_.xid, chaddr);
+    dhcpmsg_init(&reply, DHCPACK, dhcpmsg_.xid, clientid);
     gLua->reply_request(&reply, local_ip_.to_string(),
-                        remote_endpoint_.address().to_string(), chaddr);
+                        remote_endpoint_.address().to_string(), clientid);
     reply.yiaddr = 0;
     send_reply(&reply, false);
 }
 
-void ClientListener::do_release(const std::string &chaddr) {
+void ClientListener::do_release(const ClientID &clientid) {
     std::string lip =
         gLeaseStore->getLease(socket_.local_endpoint().address().to_string(),
-                              chaddr);
+                              clientid);
     if (lip != remote_endpoint_.address().to_string()) {
         log_line("do_release: ignoring spoofed release request.  %s != %s.", remote_endpoint_.address().to_string().c_str(), lip.c_str());
         return;
     }
     gLeaseStore->delLease(socket_.local_endpoint().address().to_string(),
-                          chaddr);
+                          clientid);
 }
 
 std::string ClientListener::getChaddr(const struct dhcpmsg &dm) const
 {
-    std::string r;
-    r.push_back(dm.chaddr[0]);
-    r.push_back(dm.chaddr[1]);
-    r.push_back(dm.chaddr[2]);
-    r.push_back(dm.chaddr[3]);
-    r.push_back(dm.chaddr[4]);
-    r.push_back(dm.chaddr[5]);
-    return r;
+    char mac[7];
+    memcpy(mac, dm.chaddr, sizeof mac - 1);
+    mac[sizeof mac - 1] = 0;
+    return mac;
+}
+
+std::string ClientListener::getClientId(const struct dhcpmsg &dm) const
+{
+    char buf[MAX_DOPT_SIZE];
+    auto len = get_option_clientid(&dm, buf, sizeof buf);
+    if (len < 2)
+        return std::string("");
+    return std::string(buf, len);
 }
 
 bool ClientListener::validate_dhcp(void) const
@@ -254,43 +252,52 @@ bool ClientListener::validate_dhcp(void) const
     return true;
 }
 
-void ClientListener::handle_receive(const boost::system::error_code &error,
-                                    std::size_t bytes_xferred)
+void ClientListener::start_receive()
 {
-    bool direct_request = false;
-    memset(&dhcpmsg_, 0, sizeof dhcpmsg_);
-    memcpy(&dhcpmsg_, recv_buffer_.data(),
-           bytes_xferred <= sizeof dhcpmsg_ ? bytes_xferred : sizeof dhcpmsg_);
-    if (!validate_dhcp())
-        return;
+    socket_.async_receive_from
+        (ba::buffer(recv_buffer_), remote_endpoint_,
+         [this](const boost::system::error_code &error,
+                std::size_t bytes_xferred)
+         {
+             bool direct_request = false;
+             memset(&dhcpmsg_, 0, sizeof dhcpmsg_);
+             memcpy(&dhcpmsg_, recv_buffer_.data(),
+                    bytes_xferred <= sizeof dhcpmsg_ ? bytes_xferred : sizeof dhcpmsg_);
+             if (!validate_dhcp()) {
+                 start_receive();
+                 return;
+             }
 
-    uint8_t msgtype = get_option_msgtype(&dhcpmsg_);
-    std::string chaddr = getChaddr(dhcpmsg_);
+             uint8_t msgtype = get_option_msgtype(&dhcpmsg_);
+             ClientID clientid(getClientId(dhcpmsg_), getChaddr(dhcpmsg_));
 
-    auto cs = client_states_v4->stateGet(dhcpmsg_.xid, chaddr);
-    if (cs == DHCPNULL) {
-        switch (msgtype) {
-        case DHCPREQUEST:
-            direct_request = true;
-        case DHCPDISCOVER:
-            cs = msgtype;
-            client_states_v4->stateAdd(dhcpmsg_.xid, chaddr, cs);
-            break;
-        case DHCPINFORM:
-        case DHCPRELEASE:
-            // XXX: nyi
-            return;
-        }
-    } else {
-        if (cs == DHCPDISCOVER && msgtype == DHCPREQUEST)
-            cs = DHCPREQUEST;
-    }
+             auto cs = client_states_v4->stateGet(dhcpmsg_.xid, clientid);
+             if (cs == DHCPNULL) {
+                 switch (msgtype) {
+                 case DHCPREQUEST:
+                     direct_request = true;
+                 case DHCPDISCOVER:
+                     cs = msgtype;
+                     client_states_v4->stateAdd(dhcpmsg_.xid, clientid, cs);
+                     break;
+                 case DHCPINFORM:
+                 case DHCPRELEASE:
+                     // XXX: nyi
+                     start_receive();
+                     return;
+                 }
+             } else {
+                 if (cs == DHCPDISCOVER && msgtype == DHCPREQUEST)
+                     cs = DHCPREQUEST;
+             }
 
-    switch (cs) {
-    case DHCPDISCOVER: reply_discover(chaddr); break;
-    case DHCPREQUEST:  reply_request(chaddr, direct_request); break;
-    case DHCPINFORM:   reply_inform(chaddr); break;
-    case DHCPRELEASE:  do_release(chaddr); break;
-    }
+             switch (cs) {
+             case DHCPDISCOVER: reply_discover(clientid); break;
+             case DHCPREQUEST:  reply_request(clientid, direct_request); break;
+             case DHCPINFORM:   reply_inform(clientid); break;
+             case DHCPRELEASE:  do_release(clientid); break;
+             }
+             start_receive();
+         });
 }
 

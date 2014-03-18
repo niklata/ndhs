@@ -4,7 +4,6 @@
 
 #include "dhcplua.hpp"
 #include "leasestore.hpp"
-#include "macstr.hpp"
 
 extern "C" {
 #include "options.h"
@@ -142,42 +141,48 @@ int dlua_set_ntp(lua_State *L)
     return add_option_iplist(L, DCODE_NTPSVR);
 }
 
+// Returns bool, args(ifip:str, ip:str, clientid:str|nil)
 int dlua_is_ip_leased(lua_State *L)
 {
-    std::string ifip, ip, chaddr;
-    if (lua_gettop(L) != 3 || !lua_isstring(L, 1) || !lua_isstring(L, 2) ||
-        !lua_isstring(L, 3))
+    if (lua_gettop(L) != 3 ||
+        !lua_isstring(L, 1) || !lua_isstring(L, 2) || !lua_isstring(L, 3))
         return 0;
-    size_t maclen;
-    const char *macstr = lua_tolstring(L, 3, &maclen);
-    if (maclen != 6)
+
+    size_t cidlen;
+    const char *cid = lua_tolstring(L, 3, &cidlen);
+    if (cidlen < 1)
         return 0;
-    chaddr = std::string(macstr, maclen);
+    ClientID clientid(std::string(cid, cidlen));
+
     size_t ifiplen;
     const char *ifipstr = lua_tolstring(L, 1, &ifiplen);
-    ifip = std::string(ifipstr, ifiplen);
+    std::string ifip(ifipstr, ifiplen);
+
     size_t iplen;
     const char *ipstr = lua_tolstring(L, 2, &iplen);
-    ip = std::string(ipstr, iplen);
-    lua_pushboolean(L, gLeaseStore->ipTaken(ifip, chaddr, ip) ? 1 : 0);
+    std::string ip(ipstr, iplen);
+
+    lua_pushboolean(L, gLeaseStore->ipTaken(ifip, clientid, ip) ? 1 : 0);
     return 1;
 }
 
-// Returns str or nil, args(ifip:str, chaddr:str)
+// Returns str or nil, args(ifip:str, clientid:str)
 int dlua_get_current_lease(lua_State *L)
 {
-    std::string ifip, chaddr;
     if (lua_gettop(L) != 2 || !lua_isstring(L, 1) || !lua_isstring(L, 2))
         return 0;
-    size_t maclen;
-    const char *macstr = lua_tolstring(L, 2, &maclen);
-    if (maclen != 6)
+
+    size_t cidlen;
+    const char *cid = lua_tolstring(L, 3, &cidlen);
+    if (cidlen < 1)
         return 0;
-    chaddr = std::string(macstr, maclen);
+    ClientID clientid(std::string(cid, cidlen));
+
     size_t ifiplen;
     const char *ifipstr = lua_tolstring(L, 1, &ifiplen);
-    ifip = std::string(ifipstr, ifiplen);
-    std::string leaseip = gLeaseStore->getLease(ifip, chaddr);
+    std::string ifip(ifipstr, ifiplen);
+
+    std::string leaseip = gLeaseStore->getLease(ifip, clientid);
     if (leaseip.size())
         lua_pushlstring(L, leaseip.c_str(), leaseip.size());
     else
@@ -238,30 +243,34 @@ DhcpLua::~DhcpLua()
 }
 
 bool DhcpLua::reply_discover(struct dhcpmsg *dm, const std::string &lip,
-                             const std::string &rip, const std::string &chaddr)
+                             const std::string &rip, const ClientID &cid)
 {
-    auto macstr = macraw_to_str(chaddr);
+    auto macstr = cid.mac();
+    auto cidstr = cid.pretty();
     lua_getglobal(L_, "dhcp_reply_discover");
     lua_pushlightuserdata(L_, dm);
     lua_pushlstring(L_, lip.c_str(), lip.size());
     lua_pushlstring(L_, rip.c_str(), rip.size());
     lua_pushlstring(L_, macstr.c_str(), macstr.size());
-    if (lua_pcall(L_, 4, 1, 0) != 0)
+    lua_pushlstring(L_, cidstr.c_str(), cidstr.size());
+    if (lua_pcall(L_, 5, 1, 0) != 0)
         log_warning("failed to call Lua function dhcp_reply_discover(): %s",
                     lua_tostring(L_, -1));
     return lua_toboolean(L_, 1);
 }
 
 bool DhcpLua::reply_request(struct dhcpmsg *dm, const std::string &lip,
-                            const std::string &rip, const std::string &chaddr)
+                            const std::string &rip, const ClientID &cid)
 {
-    auto macstr = macraw_to_str(chaddr);
+    auto macstr = cid.mac();
+    auto cidstr = cid.pretty();
     lua_getglobal(L_, "dhcp_reply_request");
     lua_pushlightuserdata(L_, dm);
     lua_pushlstring(L_, lip.c_str(), lip.size());
     lua_pushlstring(L_, rip.c_str(), rip.size());
     lua_pushlstring(L_, macstr.c_str(), macstr.size());
-    if (lua_pcall(L_, 4, 1, 0) != 0)
+    lua_pushlstring(L_, cidstr.c_str(), cidstr.size());
+    if (lua_pcall(L_, 5, 1, 0) != 0)
         log_warning("failed to call Lua function dhcp_reply_request(): %s",
                     lua_tostring(L_, -1));
     return lua_toboolean(L_, 1);

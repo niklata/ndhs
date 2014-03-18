@@ -5,7 +5,7 @@
 
 std::string macraw_to_str(const std::string &macraw);
 bool is_macstr(const std::string &ms);
-std::string macstr_to_raw(const std::string &macstr);
+std::string macstr_to_raw(std::string macstr);
 
 
 #endif /* NK_MACSTR_H_ */

@@ -3,6 +3,7 @@
 
 #include <string>
 #include <boost/utility.hpp>
+#include "clientid.hpp"
 
 extern "C" {
 #include <lua.h>
@@ -16,9 +17,9 @@ public:
     DhcpLua(const std::string &cfg);
     ~DhcpLua();
     bool reply_discover(struct dhcpmsg *dm, const std::string &lip,
-                       const std::string &rip, const std::string &chaddr);
+                       const std::string &rip, const ClientID &clientid);
     bool reply_request(struct dhcpmsg *dm, const std::string &lip,
-                       const std::string &rip, const std::string &chaddr);
+                       const std::string &rip, const ClientID &clientid);
 private:
     lua_State *L_;
 };
