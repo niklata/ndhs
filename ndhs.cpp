@@ -61,13 +61,10 @@
 
 extern "C" {
 #include "defines.h"
-#include "malloc.h"
 #include "log.h"
 #include "chroot.h"
 #include "pidfile.h"
 #include "exec.h"
-#include "network.h"
-#include "strlist.h"
 #include "seccomp-bpf.h"
 }
 
