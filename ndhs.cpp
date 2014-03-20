@@ -65,7 +65,6 @@ extern "C" {
 #include "log.h"
 #include "chroot.h"
 #include "pidfile.h"
-#include "strl.h"
 #include "exec.h"
 #include "network.h"
 #include "strlist.h"
