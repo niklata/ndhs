@@ -173,7 +173,7 @@ int dlua_get_current_lease(lua_State *L)
         return 0;
 
     size_t cidlen;
-    const char *cid = lua_tolstring(L, 3, &cidlen);
+    const char *cid = lua_tolstring(L, 2, &cidlen);
     if (cidlen < 1)
         return 0;
     ClientID clientid(std::string(cid, cidlen));

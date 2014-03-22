@@ -86,7 +86,7 @@ bool LeaseStore::delLease(const std::string &ifip, const ClientID &clientid)
 {
     std::string sql("DELETE FROM '");
     sql.append(ifip);
-    sql.append("' WHERE clientid LIKE (?)");
+    sql.append("' WHERE clientid LIKE ?");
     sqlite3_stmt *ss;
     int rc = sqlite3_prepare_v2(db_, sql.c_str(), sql.size(), &ss, NULL);
     if (rc != SQLITE_OK) {
@@ -114,13 +114,15 @@ const std::string LeaseStore::getLease(const std::string &ifip,
 {
     sqlite3_stmt *ss;
     std::string ret("");
-    std::string sql("SELECT FROM '");
+    std::string sql("SELECT * FROM '");
     sql.append(ifip);
-    sql.append("' WHERE clientid LIKE (?)");
+    sql.append("' WHERE clientid LIKE ?");
 
     int rc = sqlite3_prepare(db_, sql.c_str(), sql.size(), &ss, NULL);
-    if (rc != SQLITE_OK)
+    if (rc != SQLITE_OK) {
+        log_warning("LeaseStore::getLease: prepare failed: %d", rc);
         return ret;
+    }
     auto cid = clientid.value();
     rc = sqlite3_bind_blob(ss, 1, cid.data(), cid.size(), SQLITE_STATIC);
     if (rc != SQLITE_OK) {
@@ -152,12 +154,15 @@ bool LeaseStore::ipTaken(const std::string &ifip, const ClientID &clientid,
 {
     sqlite3_stmt *ss;
     bool ret = false;
-    std::string sql("SELECT FROM '");
+    std::string sql("SELECT * FROM '");
     sql.append(ifip);
-    sql.append("' WHERE ip LIKE (?)");
+    sql.append("' WHERE ip LIKE ?");
+
     int rc = sqlite3_prepare(db_, sql.c_str(), sql.size(), &ss, NULL);
-    if (rc != SQLITE_OK)
+    if (rc != SQLITE_OK) {
+        log_warning("LeaseStore::ipTaken: prepare failed: %d", rc);
         return ret;
+    }
     rc = sqlite3_bind_text(ss, 1, ip.data(), ip.size(), SQLITE_STATIC);
     if (rc != SQLITE_OK) {
         log_warning("LeaseStore::ipTaken: binding ip failed: %d", rc);
