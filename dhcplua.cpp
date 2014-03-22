@@ -242,23 +242,11 @@ DhcpLua::~DhcpLua()
     lua_close(L_);
 }
 
-#include <iostream>
-#include <boost/format.hpp>
-static void print_macid(const std::string &macstr, const std::string &cidstr)
-{
-    std::cout << "cid.mac = '" << macstr << "'\n";
-    std::cout << "cid.cid = '";
-    for (auto i = 0lu; i < cidstr.size(); ++i)
-        std::cout << boost::format("%|02x|") % static_cast<int>(static_cast<uint8_t>(cidstr[i]));
-    std::cout << "'" << std::endl;
-}
-
 bool DhcpLua::reply_discover(struct dhcpmsg *dm, const std::string &lip,
                              const std::string &rip, const ClientID &cid)
 {
     auto macstr = cid.mac();
     auto cidstr = cid.value();
-    print_macid(macstr, cidstr);
     lua_getglobal(L_, "dhcp_reply_discover");
     lua_pushlightuserdata(L_, dm);
     lua_pushlstring(L_, lip.c_str(), lip.size());
@@ -276,7 +264,6 @@ bool DhcpLua::reply_request(struct dhcpmsg *dm, const std::string &lip,
 {
     auto macstr = cid.mac();
     auto cidstr = cid.value();
-    print_macid(macstr, cidstr);
     lua_getglobal(L_, "dhcp_reply_request");
     lua_pushlightuserdata(L_, dm);
     lua_pushlstring(L_, lip.c_str(), lip.size());
