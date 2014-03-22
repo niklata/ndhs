@@ -233,8 +233,7 @@ std::string ClientListener::getChaddr(const struct dhcpmsg &dm) const
 {
     char mac[7];
     memcpy(mac, dm.chaddr, sizeof mac - 1);
-    mac[sizeof mac - 1] = 0;
-    return mac;
+    return std::string(mac, 6);
 }
 
 std::string ClientListener::getClientId(const struct dhcpmsg &dm) const
