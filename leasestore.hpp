@@ -25,7 +25,7 @@ public:
                  const std::string &ip);
     void clean(void);
 private:
-    bool execSql(const std::string &sql, const std::string &parentfn);
+    bool runSql(sqlite3_stmt *ss, const char *parentfn);
     uint64_t nowTs() const;
     sqlite3 *db_;
 };

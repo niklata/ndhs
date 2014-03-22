@@ -21,15 +21,10 @@ LeaseStore::~LeaseStore()
     sqlite3_close(db_);
 }
 
-bool LeaseStore::execSql(const std::string &sql, const std::string &parentfn)
+bool LeaseStore::runSql(sqlite3_stmt *ss, const char *parentfn)
 {
+    int rc;
     bool ret = false;
-    sqlite3_stmt *ss;
-    int rc = sqlite3_prepare_v2(db_, sql.c_str(), sql.size(), &ss, NULL);
-    if (rc != SQLITE_OK) {
-        log_warning("LeaseStore::execSql() prepare failed!  rc == %d", rc);
-        return ret;
-    }
     for (;;) {
         rc = sqlite3_step(ss);
         if (rc == SQLITE_DONE || rc == SQLITE_OK) {
@@ -38,7 +33,7 @@ bool LeaseStore::execSql(const std::string &sql, const std::string &parentfn)
         }
         if (rc == SQLITE_ROW)
             continue;
-        log_warning("%s - step error %d", parentfn.c_str(), rc);
+        log_warning("%s: step error %d", parentfn, rc);
         break;
     }
     sqlite3_finalize(ss);
@@ -48,31 +43,63 @@ bool LeaseStore::execSql(const std::string &sql, const std::string &parentfn)
 bool LeaseStore::addLease(const std::string &ifip, const ClientID &clientid,
                           const std::string &ip, uint64_t expirets)
 {
+    sqlite3_stmt *ss;
     std::string sql("CREATE TABLE IF NOT EXISTS '");
     sql.append(ifip);
-    sql.append("' (clientid TEXT PRIMARY KEY, ip TEXT, expirets INTEGER)");
-    execSql(sql, "LeaseStore::addLease");
+    sql.append("' (clientid BLOB PRIMARY KEY, ip TEXT, expirets INTEGER)");
+    int rc = sqlite3_prepare_v2(db_, sql.c_str(), sql.size(), &ss, NULL);
+    if (rc != SQLITE_OK) {
+        log_warning("LeaseStore::addLease prepare (1) failed: %d", rc);
+        return false;
+    }
+    runSql(ss, "LeaseStore::addLease (1)");
+
     sql.clear();
     sql.append("INSERT OR REPLACE INTO '");
     sql.append(ifip);
-    sql.append("' VALUES ('");
-    sql.append(clientid.raw());
-    sql.append("','");
-    sql.append(ip);
-    sql.append("',");
-    sql.append(boost::lexical_cast<std::string>(expirets));
-    sql.append(")");
-    return execSql(sql, "LeaseStore::addLease");
+    sql.append("' VALUES (?,?,?)");
+    rc = sqlite3_prepare_v2(db_, sql.c_str(), sql.size(), &ss, NULL);
+    if (rc != SQLITE_OK) {
+        log_warning("LeaseStore::addLease prepare (2) failed!  rc == %d", rc);
+        return false;
+    }
+    auto cid = clientid.raw();
+    rc = sqlite3_bind_blob(ss, 1, cid.data(), cid.size(), SQLITE_STATIC);
+    if (rc != SQLITE_OK) {
+        log_warning("LeaseStore::addLease: binding cid failed: %d", rc);
+        return false;
+    }
+    rc = sqlite3_bind_text(ss, 2, ip.data(), ip.size(), SQLITE_STATIC);
+    if (rc != SQLITE_OK) {
+        log_warning("LeaseStore::addLease: binding ip failed: %d", rc);
+        return false;
+    }
+    rc = sqlite3_bind_int64(ss, 3, expirets);
+    if (rc != SQLITE_OK) {
+        log_warning("LeaseStore::addLease: binding expirets failed: %d, rc");
+        return false;
+    }
+    return runSql(ss, "LeaseStore::addLease (2)");
 }
 
 bool LeaseStore::delLease(const std::string &ifip, const ClientID &clientid)
 {
     std::string sql("DELETE FROM '");
     sql.append(ifip);
-    sql.append("' WHERE clientid LIKE '");
-    sql.append(clientid.raw());
-    sql.append("'");
-    return execSql(sql, "LeaseStore::delLease");
+    sql.append("' WHERE clientid LIKE (?)");
+    sqlite3_stmt *ss;
+    int rc = sqlite3_prepare_v2(db_, sql.c_str(), sql.size(), &ss, NULL);
+    if (rc != SQLITE_OK) {
+        log_warning("LeaseStore::delLease: prepare failed: %d", rc);
+        return false;
+    }
+    auto cid = clientid.raw();
+    rc = sqlite3_bind_blob(ss, 1, cid.data(), cid.size(), SQLITE_STATIC);
+    if (rc != SQLITE_OK) {
+        log_warning("LeaseStore::delLease: binding cid failed: %d", rc);
+        return false;
+    }
+    return runSql(ss, "LeaseStore::delLease");
 }
 
 uint64_t LeaseStore::nowTs() const
@@ -89,13 +116,17 @@ const std::string LeaseStore::getLease(const std::string &ifip,
     std::string ret("");
     std::string sql("SELECT FROM '");
     sql.append(ifip);
-    sql.append("' WHERE clientid LIKE '");
-    sql.append(clientid.raw());
-    sql.append("'");
+    sql.append("' WHERE clientid LIKE (?)");
 
     int rc = sqlite3_prepare(db_, sql.c_str(), sql.size(), &ss, NULL);
     if (rc != SQLITE_OK)
         return ret;
+    auto cid = clientid.raw();
+    rc = sqlite3_bind_blob(ss, 1, cid.data(), cid.size(), SQLITE_STATIC);
+    if (rc != SQLITE_OK) {
+        log_warning("LeaseStore::getLease: binding cid failed: %d", rc);
+        return ret;
+    }
     for (;;) {
         rc = sqlite3_step(ss);
         if (rc == SQLITE_DONE || rc == SQLITE_OK)
@@ -109,7 +140,7 @@ const std::string LeaseStore::getLease(const std::string &ifip,
             } else
                 delLease(ifip, clientid);
         }
-        log_warning("LeaseStore::getLease - step error %d", rc);
+        log_warning("LeaseStore::getLease: step error %d", rc);
         break;
     }
     sqlite3_finalize(ss);
@@ -123,13 +154,15 @@ bool LeaseStore::ipTaken(const std::string &ifip, const ClientID &clientid,
     bool ret = false;
     std::string sql("SELECT FROM '");
     sql.append(ifip);
-    sql.append("' WHERE ip LIKE '");
-    sql.append(ip);
-    sql.append("'");
-
+    sql.append("' WHERE ip LIKE (?)");
     int rc = sqlite3_prepare(db_, sql.c_str(), sql.size(), &ss, NULL);
     if (rc != SQLITE_OK)
         return ret;
+    rc = sqlite3_bind_text(ss, 1, ip.data(), ip.size(), SQLITE_STATIC);
+    if (rc != SQLITE_OK) {
+        log_warning("LeaseStore::ipTaken: binding ip failed: %d", rc);
+        return ret;
+    }
     for (;;) {
         rc = sqlite3_step(ss);
         if (rc == SQLITE_DONE || rc == SQLITE_OK)
@@ -147,7 +180,7 @@ bool LeaseStore::ipTaken(const std::string &ifip, const ClientID &clientid,
                 break;
             }
         }
-        log_warning("LeaseStore::ipTaken - step error %d", rc);
+        log_warning("LeaseStore::ipTaken: step error %d", rc);
         break;
     }
     sqlite3_finalize(ss);
