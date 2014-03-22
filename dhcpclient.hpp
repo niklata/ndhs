@@ -108,7 +108,7 @@ public:
 private:
     std::string generateKey(uint32_t xid, const ClientID &clientid) const {
         std::string r(boost::lexical_cast<std::string>(xid));
-        r.append(clientid.raw());
+        r.append(clientid.value());
         return r;
     }
     void doSwap(void) {

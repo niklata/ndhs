@@ -8,56 +8,40 @@
 class ClientID
 {
 public:
-    explicit ClientID(const std::string &s) : value_(s), hadopt_(true) {
-        for (size_t i = 0; i < sizeof mac_; ++i)
-            mac_[i] = 0;
-    }
-    ClientID(const std::string &clientid,
-             const std::string &chaddr) {
-        hadopt_ = clientid.size() > 0;
+    explicit ClientID(const std::string &s)
+            : value_(s), mac_(6, 0), hadopt_(true) {}
+    ClientID(const std::string &clientid, const std::string &chaddr)
+            : value_(clientid), mac_(chaddr), hadopt_(clientid.size()) {
         if (chaddr.size() != 6)
             throw std::logic_error("ClientID chaddr.size() != 6");
-        memcpy(mac_, chaddr.data(), sizeof mac_);
         if (clientid.size() < 2) {
             hadopt_ = false;
             value_ = std::string(1, 1);
             value_.append(chaddr);
-            return;
         }
-        value_ = clientid;
     }
-    ClientID(const ClientID &o) : value_(o.value_), hadopt_(o.hadopt_) {
-        memcpy(mac_, o.mac_, sizeof mac_);
-    }
-    ClientID(ClientID &&o) : value_(o.value_), hadopt_(o.hadopt_) {
-        memcpy(mac_, o.mac_, sizeof mac_);
-    }
+    ClientID(const ClientID &o)
+            : value_(o.value_), mac_(o.mac_), hadopt_(o.hadopt_) {}
+    ClientID(ClientID &&o)
+            : value_(o.value_), mac_(o.mac_), hadopt_(o.hadopt_) {}
     ClientID& operator=(ClientID o) {
         std::swap(o.value_, value_);
-        memcpy(mac_, o.mac_, sizeof mac_);
+        std::swap(o.mac_, mac_);
         hadopt_ = o.hadopt_;
         return *this;
     }
     ClientID& operator=(ClientID &&o) {
         std::swap(o.value_, value_);
-        memcpy(mac_, o.mac_, sizeof mac_);
+        std::swap(o.mac_, mac_);
         hadopt_ = o.hadopt_;
         return *this;
     }
-    bool ismac() const { return value_[0] == 1 && value_.size() == 6; }
     bool had_option() const { return hadopt_; }
-    const std::string &raw() const { return value_; }
-    std::string pretty() const {
-        if (ismac())
-            return macraw_to_str(value_.substr(1));
-        return value_.substr(1);
-    }
-    std::string mac() const {
-        return std::string((char *)&mac_, 6);
-    }
+    const std::string &value() const { return value_; }
+    std::string mac() const { return macraw_to_str(mac_); }
 private:
     std::string value_;
-    char mac_[6];
+    std::string mac_;
     bool hadopt_;
 };
 

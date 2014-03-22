@@ -4,7 +4,7 @@
 std::string macraw_to_str(const std::string &macraw)
 {
     char buf[32];
-    snprintf(buf, sizeof buf, "%.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx",
+    snprintf(buf, sizeof buf, "%2.2hhx:%2.2hhx:%2.2hhx:%2.2hhx:%2.2hhx:%2.2hhx",
              macraw[0], macraw[1], macraw[2], macraw[3], macraw[4], macraw[5]);
     return std::string(buf);
 }

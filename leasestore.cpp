@@ -63,7 +63,7 @@ bool LeaseStore::addLease(const std::string &ifip, const ClientID &clientid,
         log_warning("LeaseStore::addLease prepare (2) failed!  rc == %d", rc);
         return false;
     }
-    auto cid = clientid.raw();
+    auto cid = clientid.value();
     rc = sqlite3_bind_blob(ss, 1, cid.data(), cid.size(), SQLITE_STATIC);
     if (rc != SQLITE_OK) {
         log_warning("LeaseStore::addLease: binding cid failed: %d", rc);
@@ -93,7 +93,7 @@ bool LeaseStore::delLease(const std::string &ifip, const ClientID &clientid)
         log_warning("LeaseStore::delLease: prepare failed: %d", rc);
         return false;
     }
-    auto cid = clientid.raw();
+    auto cid = clientid.value();
     rc = sqlite3_bind_blob(ss, 1, cid.data(), cid.size(), SQLITE_STATIC);
     if (rc != SQLITE_OK) {
         log_warning("LeaseStore::delLease: binding cid failed: %d", rc);
@@ -121,7 +121,7 @@ const std::string LeaseStore::getLease(const std::string &ifip,
     int rc = sqlite3_prepare(db_, sql.c_str(), sql.size(), &ss, NULL);
     if (rc != SQLITE_OK)
         return ret;
-    auto cid = clientid.raw();
+    auto cid = clientid.value();
     rc = sqlite3_bind_blob(ss, 1, cid.data(), cid.size(), SQLITE_STATIC);
     if (rc != SQLITE_OK) {
         log_warning("LeaseStore::getLease: binding cid failed: %d", rc);
@@ -172,7 +172,7 @@ bool LeaseStore::ipTaken(const std::string &ifip, const ClientID &clientid,
             if (ets >= nowTs()) {
                 std::string id(reinterpret_cast<const char *>
                                (sqlite3_column_text(ss, 0)));
-                if (id != clientid.raw())
+                if (id != clientid.value())
                     ret = true;
                 break;
             } else {

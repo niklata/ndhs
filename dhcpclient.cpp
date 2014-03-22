@@ -127,7 +127,7 @@ void ClientListener::dhcpmsg_init(struct dhcpmsg *dm, char type,
     add_option_msgtype(dm, type);
     add_option_serverid(dm, local_ip());
     if (clientid.had_option()) {
-        auto &cid = clientid.raw();
+        auto &cid = clientid.value();
         add_option_clientid(dm, cid.data(), cid.size());
     }
 }
