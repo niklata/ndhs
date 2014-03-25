@@ -113,22 +113,22 @@ ClientListener::ClientListener(ba::io_service &io_service,
     start_receive();
 }
 
-void ClientListener::dhcpmsg_init(struct dhcpmsg *dm, char type,
-                                  uint32_t xid, const ClientID &clientid) const
+void ClientListener::dhcpmsg_init(dhcpmsg &dm, char type, uint32_t xid,
+                                  const ClientID &clientid) const
 {
-    memset(dm, 0, sizeof (struct dhcpmsg));
-    dm->op = 2; // BOOTREPLY (server)
-    dm->htype = 1;
-    dm->hlen = 6;
-    dm->xid = xid;
-    dm->cookie = htonl(DHCP_MAGIC);
-    dm->options[0] = DCODE_END;
-    memcpy(&dm->chaddr, &dhcpmsg_.chaddr, sizeof dhcpmsg_.chaddr);
-    add_option_msgtype(dm, type);
-    add_option_serverid(dm, local_ip());
+    memset(&dm, 0, sizeof (struct dhcpmsg));
+    dm.op = 2; // BOOTREPLY (server)
+    dm.htype = 1;
+    dm.hlen = 6;
+    dm.xid = xid;
+    dm.cookie = htonl(DHCP_MAGIC);
+    dm.options[0] = DCODE_END;
+    memcpy(&dm.chaddr, &dhcpmsg_.chaddr, sizeof dhcpmsg_.chaddr);
+    add_option_msgtype(&dm, type);
+    add_option_serverid(&dm, local_ip());
     if (clientid.had_option()) {
         auto &cid = clientid.value();
-        add_option_clientid(dm, cid.data(), cid.size());
+        add_option_clientid(&dm, cid.data(), cid.size());
     }
 }
 
@@ -211,7 +211,7 @@ void ClientListener::reply_discover(const ClientID &clientid)
 {
     struct dhcpmsg reply;
 
-    dhcpmsg_init(&reply, DHCPOFFER, dhcpmsg_.xid, clientid);
+    dhcpmsg_init(reply, DHCPOFFER, dhcpmsg_.xid, clientid);
     if (gLua->reply_discover(&reply, local_ip_.to_string(),
                              remote_endpoint_.address().to_string(),
                              clientid)) {
@@ -224,7 +224,7 @@ void ClientListener::reply_request(const ClientID &clientid, bool is_direct)
     struct dhcpmsg reply;
     std::string leaseip;
 
-    dhcpmsg_init(&reply, DHCPACK, dhcpmsg_.xid, clientid);
+    dhcpmsg_init(reply, DHCPACK, dhcpmsg_.xid, clientid);
     if (gLua->reply_request(&reply, local_ip_.to_string(),
                             remote_endpoint_.address().to_string(),
                             clientid)) {
@@ -244,7 +244,7 @@ void ClientListener::reply_inform(const ClientID &clientid)
 {
     struct dhcpmsg reply;
 
-    dhcpmsg_init(&reply, DHCPACK, dhcpmsg_.xid, clientid);
+    dhcpmsg_init(reply, DHCPACK, dhcpmsg_.xid, clientid);
     if (gLua->reply_inform(&reply, local_ip_.to_string(),
                            remote_endpoint_.address().to_string(), clientid)) {
         // http://tools.ietf.org/html/draft-ietf-dhc-dhcpinform-clarify-06

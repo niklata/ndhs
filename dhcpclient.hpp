@@ -145,8 +145,8 @@ public:
 private:
     void start_receive();
     uint64_t getNowTs(void) const;
-    void dhcpmsg_init(struct dhcpmsg *dm, char type,
-                      uint32_t xid, const ClientID &clientid) const;
+    void dhcpmsg_init(dhcpmsg &dm, char type, uint32_t xid,
+                      const ClientID &clientid) const;
     uint32_t local_ip() const;
     std::string ipStr(uint32_t ip) const;
 
