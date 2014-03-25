@@ -362,8 +362,8 @@ static void process_options(int ac, char *av[])
     }
 }
 
-int main(int ac, char *av[]) {
-
+int main(int ac, char *av[])
+{
     gflags_log_name = const_cast<char *>("ndhs");
 
     process_options(ac, av);
