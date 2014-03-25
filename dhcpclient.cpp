@@ -142,8 +142,7 @@ uint32_t ClientListener::local_ip() const
     return ret;
 }
 
-void ClientListener::send_reply(struct dhcpmsg *dm, bool broadcast,
-                                uint16_t port)
+void ClientListener::send_reply_do(struct dhcpmsg *dm, SendReplyType srt)
 {
     ssize_t endloc = get_end_option_idx(dm);
     if (endloc < 0)
@@ -153,12 +152,29 @@ void ClientListener::send_reply(struct dhcpmsg *dm, bool broadcast,
     auto buf = boost::asio::buffer((const char *)dm, sizeof (struct dhcpmsg) -
                                    (sizeof (dm->options) - 1 - endloc));
 
-    if (broadcast) {
+    switch (srt) {
+    case SendReplyType::UnicastCi: {
+        auto uct = ba::ip::address_v4(dhcpmsg_.ciaddr);
+        socket_.send_to(buf, ba::ip::udp::endpoint(uct, 68), 0, ignored_error);
+        break;
+    }
+    case SendReplyType::Broadcast: {
         auto remotebcast = remote_endpoint_.address().to_v4().broadcast();
-        socket_.send_to(buf, ba::ip::udp::endpoint(remotebcast, port),
+        socket_.send_to(buf, ba::ip::udp::endpoint(remotebcast, 68),
                         0, ignored_error);
-    } else {
-        socket_.send_to(buf, remote_endpoint_, 0, ignored_error);
+        break;
+    }
+    case SendReplyType::Relay: {
+        auto relay = ba::ip::address_v4(dhcpmsg_.giaddr);
+        socket_.send_to(buf, ba::ip::udp::endpoint(relay, 67),
+                        0, ignored_error);
+        break;
+    }
+    case SendReplyType::UnicastYiCh: {
+        auto uct = ba::ip::address_v4(dhcpmsg_.yiaddr);
+        socket_.send_to(buf, ba::ip::udp::endpoint(uct, 68), 0, ignored_error);
+        break;
+    }
     }
 }
 
@@ -177,14 +193,30 @@ uint64_t ClientListener::getNowTs(void) const {
     return tv.tv_sec;
 }
 
+void ClientListener::send_reply(struct dhcpmsg *reply)
+{
+    if (dhcpmsg_.giaddr)
+        send_reply_do(reply, SendReplyType::Relay);
+    else if (dhcpmsg_.ciaddr)
+        send_reply_do(reply, SendReplyType::UnicastCi);
+    else if (ntohs(dhcpmsg_.flags) & 0x8000u)
+        send_reply_do(reply, SendReplyType::Broadcast);
+    else if (dhcpmsg_.yiaddr)
+        send_reply_do(reply, SendReplyType::UnicastYiCh);
+    else
+        send_reply_do(reply, SendReplyType::Broadcast);
+}
+
 void ClientListener::reply_discover(const ClientID &clientid)
 {
     struct dhcpmsg reply;
 
     dhcpmsg_init(&reply, DHCPOFFER, dhcpmsg_.xid, clientid);
     if (gLua->reply_discover(&reply, local_ip_.to_string(),
-                             remote_endpoint_.address().to_string(), clientid))
-        send_reply(&reply, true);
+                             remote_endpoint_.address().to_string(),
+                             clientid)) {
+        send_reply(&reply);
+    }
 }
 
 void ClientListener::reply_request(const ClientID &clientid, bool is_direct)
@@ -201,7 +233,7 @@ void ClientListener::reply_request(const ClientID &clientid, bool is_direct)
             goto out;
         gLeaseStore->addLease(local_ip_.to_string(), clientid, leaseip,
                               getNowTs() + get_option_leasetime(&reply));
-        send_reply(&reply, true);
+        send_reply(&reply);
     }
 out:
     client_states_v4->stateKill(dhcpmsg_.xid, clientid);
@@ -227,15 +259,15 @@ void ClientListener::reply_inform(const ClientID &clientid)
         reply.yiaddr = 0;
         reply.siaddr = 0;
         if (dhcpmsg_.ciaddr)
-            send_reply(&reply, false);
+            send_reply_do(&reply, SendReplyType::UnicastCi);
         else if (dhcpmsg_.giaddr) {
             auto fl = ntohs(reply.flags);
             reply.flags = htons(fl | 0x8000u);
-            send_reply(&reply, false, 67);
+            send_reply_do(&reply, SendReplyType::Relay);
         } else if (remote_endpoint_.address() != zero_v4)
-            send_reply(&reply, false);
+            send_reply_do(&reply, SendReplyType::UnicastCi);
         else
-            send_reply(&reply, true);
+            send_reply_do(&reply, SendReplyType::Broadcast);
     }
 }
 
