@@ -212,7 +212,7 @@ void ClientListener::reply_discover(const ClientID &clientid)
     struct dhcpmsg reply;
 
     dhcpmsg_init(reply, DHCPOFFER, dhcpmsg_.xid, clientid);
-    if (gLua->reply_discover(&reply, local_ip_.to_string(),
+    if (gLua->reply_discover(reply, local_ip_.to_string(),
                              remote_endpoint_.address().to_string(),
                              clientid)) {
         send_reply(reply);
@@ -225,7 +225,7 @@ void ClientListener::reply_request(const ClientID &clientid, bool is_direct)
     std::string leaseip;
 
     dhcpmsg_init(reply, DHCPACK, dhcpmsg_.xid, clientid);
-    if (gLua->reply_request(&reply, local_ip_.to_string(),
+    if (gLua->reply_request(reply, local_ip_.to_string(),
                             remote_endpoint_.address().to_string(),
                             clientid)) {
         leaseip = ipStr(reply.yiaddr);
@@ -245,7 +245,7 @@ void ClientListener::reply_inform(const ClientID &clientid)
     struct dhcpmsg reply;
 
     dhcpmsg_init(reply, DHCPACK, dhcpmsg_.xid, clientid);
-    if (gLua->reply_inform(&reply, local_ip_.to_string(),
+    if (gLua->reply_inform(reply, local_ip_.to_string(),
                            remote_endpoint_.address().to_string(), clientid)) {
         // http://tools.ietf.org/html/draft-ietf-dhc-dhcpinform-clarify-06
         reply.htype = dhcpmsg_.htype;

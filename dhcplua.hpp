@@ -6,6 +6,7 @@
 #include "clientid.hpp"
 
 extern "C" {
+#include "dhcp.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
@@ -16,11 +17,11 @@ class DhcpLua : boost::noncopyable
 public:
     DhcpLua(const std::string &cfg);
     ~DhcpLua();
-    bool reply_discover(struct dhcpmsg *dm, const std::string &lip,
+    bool reply_discover(dhcpmsg &dm, const std::string &lip,
+                        const std::string &rip, const ClientID &clientid);
+    bool reply_request(dhcpmsg &dm, const std::string &lip,
                        const std::string &rip, const ClientID &clientid);
-    bool reply_request(struct dhcpmsg *dm, const std::string &lip,
-                       const std::string &rip, const ClientID &clientid);
-    bool reply_inform(struct dhcpmsg *dm, const std::string &lip,
+    bool reply_inform(dhcpmsg &dm, const std::string &lip,
                       const std::string &rip, const ClientID &clientid);
 private:
     lua_State *L_;
