@@ -55,33 +55,54 @@ function assign_ip(dm, sipfn, lip, mac, cid, rlo, rhi)
     return false
 end
 
-function common_reply(dm, lip, rip, mac, cid)
+function common_reply_assign(dm, lip, rip, mac, cid)
     if (lip == '192.168.0.1') then
         if not assign_ip(dm, m2s_wirednet, lip, mac, cid, 100, 250) then
             return false
         end
+    elseif (lip == '192.168.1.1') then
+        if not assign_ip(dm, m2s_wifinet, lip, mac, cid, 100, 250) then
+            return false
+        end
+    end
+    return true
+end
+
+function common_reply_info(dm, lip, rip, mac, cid)
+    if (lip == '192.168.0.1') then
         dhcpmsg_set_broadcast(dm, '192.168.0.255')
         dhcpmsg_set_routers(dm, '192.168.0.1')
         dhcpmsg_set_dns(dm, '192.168.0.1')
         dhcpmsg_set_ntp(dm, '192.168.0.1')
     elseif (lip == '192.168.1.1') then
-        if not assign_ip(dm, m2s_wifinet, lip, mac, cid, 100, 250) then
-            return false
-        end
         dhcpmsg_set_broadcast(dm, '192.168.1.255')
         dhcpmsg_set_routers(dm, '192.168.1.1')
         dhcpmsg_set_dns(dm, '192.168.0.1')
     end
     dhcpmsg_set_domain_name(dm, "example.net")
     dhcpmsg_set_subnet(dm, '255.255.255.0')
-    return true
+end
+
+function common_reply(dm, lip, rip, mac, cid, do_assign)
+   if do_assign then
+      local r = common_reply_assign(dm, lip, rip, mac, cid)
+      if not r then
+         return false
+      end
+   end
+   common_reply_info(dm, lip, rip, mac, cid)
+   return true
 end
 
 function dhcp_reply_discover(dm, lip, rip, mac, cid)
-    return common_reply(dm, lip, rip, mac, cid)
+    return common_reply(dm, lip, rip, mac, cid, true)
 end
 
 function dhcp_reply_request(dm, lip, rip, mac, cid)
-    return common_reply(dm, lip, rip, mac, cid)
+    return common_reply(dm, lip, rip, mac, cid, true)
+end
+
+function dhcp_reply_inform(dm, lip, rip, mac, cid)
+    return common_reply(dm, lip, rip, mac, cid, false)
 end
 

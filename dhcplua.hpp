@@ -20,6 +20,8 @@ public:
                        const std::string &rip, const ClientID &clientid);
     bool reply_request(struct dhcpmsg *dm, const std::string &lip,
                        const std::string &rip, const ClientID &clientid);
+    bool reply_inform(struct dhcpmsg *dm, const std::string &lip,
+                      const std::string &rip, const ClientID &clientid);
 private:
     lua_State *L_;
 };

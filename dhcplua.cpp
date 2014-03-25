@@ -276,3 +276,20 @@ bool DhcpLua::reply_request(struct dhcpmsg *dm, const std::string &lip,
     return lua_toboolean(L_, 1);
 }
 
+bool DhcpLua::reply_inform(struct dhcpmsg *dm, const std::string &lip,
+                           const std::string &rip, const ClientID &cid)
+{
+    auto macstr = cid.mac();
+    auto cidstr = cid.value();
+    lua_getglobal(L_, "dhcp_reply_inform");
+    lua_pushlightuserdata(L_, dm);
+    lua_pushlstring(L_, lip.c_str(), lip.size());
+    lua_pushlstring(L_, rip.c_str(), rip.size());
+    lua_pushlstring(L_, macstr.c_str(), macstr.size());
+    lua_pushlstring(L_, cidstr.c_str(), cidstr.size());
+    if (lua_pcall(L_, 5, 1, 0) != 0)
+        log_warning("failed to call Lua function dhcp_reply_inform(): %s",
+                    lua_tostring(L_, -1));
+    return lua_toboolean(L_, 1);
+}
+

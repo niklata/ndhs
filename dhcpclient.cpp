@@ -211,8 +211,8 @@ void ClientListener::reply_inform(const ClientID &clientid)
     struct dhcpmsg reply;
 
     dhcpmsg_init(&reply, DHCPACK, dhcpmsg_.xid, clientid);
-    gLua->reply_request(&reply, local_ip_.to_string(),
-                        remote_endpoint_.address().to_string(), clientid);
+    gLua->reply_inform(&reply, local_ip_.to_string(),
+                       remote_endpoint_.address().to_string(), clientid);
     reply.yiaddr = 0;
     send_reply(&reply, false);
 }
@@ -282,6 +282,9 @@ void ClientListener::start_receive()
                      client_states_v4->stateAdd(dhcpmsg_.xid, clientid, cs);
                      break;
                  case DHCPINFORM:
+                     // No need to track state since we just INFORM => ACK
+                     cs = msgtype;
+                     break;
                  case DHCPRELEASE:
                      // XXX: nyi
                      start_receive();
