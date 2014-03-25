@@ -213,29 +213,30 @@ void ClientListener::reply_inform(const ClientID &clientid)
     struct dhcpmsg reply;
 
     dhcpmsg_init(&reply, DHCPACK, dhcpmsg_.xid, clientid);
-    gLua->reply_inform(&reply, local_ip_.to_string(),
-                       remote_endpoint_.address().to_string(), clientid);
-    // http://tools.ietf.org/html/draft-ietf-dhc-dhcpinform-clarify-06
-    reply.htype = dhcpmsg_.htype;
-    reply.hlen = dhcpmsg_.hlen;
-    memcpy(&reply.chaddr, &dhcpmsg_.chaddr, sizeof reply.chaddr);
-    reply.ciaddr = dhcpmsg_.ciaddr;
-    // xid was already set equal
-    reply.flags = dhcpmsg_.flags;
-    reply.hops = 0;
-    reply.secs = 0;
-    reply.yiaddr = 0;
-    reply.siaddr = 0;
-    if (dhcpmsg_.ciaddr)
-        send_reply(&reply, false);
-    else if (dhcpmsg_.giaddr) {
-        auto fl = ntohs(reply.flags);
-        reply.flags = htons(fl | 0x8000u);
-        send_reply(&reply, false, 67);
-    } else if (remote_endpoint_.address() != zero_v4)
-        send_reply(&reply, false);
-    else
-        send_reply(&reply, true);
+    if (gLua->reply_inform(&reply, local_ip_.to_string(),
+                           remote_endpoint_.address().to_string(), clientid)) {
+        // http://tools.ietf.org/html/draft-ietf-dhc-dhcpinform-clarify-06
+        reply.htype = dhcpmsg_.htype;
+        reply.hlen = dhcpmsg_.hlen;
+        memcpy(&reply.chaddr, &dhcpmsg_.chaddr, sizeof reply.chaddr);
+        reply.ciaddr = dhcpmsg_.ciaddr;
+        // xid was already set equal
+        reply.flags = dhcpmsg_.flags;
+        reply.hops = 0;
+        reply.secs = 0;
+        reply.yiaddr = 0;
+        reply.siaddr = 0;
+        if (dhcpmsg_.ciaddr)
+            send_reply(&reply, false);
+        else if (dhcpmsg_.giaddr) {
+            auto fl = ntohs(reply.flags);
+            reply.flags = htons(fl | 0x8000u);
+            send_reply(&reply, false, 67);
+        } else if (remote_endpoint_.address() != zero_v4)
+            send_reply(&reply, false);
+        else
+            send_reply(&reply, true);
+    }
 }
 
 void ClientListener::do_release(const ClientID &clientid) {
