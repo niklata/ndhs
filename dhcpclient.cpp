@@ -283,10 +283,11 @@ void ClientListener::start_receive()
                      break;
                  case DHCPINFORM:
                      // No need to track state since we just INFORM => ACK
+                 case DHCPDECLINE:
+                 case DHCPRELEASE:
                      cs = msgtype;
                      break;
-                 case DHCPRELEASE:
-                     // XXX: nyi
+                 default:
                      start_receive();
                      return;
                  }
@@ -299,6 +300,8 @@ void ClientListener::start_receive()
              case DHCPDISCOVER: reply_discover(clientid); break;
              case DHCPREQUEST:  reply_request(clientid, direct_request); break;
              case DHCPINFORM:   reply_inform(clientid); break;
+             case DHCPDECLINE:
+                 log_warning("Received a DHCPDECLINE.  Clients conflict?");
              case DHCPRELEASE:  do_release(clientid); break;
              }
              start_receive();
