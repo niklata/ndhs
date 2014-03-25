@@ -71,18 +71,15 @@ extern "C" {
 namespace po = boost::program_options;
 
 boost::asio::io_service io_service;
+static boost::asio::signal_set asio_signal_set(io_service);
 static std::vector<std::unique_ptr<ClientListener>> listeners;
 static int ndhs_uid, ndhs_gid;
 
 std::unique_ptr<LeaseStore> gLeaseStore;
 std::unique_ptr<DhcpLua> gLua;
 
-static void sighandler(int sig)
+static void process_signals()
 {
-    io_service.stop();
-}
-
-static void fix_signals(void) {
     sigset_t mask;
     sigemptyset(&mask);
     sigaddset(&mask, SIGCHLD);
@@ -94,15 +91,12 @@ static void fix_signals(void) {
     sigaddset(&mask, SIGHUP);
     if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0)
         suicide("sigprocmask failed");
-
-    struct sigaction sa;
-    memset(&sa, 0, sizeof (struct sigaction));
-    sa.sa_handler = sighandler;
-    sigemptyset(&sa.sa_mask);
-    sigaddset(&sa.sa_mask, SIGINT);
-    sigaddset(&sa.sa_mask, SIGTERM);
-    sigaction(SIGINT, &sa, NULL);
-    sigaction(SIGTERM, &sa, NULL);
+    asio_signal_set.add(SIGINT);
+    asio_signal_set.add(SIGTERM);
+    asio_signal_set.async_wait(
+        [](const boost::system::error_code &, int signum) {
+            io_service.stop();
+        });
 }
 
 static int enforce_seccomp(void)
@@ -343,7 +337,7 @@ static void process_options(int ac, char *av[])
         write_pid(pidfile.c_str());
 
     umask(077);
-    fix_signals();
+    process_signals();
     ncm_fix_env(ndhs_uid, 0);
 
     gLua = nk::make_unique<DhcpLua>(scriptfile_path);
