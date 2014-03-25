@@ -245,10 +245,13 @@ std::string ClientListener::getClientId(const struct dhcpmsg &dm) const
     return std::string(buf, len);
 }
 
-bool ClientListener::validate_dhcp(void) const
+uint8_t ClientListener::validate_dhcp(size_t len) const
 {
-    // XXX: validate the packet
-    return true;
+    if (len < offsetof(struct dhcpmsg, options))
+        return DHCPNULL;
+    if (ntohl(dhcpmsg_.cookie) != DHCP_MAGIC)
+        return DHCPNULL;
+    return get_option_msgtype(&dhcpmsg_);
 }
 
 void ClientListener::start_receive()
@@ -259,15 +262,14 @@ void ClientListener::start_receive()
                 std::size_t bytes_xferred)
          {
              bool direct_request = false;
+             size_t msglen = std::min(bytes_xferred, sizeof dhcpmsg_);
              memset(&dhcpmsg_, 0, sizeof dhcpmsg_);
-             memcpy(&dhcpmsg_, recv_buffer_.data(),
-                    bytes_xferred <= sizeof dhcpmsg_ ? bytes_xferred : sizeof dhcpmsg_);
-             if (!validate_dhcp()) {
+             memcpy(&dhcpmsg_, recv_buffer_.data(), msglen);
+             uint8_t msgtype = validate_dhcp(msglen);
+             if (!msgtype) {
                  start_receive();
                  return;
              }
-
-             uint8_t msgtype = get_option_msgtype(&dhcpmsg_);
              ClientID clientid(getClientId(dhcpmsg_), getChaddr(dhcpmsg_));
 
              auto cs = client_states_v4->stateGet(dhcpmsg_.xid, clientid);

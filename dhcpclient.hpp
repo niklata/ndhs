@@ -156,7 +156,7 @@ private:
     void do_release(const ClientID &clientid);
     std::string getChaddr(const struct dhcpmsg &dm) const;
     std::string getClientId(const struct dhcpmsg &dm) const;
-    bool validate_dhcp(void) const;
+    uint8_t validate_dhcp(size_t len) const;
 
     boost::asio::ip::udp::socket socket_;
     //boost::asio::ip::udp::socket broadcast_socket_;
