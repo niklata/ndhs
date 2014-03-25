@@ -151,8 +151,8 @@ private:
     std::string ipStr(uint32_t ip) const;
 
     enum class SendReplyType { UnicastCi, Broadcast, Relay, UnicastYiCh };
-    void send_reply_do(struct dhcpmsg *dm, SendReplyType srt);
-    void send_reply(struct dhcpmsg *dm);
+    void send_reply_do(const dhcpmsg &dm, SendReplyType srt);
+    void send_reply(const dhcpmsg &dm);
     void reply_discover(const ClientID &clientid);
     void reply_request(const ClientID &clientid, bool is_direct);
     void reply_inform(const ClientID &clientid);
