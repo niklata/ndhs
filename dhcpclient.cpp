@@ -49,8 +49,6 @@ extern "C" {
 #include "options.h"
 }
 
-#define DHCP_MAGIC              0x63825363
-
 namespace ba = boost::asio;
 
 extern std::unique_ptr<LeaseStore> gLeaseStore;
