@@ -149,7 +149,7 @@ private:
                       uint32_t xid, const ClientID &clientid) const;
     uint32_t local_ip() const;
     std::string ipStr(uint32_t ip) const;
-    void send_reply(struct dhcpmsg *dm, bool broadcast);
+    void send_reply(struct dhcpmsg *dm, bool broadcast, uint16_t port = 68);
     void reply_discover(const ClientID &clientid);
     void reply_request(const ClientID &clientid, bool is_direct);
     void reply_inform(const ClientID &clientid);

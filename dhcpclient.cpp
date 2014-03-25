@@ -142,7 +142,8 @@ uint32_t ClientListener::local_ip() const
     return ret;
 }
 
-void ClientListener::send_reply(struct dhcpmsg *dm, bool broadcast)
+void ClientListener::send_reply(struct dhcpmsg *dm, bool broadcast,
+                                uint16_t port)
 {
     ssize_t endloc = get_end_option_idx(dm);
     if (endloc < 0)
@@ -154,7 +155,7 @@ void ClientListener::send_reply(struct dhcpmsg *dm, bool broadcast)
 
     if (broadcast) {
         auto remotebcast = remote_endpoint_.address().to_v4().broadcast();
-        socket_.send_to(buf, ba::ip::udp::endpoint(remotebcast, 68),
+        socket_.send_to(buf, ba::ip::udp::endpoint(remotebcast, port),
                         0, ignored_error);
     } else {
         socket_.send_to(buf, remote_endpoint_, 0, ignored_error);
@@ -206,6 +207,7 @@ out:
     client_states_v4->stateKill(dhcpmsg_.xid, clientid);
 }
 
+static ba::ip::address_v4 zero_v4(0lu);
 void ClientListener::reply_inform(const ClientID &clientid)
 {
     struct dhcpmsg reply;
@@ -213,8 +215,27 @@ void ClientListener::reply_inform(const ClientID &clientid)
     dhcpmsg_init(&reply, DHCPACK, dhcpmsg_.xid, clientid);
     gLua->reply_inform(&reply, local_ip_.to_string(),
                        remote_endpoint_.address().to_string(), clientid);
+    // http://tools.ietf.org/html/draft-ietf-dhc-dhcpinform-clarify-06
+    reply.htype = dhcpmsg_.htype;
+    reply.hlen = dhcpmsg_.hlen;
+    memcpy(&reply.chaddr, &dhcpmsg_.chaddr, sizeof reply.chaddr);
+    reply.ciaddr = dhcpmsg_.ciaddr;
+    // xid was already set equal
+    reply.flags = dhcpmsg_.flags;
+    reply.hops = 0;
+    reply.secs = 0;
     reply.yiaddr = 0;
-    send_reply(&reply, false);
+    reply.siaddr = 0;
+    if (dhcpmsg_.ciaddr)
+        send_reply(&reply, false);
+    else if (dhcpmsg_.giaddr) {
+        auto fl = ntohs(reply.flags);
+        reply.flags = htons(fl | 0x8000u);
+        send_reply(&reply, false, 67);
+    } else if (remote_endpoint_.address() != zero_v4)
+        send_reply(&reply, false);
+    else
+        send_reply(&reply, true);
 }
 
 void ClientListener::do_release(const ClientID &clientid) {
