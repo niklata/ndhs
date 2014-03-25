@@ -110,24 +110,33 @@ static int enforce_seccomp(void)
     struct sock_filter filter[] = {
         VALIDATE_ARCHITECTURE,
         EXAMINE_SYSCALL,
+
+#if defined(__x86_64__) || (defined(__arm__) && defined(__ARM_EABI__))
         ALLOW_SYSCALL(sendmsg),
         ALLOW_SYSCALL(recvmsg),
+        ALLOW_SYSCALL(socket),
+        ALLOW_SYSCALL(getsockname),
+        ALLOW_SYSCALL(getpeername),
+        ALLOW_SYSCALL(connect),
+        ALLOW_SYSCALL(sendto), // used for glibc syslog routines
+        ALLOW_SYSCALL(fcntl),
+        ALLOW_SYSCALL(accept),
+#elif defined(__i386__)
+        ALLOW_SYSCALL(socketcall),
+        ALLOW_SYSCALL(fcntl64),
+#else
+#error Target platform does not support seccomp-filter.
+#endif
+
         ALLOW_SYSCALL(read),
         ALLOW_SYSCALL(write),
-        ALLOW_SYSCALL(sendto), // used for glibc syslog routines
         ALLOW_SYSCALL(epoll_wait),
         ALLOW_SYSCALL(epoll_ctl),
-        ALLOW_SYSCALL(getpeername),
-        ALLOW_SYSCALL(getsockname),
         ALLOW_SYSCALL(stat),
         ALLOW_SYSCALL(open),
         ALLOW_SYSCALL(close),
-        ALLOW_SYSCALL(socket),
-        ALLOW_SYSCALL(accept),
-        ALLOW_SYSCALL(connect),
         ALLOW_SYSCALL(ioctl),
         ALLOW_SYSCALL(timerfd_settime),
-        ALLOW_SYSCALL(fcntl),
         ALLOW_SYSCALL(access),
         ALLOW_SYSCALL(fstat),
         ALLOW_SYSCALL(lseek),
@@ -163,6 +172,7 @@ static int enforce_seccomp(void)
         return -1;
     if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog))
         return -1;
+    log_line("seccomp filter installed.  Please disable seccomp if you encounter problems.");
     return 0;
 }
 
@@ -197,6 +207,7 @@ static po::variables_map fetch_options(int ac, char *av[])
          "user name that ndhs should run as")
         ("group,g", po::value<std::string>(),
          "group name that ndhs should run as")
+        ("seccomp-enforce,S", "enforce seccomp syscall restrictions")
         ;
 
     po::options_description cmdline_options;
@@ -263,6 +274,7 @@ static void process_options(int ac, char *av[])
 {
     std::vector<std::string> iflist;
     std::string pidfile, chroot_path, leasefile_path, scriptfile_path;
+    bool use_seccomp(false);
 
     auto vm(fetch_options(ac, av));
 
@@ -306,6 +318,8 @@ static void process_options(int ac, char *av[])
             } else suicide("invalid gid specified");
         }
     }
+    if (vm.count("seccomp-enforce"))
+        use_seccomp = true;
 
     if (!iflist.size()) {
         suicide("at least one listening interface must be specified");
@@ -348,8 +362,10 @@ static void process_options(int ac, char *av[])
     init_client_states_v4(io_service);
     gLeaseStore = nk::make_unique<LeaseStore>(leasefile_path);
 
-    if (enforce_seccomp())
-        log_line("seccomp filter cannot be installed");
+    if (use_seccomp) {
+        if (enforce_seccomp())
+            log_line("seccomp filter cannot be installed");
+    }
 }
 
 int main(int ac, char *av[]) {
