@@ -2,7 +2,7 @@
 #include <boost/lexical_cast.hpp>
 
 extern "C" {
-#include "log.h"
+#include "nk/log.h"
 }
 #include "leasestore.hpp"
 
@@ -10,9 +10,8 @@ LeaseStore::LeaseStore(const std::string &path)
 {
     int r = sqlite3_open(path.c_str(), &db_);
     if (r) {
-        log_error("failed to open lease database '%s'", path.c_str());
         sqlite3_close(db_);
-        exit(1);
+        suicide("failed to open lease database '%s'", path.c_str());
     }
 }
 

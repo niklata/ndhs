@@ -60,12 +60,11 @@
 #include "make_unique.hpp"
 
 extern "C" {
-#include "defines.h"
-#include "log.h"
-#include "chroot.h"
-#include "pidfile.h"
-#include "exec.h"
-#include "seccomp-bpf.h"
+#include "nk/log.h"
+#include "nk/privilege.h"
+#include "nk/pidfile.h"
+#include "nk/exec.h"
+#include "nk/seccomp-bpf.h"
 }
 
 namespace po = boost::program_options;
@@ -231,14 +230,14 @@ static po::variables_map fetch_options(int ac, char *av[])
 
     if (vm.count("help")) {
         std::cout << "ndhs " << NDHS_VERSION << ", dhcp server.\n"
-                  << "Copyright (c) 2011-2013 Nicholas J. Kain\n"
+                  << "Copyright (c) 2011-2014 Nicholas J. Kain\n"
                   << av[0] << " [options] interfaces...\n"
                   << gopts << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (vm.count("version")) {
         std::cout << "ndhs " << NDHS_VERSION << ", dhcp server.\n" <<
-            "Copyright (c) 2011-2013 Nicholas J. Kain\n"
+            "Copyright (c) 2011-2014 Nicholas J. Kain\n"
             "All rights reserved.\n\n"
             "Redistribution and use in source and binary forms, with or without\n"
             "modification, are permitted provided that the following conditions are met:\n\n"
@@ -335,20 +334,14 @@ static void process_options(int ac, char *av[])
 
     umask(077);
     process_signals();
-    ncm_fix_env(ndhs_uid, 0);
+    nk_fix_env(ndhs_uid, 0);
 
     gLua = nk::make_unique<DhcpLua>(scriptfile_path);
 
-    if (chroot_path.size()) {
-        if (getuid())
-            suicide("root required for chroot\n");
-        if (chdir(chroot_path.c_str()))
-            suicide("failed to chdir(%s)\n", chroot_path.c_str());
-        if (chroot(chroot_path.c_str()))
-            suicide("failed to chroot(%s)\n", chroot_path.c_str());
-    }
+    if (chroot_path.size())
+        nk_set_chroot(chroot_path.c_str());
     if (ndhs_uid != 0 || ndhs_gid != 0)
-        drop_root(ndhs_uid, ndhs_gid);
+        nk_set_uidgid(ndhs_uid, ndhs_gid);
 
     init_client_states_v4(io_service);
     gLeaseStore = nk::make_unique<LeaseStore>(leasefile_path);

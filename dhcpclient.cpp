@@ -45,7 +45,7 @@
 #include "make_unique.hpp"
 
 extern "C" {
-#include "log.h"
+#include "nk/log.h"
 #include "options.h"
 }
 

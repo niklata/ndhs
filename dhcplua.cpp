@@ -53,7 +53,7 @@ static int add_option_iplist(lua_State *L, uint8_t code)
 }
 
 extern "C" {
-#include "log.h"
+#include "nk/log.h"
 
 int dlua_set_lease_time(lua_State *L)
 {
@@ -228,13 +228,10 @@ DhcpLua::DhcpLua(const std::string &cfg)
         case LUA_ERRMEM:
             errmsg = "Memory error loading configuration file: %s"; break;
         }
-        log_error(errmsg.c_str(), cfg.c_str());
-        exit(1);
+        suicide(errmsg.c_str(), cfg.c_str());
     }
-    if (lua_pcall(L_, 0, 0, 0) != 0) {
-        log_error("failed to run configuration file: %s", lua_tostring(L_, -1));
-        exit(1);
-    }
+    if (lua_pcall(L_, 0, 0, 0) != 0)
+        suicide("failed to run configuration file: %s", lua_tostring(L_, -1));
 }
 
 DhcpLua::~DhcpLua()
