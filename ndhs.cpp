@@ -198,8 +198,6 @@ static po::variables_map fetch_options(int ac, char *av[])
          "'interface' on which to listen (must specify at least one)")
         ("user,u", po::value<std::string>(),
          "user name that ndhs should run as")
-        ("group,g", po::value<std::string>(),
-         "group name that ndhs should run as")
         ("seccomp-enforce,S", "enforce seccomp syscall restrictions")
         ;
 
@@ -287,11 +285,8 @@ static void process_options(int ac, char *av[])
         iflist = vm["interface"].as<std::vector<std::string> >();
     if (vm.count("user")) {
         auto t = vm["user"].as<std::string>();
-        ndhs_uid = nk_uidgidbyname(t.c_str(), &ndhs_gid);
-    }
-    if (vm.count("group")) {
-        auto t = vm["group"].as<std::string>();
-        ndhs_gid = nk_gidbyname(t.c_str());
+        if (nk_uidgidbyname(t.c_str(), &ndhs_uid, &ndhs_gid))
+            suicide("invalid user '%s' specified", t.c_str());
     }
     if (vm.count("seccomp-enforce"))
         use_seccomp = true;
