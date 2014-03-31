@@ -72,7 +72,8 @@ namespace po = boost::program_options;
 boost::asio::io_service io_service;
 static boost::asio::signal_set asio_signal_set(io_service);
 static std::vector<std::unique_ptr<ClientListener>> listeners;
-static int ndhs_uid, ndhs_gid;
+static uid_t ndhs_uid;
+static gid_t ndhs_gid;
 
 std::unique_ptr<LeaseStore> gLeaseStore;
 std::unique_ptr<DhcpLua> gLua;
@@ -286,27 +287,11 @@ static void process_options(int ac, char *av[])
         iflist = vm["interface"].as<std::vector<std::string> >();
     if (vm.count("user")) {
         auto t = vm["user"].as<std::string>();
-        try {
-            ndhs_uid = boost::lexical_cast<unsigned int>(t);
-        } catch (boost::bad_lexical_cast &) {
-            auto pws = getpwnam(t.c_str());
-            if (pws) {
-                ndhs_uid = (int)pws->pw_uid;
-                if (!ndhs_gid)
-                    ndhs_gid = (int)pws->pw_gid;
-            } else suicide("invalid uid specified");
-        }
+        ndhs_uid = nk_uidgidbyname(t.c_str(), &ndhs_gid);
     }
     if (vm.count("group")) {
         auto t = vm["group"].as<std::string>();
-        try {
-            ndhs_gid = boost::lexical_cast<unsigned int>(t);
-        } catch (boost::bad_lexical_cast &) {
-            auto grp = getgrnam(t.c_str());
-            if (grp) {
-                ndhs_gid = (int)grp->gr_gid;
-            } else suicide("invalid gid specified");
-        }
+        ndhs_gid = nk_gidbyname(t.c_str());
     }
     if (vm.count("seccomp-enforce"))
         use_seccomp = true;
