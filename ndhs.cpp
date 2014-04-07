@@ -321,7 +321,7 @@ static void process_options(int ac, char *av[])
     if (chroot_path.size())
         nk_set_chroot(chroot_path.c_str());
     if (ndhs_uid != 0 || ndhs_gid != 0)
-        nk_set_uidgid(ndhs_uid, ndhs_gid);
+        nk_set_uidgid(ndhs_uid, ndhs_gid, NULL);
 
     init_client_states_v4(io_service);
     gLeaseStore = nk::make_unique<LeaseStore>(leasefile_path);
