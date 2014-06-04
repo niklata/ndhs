@@ -17,7 +17,7 @@ function get_ip_stem(ip)
    return ipstem
 end
 
-function assign_ip(dm, sipfn, lip, mac, cid, rlo, rhi)
+function fetch_ip(dm, sipfn, lip, mac, cid)
    -- Handle static assignments.
    if sipfn then
       local sip = sipfn(lip, mac)
@@ -37,7 +37,10 @@ function assign_ip(dm, sipfn, lip, mac, cid, rlo, rhi)
       dhcpmsg_set_lease_time(dm, 900)
       return true
    end
+   return false
+end
 
+function assign_ip(dm, lip, cid, rlo, rhi)
    -- Go through the range list until a free slot is found.
    if rlo > rhi then
       rlo, rhi = rhi, rlo
@@ -55,17 +58,19 @@ function assign_ip(dm, sipfn, lip, mac, cid, rlo, rhi)
    return false
 end
 
-function common_reply_assign(dm, lip, rip, mac, cid)
+function get_ipinfo(dm, sipfn, lip, mac, cid, rlo, rhi, do_assign)
+    if fetch_ip(dm, sipfn, lip, mac, cid) then return true end
+    if do_assign and assign_ip(dm, lip, cid, rlo, rhi) then return true end
+    return false
+end
+
+function common_reply_ipinfo(dm, lip, rip, mac, cid, do_assign)
    if (lip == '192.168.0.1') then
-      if not assign_ip(dm, m2s_wirednet, lip, mac, cid, 100, 250) then
-         return false
-      end
+      return get_ipinfo(dm, m2s_wirednet, lip, mac, cid, 100, 250, do_assign)
    elseif (lip == '192.168.1.1') then
-      if not assign_ip(dm, m2s_wifinet, lip, mac, cid, 100, 250) then
-         return false
-      end
+      return get_ipinfo(dm, m2s_wifinet, lip, mac, cid, 100, 250, do_assign)
    end
-   return true
+   return false
 end
 
 function common_reply_info(dm, lip, rip, mac, cid)
@@ -84,12 +89,8 @@ function common_reply_info(dm, lip, rip, mac, cid)
 end
 
 function common_reply(dm, lip, rip, mac, cid, do_assign)
-   if do_assign then
-      local r = common_reply_assign(dm, lip, rip, mac, cid)
-      if not r then
-         return false
-      end
-   end
+   local r = common_reply_ipinfo(dm, lip, rip, mac, cid, do_assign)
+   if not r then return false end
    common_reply_info(dm, lip, rip, mac, cid)
    return true
 end

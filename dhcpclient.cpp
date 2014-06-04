@@ -152,7 +152,7 @@ void ClientListener::send_reply_do(const dhcpmsg &dm, SendReplyType srt)
 
     switch (srt) {
     case SendReplyType::UnicastCi: {
-        auto uct = ba::ip::address_v4(dhcpmsg_.ciaddr);
+        auto uct = ba::ip::address_v4(ntohl(dhcpmsg_.ciaddr));
         socket_.send_to(buf, ba::ip::udp::endpoint(uct, 68), 0, ignored_error);
         break;
     }
@@ -163,13 +163,13 @@ void ClientListener::send_reply_do(const dhcpmsg &dm, SendReplyType srt)
         break;
     }
     case SendReplyType::Relay: {
-        auto relay = ba::ip::address_v4(dhcpmsg_.giaddr);
+        auto relay = ba::ip::address_v4(ntohl(dhcpmsg_.giaddr));
         socket_.send_to(buf, ba::ip::udp::endpoint(relay, 67),
                         0, ignored_error);
         break;
     }
     case SendReplyType::UnicastYiCh: {
-        auto uct = ba::ip::address_v4(dhcpmsg_.yiaddr);
+        auto uct = ba::ip::address_v4(ntohl(dhcpmsg_.yiaddr));
         socket_.send_to(buf, ba::ip::udp::endpoint(uct, 68), 0, ignored_error);
         break;
     }
