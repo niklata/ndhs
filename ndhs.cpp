@@ -137,14 +137,17 @@ static int enforce_seccomp(void)
         ALLOW_SYSCALL(access),
         ALLOW_SYSCALL(fstat),
         ALLOW_SYSCALL(lseek),
-        ALLOW_SYSCALL(brk),
         ALLOW_SYSCALL(umask),
         ALLOW_SYSCALL(geteuid),
         ALLOW_SYSCALL(fsync),
         ALLOW_SYSCALL(unlink),
         ALLOW_SYSCALL(rt_sigreturn),
+        ALLOW_SYSCALL(rt_sigaction),
 #ifdef __NR_sigreturn
         ALLOW_SYSCALL(sigreturn),
+#endif
+#ifdef __NR_sigaction
+        ALLOW_SYSCALL(sigaction),
 #endif
         // Allowed by vDSO
         ALLOW_SYSCALL(getcpu),
