@@ -1,9 +1,5 @@
 #include <sys/time.h>
-#include <boost/lexical_cast.hpp>
-
-extern "C" {
-#include "nk/log.h"
-}
+#include <nk/format.hpp>
 #include "leasestore.hpp"
 
 LeaseStore::LeaseStore(const std::string &path)
@@ -11,7 +7,8 @@ LeaseStore::LeaseStore(const std::string &path)
     int r = sqlite3_open(path.c_str(), &db_);
     if (r) {
         sqlite3_close(db_);
-        suicide("failed to open lease database '%s'", path.c_str());
+        fmt::print(stderr, "failed to open lease database '{}'\n", path);
+        std::exit(EXIT_FAILURE);
     }
 }
 
@@ -32,7 +29,7 @@ bool LeaseStore::runSql(sqlite3_stmt *ss, const char *parentfn)
         }
         if (rc == SQLITE_ROW)
             continue;
-        log_warning("%s: step error %d", parentfn, rc);
+        fmt::print(stderr, "{}: step error {}\n", parentfn, rc);
         break;
     }
     sqlite3_finalize(ss);
@@ -48,7 +45,7 @@ bool LeaseStore::addLease(const std::string &ifip, const ClientID &clientid,
     sql.append("' (clientid BLOB PRIMARY KEY, ip TEXT, expirets INTEGER)");
     int rc = sqlite3_prepare_v2(db_, sql.c_str(), sql.size(), &ss, NULL);
     if (rc != SQLITE_OK) {
-        log_warning("LeaseStore::addLease prepare (1) failed: %d", rc);
+        fmt::print(stderr, "LeaseStore::addLease prepare (1) failed: {}\n", rc);
         return false;
     }
     runSql(ss, "LeaseStore::addLease (1)");
@@ -59,23 +56,23 @@ bool LeaseStore::addLease(const std::string &ifip, const ClientID &clientid,
     sql.append("' VALUES (?,?,?)");
     rc = sqlite3_prepare_v2(db_, sql.c_str(), sql.size(), &ss, NULL);
     if (rc != SQLITE_OK) {
-        log_warning("LeaseStore::addLease prepare (2) failed!  rc == %d", rc);
+        fmt::print(stderr, "LeaseStore::addLease prepare (2) failed!  rc == {}\n", rc);
         return false;
     }
     auto cid = clientid.value();
     rc = sqlite3_bind_blob(ss, 1, cid.data(), cid.size(), SQLITE_STATIC);
     if (rc != SQLITE_OK) {
-        log_warning("LeaseStore::addLease: binding cid failed: %d", rc);
+        fmt::print(stderr, "LeaseStore::addLease: binding cid failed: {}\n", rc);
         return false;
     }
     rc = sqlite3_bind_text(ss, 2, ip.data(), ip.size(), SQLITE_STATIC);
     if (rc != SQLITE_OK) {
-        log_warning("LeaseStore::addLease: binding ip failed: %d", rc);
+        fmt::print(stderr, "LeaseStore::addLease: binding ip failed: {}\n", rc);
         return false;
     }
     rc = sqlite3_bind_int64(ss, 3, expirets);
     if (rc != SQLITE_OK) {
-        log_warning("LeaseStore::addLease: binding expirets failed: %d, rc");
+        fmt::print(stderr, "LeaseStore::addLease: binding expirets failed: {}\n", rc);
         return false;
     }
     return runSql(ss, "LeaseStore::addLease (2)");
@@ -89,13 +86,13 @@ bool LeaseStore::delLease(const std::string &ifip, const ClientID &clientid)
     sqlite3_stmt *ss;
     int rc = sqlite3_prepare_v2(db_, sql.c_str(), sql.size(), &ss, NULL);
     if (rc != SQLITE_OK) {
-        log_warning("LeaseStore::delLease: prepare failed: %d", rc);
+        fmt::print(stderr, "LeaseStore::delLease: prepare failed: {}\n", rc);
         return false;
     }
     auto cid = clientid.value();
     rc = sqlite3_bind_blob(ss, 1, cid.data(), cid.size(), SQLITE_STATIC);
     if (rc != SQLITE_OK) {
-        log_warning("LeaseStore::delLease: binding cid failed: %d", rc);
+        fmt::print(stderr, "LeaseStore::delLease: binding cid failed: {}\n", rc);
         return false;
     }
     return runSql(ss, "LeaseStore::delLease");
@@ -119,13 +116,13 @@ const std::string LeaseStore::getLease(const std::string &ifip,
 
     int rc = sqlite3_prepare(db_, sql.c_str(), sql.size(), &ss, NULL);
     if (rc != SQLITE_OK) {
-        log_warning("LeaseStore::getLease: prepare failed: %d", rc);
+        fmt::print(stderr, "LeaseStore::getLease: prepare failed: {}\n", rc);
         return ret;
     }
     auto cid = clientid.value();
     rc = sqlite3_bind_blob(ss, 1, cid.data(), cid.size(), SQLITE_STATIC);
     if (rc != SQLITE_OK) {
-        log_warning("LeaseStore::getLease: binding cid failed: %d", rc);
+        fmt::print(stderr, "LeaseStore::getLease: binding cid failed: {}\n", rc);
         return ret;
     }
     for (;;) {
@@ -141,7 +138,7 @@ const std::string LeaseStore::getLease(const std::string &ifip,
             } else
                 delLease(ifip, clientid);
         }
-        log_warning("LeaseStore::getLease: step error %d", rc);
+        fmt::print(stderr, "LeaseStore::getLease: step error {}\n", rc);
         break;
     }
     sqlite3_finalize(ss);
@@ -159,12 +156,12 @@ bool LeaseStore::ipTaken(const std::string &ifip, const ClientID &clientid,
 
     int rc = sqlite3_prepare(db_, sql.c_str(), sql.size(), &ss, NULL);
     if (rc != SQLITE_OK) {
-        log_warning("LeaseStore::ipTaken: prepare failed: %d", rc);
+        fmt::print(stderr, "LeaseStore::ipTaken: prepare failed: {}\n", rc);
         return ret;
     }
     rc = sqlite3_bind_text(ss, 1, ip.data(), ip.size(), SQLITE_STATIC);
     if (rc != SQLITE_OK) {
-        log_warning("LeaseStore::ipTaken: binding ip failed: %d", rc);
+        fmt::print(stderr, "LeaseStore::ipTaken: binding ip failed: {}\n", rc);
         return ret;
     }
     for (;;) {
@@ -184,7 +181,7 @@ bool LeaseStore::ipTaken(const std::string &ifip, const ClientID &clientid,
                 break;
             }
         }
-        log_warning("LeaseStore::ipTaken: step error %d", rc);
+        fmt::print(stderr, "LeaseStore::ipTaken: step error {}\n", rc);
         break;
     }
     sqlite3_finalize(ss);

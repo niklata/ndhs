@@ -36,7 +36,7 @@
 #include <sys/socket.h>
 #include <ifaddrs.h>
 
-#include <boost/lexical_cast.hpp>
+#include <nk/format.hpp>
 
 #include "dhcpclient.hpp"
 #include "leasestore.hpp"
@@ -45,7 +45,6 @@
 #include "make_unique.hpp"
 
 extern "C" {
-#include "nk/log.h"
 #include "options.h"
 }
 
@@ -76,14 +75,14 @@ ClientListener::ClientListener(ba::io_service &io_service,
     memset(&ifr, 0, sizeof (struct ifreq));
     memcpy(ifr.ifr_name, ifname.c_str(), ifname.size());
     if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
-        log_error("failed to bind socket to device: %s", strerror(errno));
-        exit(-1);
+        fmt::print(stderr, "failed to bind socket to device: {}\n", strerror(errno));
+        exit(EXIT_FAILURE);
     }
 
     struct ifaddrs *ifaddr, *ifa;
     if (getifaddrs(&ifaddr) == -1) {
-        log_error("failed to get list of interface ips: %s", strerror(errno));
-        exit(-1);
+        fmt::print(stderr, "failed to get list of interface ips: {}\n", strerror(errno));
+        exit(EXIT_FAILURE);
     }
     for (ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
         if (!ifa->ifa_addr)
@@ -95,17 +94,17 @@ ClientListener::ClientListener(ba::io_service &io_service,
         char lipbuf[INET_ADDRSTRLEN];
         if (!inet_ntop(AF_INET, &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr,
                        lipbuf, sizeof lipbuf)) {
-            log_error("failed to parse IP for interface (%s): %s",
-                       ifname.c_str(), strerror(errno));
-            exit(-1);
+            fmt::print(stderr, "failed to parse IP for interface ({}): {}\n",
+                       ifname, strerror(errno));
+            exit(EXIT_FAILURE);
         }
         local_ip_ = ba::ip::address::from_string(lipbuf);
         break;
     }
     freeifaddrs(ifaddr);
     if (!local_ip_.is_v4()) {
-        log_error("interface (%s) has no IP address", ifname.c_str());
-        exit(-1);
+        fmt::print(stderr, "interface ({}) has no IP address\n", ifname);
+        exit(EXIT_FAILURE);
     }
 
     start_receive();
@@ -134,7 +133,7 @@ uint32_t ClientListener::local_ip() const
 {
     uint32_t ret;
     if (inet_pton(AF_INET, local_ip_.to_string().c_str(), &ret) != 1) {
-        log_warning("inet_pton failed: %s", strerror(errno));
+        fmt::print(stderr, "inet_pton failed: {}\n", strerror(errno));
         return 0;
     }
     return ret;
@@ -274,7 +273,8 @@ void ClientListener::do_release(const ClientID &clientid) {
         gLeaseStore->getLease(socket_.local_endpoint().address().to_string(),
                               clientid);
     if (lip != remote_endpoint_.address().to_string()) {
-        log_line("do_release: ignoring spoofed release request.  %s != %s.", remote_endpoint_.address().to_string().c_str(), lip.c_str());
+        fmt::print("do_release: ignoring spoofed release request.  {} != {}.\n",
+                   remote_endpoint_.address().to_string(), lip);
         return;
     }
     gLeaseStore->delLease(socket_.local_endpoint().address().to_string(),
@@ -353,7 +353,7 @@ void ClientListener::start_receive()
              case DHCPREQUEST:  reply_request(clientid, direct_request); break;
              case DHCPINFORM:   reply_inform(clientid); break;
              case DHCPDECLINE:
-                 log_warning("Received a DHCPDECLINE.  Clients conflict?");
+                                fmt::print("Received a DHCPDECLINE.  Clients conflict?\n");
              case DHCPRELEASE:  do_release(clientid); break;
              }
              start_receive();

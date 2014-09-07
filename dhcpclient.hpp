@@ -107,9 +107,7 @@ public:
     }
 private:
     std::string generateKey(uint32_t xid, const ClientID &clientid) const {
-        std::string r(boost::lexical_cast<std::string>(xid));
-        r.append(clientid.value());
-        return r;
+        return fmt::format("{}{}", xid, clientid.value());
     }
     void doSwap(void) {
         int killMap = !currentMap_;

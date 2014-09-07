@@ -20,8 +20,11 @@ if (${OSNAME} STREQUAL "Linux")
   message("Detected that the current host is a Linux system.")
 endif()
 
-include_directories("${PROJECT_SOURCE_DIR}/ncmlib")
+include_directories("${PROJECT_SOURCE_DIR}"
+                    "${PROJECT_SOURCE_DIR}/ncmlib"
+                    "${PROJECT_SOURCE_DIR}/cppformat")
 add_subdirectory(ncmlib)
+add_subdirectory(cppformat)
 
 find_package( Boost COMPONENTS system program_options )
 link_directories ( ${Boost_LIBRARY_DIRS} )
@@ -39,4 +42,4 @@ list(APPEND NDHS_SRCS ${NDHS_SRCS_C} ${NDHS_SRCS_CPP})
 
 add_executable(ndhs ${NDHS_SRCS})
 target_link_libraries(ndhs ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES}
-                           ncmlib lua sqlite)
+                           ncmlib cppformat lua sqlite)

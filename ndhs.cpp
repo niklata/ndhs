@@ -53,6 +53,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/program_options.hpp>
+#include <nk/format.hpp>
 
 #include "dhcpclient.hpp"
 #include "dhcplua.hpp"
@@ -60,7 +61,6 @@
 #include "make_unique.hpp"
 
 extern "C" {
-#include "nk/log.h"
 #include "nk/privilege.h"
 #include "nk/pidfile.h"
 #include "nk/exec.h"
@@ -74,6 +74,8 @@ static boost::asio::signal_set asio_signal_set(io_service);
 static std::vector<std::unique_ptr<ClientListener>> listeners;
 static uid_t ndhs_uid;
 static gid_t ndhs_gid;
+extern int gflags_detach;
+extern int gflags_quiet;
 
 std::unique_ptr<LeaseStore> gLeaseStore;
 std::unique_ptr<DhcpLua> gLua;
@@ -89,8 +91,10 @@ static void process_signals()
     sigaddset(&mask, SIGTSTP);
     sigaddset(&mask, SIGTTIN);
     sigaddset(&mask, SIGHUP);
-    if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0)
-        suicide("sigprocmask failed");
+    if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0) {
+        fmt::print(stderr, "sigprocmask failed\n");
+        std::quick_exit(EXIT_FAILURE);
+    }
     asio_signal_set.add(SIGINT);
     asio_signal_set.add(SIGTERM);
     asio_signal_set.async_wait(
@@ -173,7 +177,7 @@ static int enforce_seccomp(void)
         return -1;
     if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog))
         return -1;
-    log_line("seccomp filter installed.  Please disable seccomp if you encounter problems.");
+    fmt::print("seccomp filter installed.  Please disable seccomp if you encounter problems.\n");
     return 0;
 }
 
@@ -220,14 +224,14 @@ static po::variables_map fetch_options(int ac, char *av[])
         po::store(po::command_line_parser(ac, av).
                   options(cmdline_options).positional(p).run(), vm);
     } catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
+        fmt::print(stderr, "{}\n", e.what());
     }
     po::notify(vm);
 
     if (config_file.size()) {
         std::ifstream ifs(config_file.c_str());
         if (!ifs) {
-            std::cerr << "Could not open config file: " << config_file << "\n";
+            fmt::print(stderr, "Could not open config file: {}\n", config_file);
             std::exit(EXIT_FAILURE);
         }
         po::store(po::parse_config_file(ifs, cfgfile_options), vm);
@@ -235,14 +239,13 @@ static po::variables_map fetch_options(int ac, char *av[])
     }
 
     if (vm.count("help")) {
-        std::cout << "ndhs " << NDHS_VERSION << ", dhcp server.\n"
-                  << "Copyright (c) 2011-2014 Nicholas J. Kain\n"
-                  << av[0] << " [options] interfaces...\n"
-                  << gopts << std::endl;
+        fmt::print("ndhs " NDHS_VERSION ", dhcp server.\n"
+                  "Copyright (c) 2011-2014 Nicholas J. Kain\n"
+                  "{} [options] interfaces...\n{}\n", av[0], gopts);
         std::exit(EXIT_FAILURE);
     }
     if (vm.count("version")) {
-        std::cout << "ndhs " << NDHS_VERSION << ", dhcp server.\n" <<
+        fmt::print("ndhs " NDHS_VERSION ", dhcp server.\n"
             "Copyright (c) 2011-2014 Nicholas J. Kain\n"
             "All rights reserved.\n\n"
             "Redistribution and use in source and binary forms, with or without\n"
@@ -262,7 +265,7 @@ static po::variables_map fetch_options(int ac, char *av[])
             "INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN\n"
             "CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)\n"
             "ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE\n"
-            "POSSIBILITY OF SUCH DAMAGE.\n";
+            "POSSIBILITY OF SUCH DAMAGE.\n");
         std::exit(EXIT_FAILURE);
     }
     return vm;
@@ -292,14 +295,17 @@ static void process_options(int ac, char *av[])
         iflist = vm["interface"].as<std::vector<std::string> >();
     if (vm.count("user")) {
         auto t = vm["user"].as<std::string>();
-        if (nk_uidgidbyname(t.c_str(), &ndhs_uid, &ndhs_gid))
-            suicide("invalid user '%s' specified", t.c_str());
+        if (nk_uidgidbyname(t.c_str(), &ndhs_uid, &ndhs_gid)) {
+            fmt::print(stderr, "invalid user '{}' specified\n", t);
+            std::exit(EXIT_FAILURE);
+        }
     }
     if (vm.count("seccomp-enforce"))
         use_seccomp = true;
 
     if (!iflist.size()) {
-        suicide("at least one listening interface must be specified");
+        fmt::print(stderr, "at least one listening interface must be specified\n");
+        std::exit(EXIT_FAILURE);
     } else
         for (const auto &i: iflist) {
             try {
@@ -308,13 +314,16 @@ static void process_options(int ac, char *av[])
                 listeners.emplace_back(nk::make_unique<ClientListener>
                                        (io_service, ep, i));
             } catch (boost::system::error_code &ec) {
-                std::cout << "bad interface: " << i << std::endl;
+                fmt::print("bad interface: {}\n", i);
             }
         }
 
-    if (gflags_detach)
-        if (daemon(0,0))
-            suicide("detaching fork failed");
+    if (gflags_detach) {
+        if (daemon(0,0)) {
+            fmt::print(stderr, "detaching fork failed\n");
+            std::exit(EXIT_FAILURE);
+        }
+    }
 
     if (pidfile.size() && file_exists(pidfile.c_str(), "w"))
         write_pid(pidfile.c_str());
@@ -335,14 +344,12 @@ static void process_options(int ac, char *av[])
 
     if (use_seccomp) {
         if (enforce_seccomp())
-            log_line("seccomp filter cannot be installed");
+            fmt::print(stderr, "seccomp filter cannot be installed\n");
     }
 }
 
 int main(int ac, char *av[])
 {
-    gflags_log_name = const_cast<char *>("ndhs");
-
     process_options(ac, av);
 
     io_service.run();

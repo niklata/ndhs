@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <arpa/inet.h>
+#include <nk/format.hpp>
 
 #include "dhcplua.hpp"
 #include "leasestore.hpp"
@@ -53,7 +54,6 @@ static int add_option_iplist(lua_State *L, uint8_t code)
 }
 
 extern "C" {
-#include "nk/log.h"
 
 int dlua_set_lease_time(lua_State *L)
 {
@@ -219,19 +219,23 @@ DhcpLua::DhcpLua(const std::string &cfg)
     lua_setglobal(L_, "dhcp_get_current_lease");
     int r = luaL_loadfile(L_, cfg.c_str());
     if (r) {
-        std::string errmsg("Unknown error in config file: %s");
+        std::string errmsg("Unknown error in config file: {}\n");
         switch (r) {
         case LUA_ERRFILE:
-            errmsg = "Invalid configuration file: %s"; break;
+            errmsg = "Invalid configuration file: {}\n"; break;
         case LUA_ERRSYNTAX:
-            errmsg = "Syntax error in configuration file: %s"; break;
+            errmsg = "Syntax error in configuration file: {}\n"; break;
         case LUA_ERRMEM:
-            errmsg = "Memory error loading configuration file: %s"; break;
+            errmsg = "Memory error loading configuration file: {}\n"; break;
         }
-        suicide(errmsg.c_str(), cfg.c_str());
+        fmt::print(stderr, errmsg, cfg);
+        std::exit(EXIT_FAILURE);
     }
-    if (lua_pcall(L_, 0, 0, 0) != 0)
-        suicide("failed to run configuration file: %s", lua_tostring(L_, -1));
+    if (lua_pcall(L_, 0, 0, 0) != 0) {
+        fmt::print(stderr, "failed to run configuration file: {}\n",
+                   lua_tostring(L_, -1));
+        std::exit(EXIT_FAILURE);
+    }
 }
 
 DhcpLua::~DhcpLua()
@@ -251,8 +255,8 @@ bool DhcpLua::reply_discover(dhcpmsg &dm, const std::string &lip,
     lua_pushlstring(L_, macstr.c_str(), macstr.size());
     lua_pushlstring(L_, cidstr.c_str(), cidstr.size());
     if (lua_pcall(L_, 5, 1, 0) != 0)
-        log_warning("failed to call Lua function dhcp_reply_discover(): %s",
-                    lua_tostring(L_, -1));
+        fmt::print(stderr, "failed to call Lua function dhcp_reply_discover(): {}\n",
+                   lua_tostring(L_, -1));
     return lua_toboolean(L_, 1);
 }
 
@@ -268,7 +272,7 @@ bool DhcpLua::reply_request(dhcpmsg &dm, const std::string &lip,
     lua_pushlstring(L_, macstr.c_str(), macstr.size());
     lua_pushlstring(L_, cidstr.c_str(), cidstr.size());
     if (lua_pcall(L_, 5, 1, 0) != 0)
-        log_warning("failed to call Lua function dhcp_reply_request(): %s",
+        fmt::print(stderr, "failed to call Lua function dhcp_reply_request(): {}\n",
                     lua_tostring(L_, -1));
     return lua_toboolean(L_, 1);
 }
@@ -285,7 +289,7 @@ bool DhcpLua::reply_inform(dhcpmsg &dm, const std::string &lip,
     lua_pushlstring(L_, macstr.c_str(), macstr.size());
     lua_pushlstring(L_, cidstr.c_str(), cidstr.size());
     if (lua_pcall(L_, 5, 1, 0) != 0)
-        log_warning("failed to call Lua function dhcp_reply_inform(): %s",
+        fmt::print(stderr, "failed to call Lua function dhcp_reply_inform(): {}\n",
                     lua_tostring(L_, -1));
     return lua_toboolean(L_, 1);
 }
