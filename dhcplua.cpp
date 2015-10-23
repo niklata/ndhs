@@ -194,7 +194,7 @@ int dlua_get_current_lease(lua_State *L)
 
 DhcpLua::DhcpLua(const std::string &cfg)
 {
-    L_ = lua_open();
+    L_ = luaL_newstate();
     luaopen_base(L_);
     luaopen_string(L_);
     lua_pushcfunction(L_, dlua_set_lease_time);
