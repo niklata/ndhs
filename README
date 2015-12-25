@@ -185,9 +185,6 @@ CHECK_IP is the IP address (as a dotted-decimal string) that is looked up in
 the lease database.  If the IP address is unassigned, the function will
 return false; otherwise it will return true.
 
-Documentation is sparse right now, since ndhs is a WIP.  Skim through the
-program options and the sample configuration file.
-
 There is a function to look up the current lease for a particular clientid/cid:
 
 local curip = dhcp_get_current_lease(lip, cid)
