@@ -36,7 +36,7 @@
 #include <sys/socket.h>
 #include <ifaddrs.h>
 
-#include <nk/format.hpp>
+#include <format.hpp>
 
 #include "dhcpclient.hpp"
 #include "leasestore.hpp"

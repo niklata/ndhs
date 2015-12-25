@@ -53,7 +53,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/program_options.hpp>
-#include <nk/format.hpp>
+#include <format.hpp>
 
 #include "dhcpclient.hpp"
 #include "dhcplua.hpp"

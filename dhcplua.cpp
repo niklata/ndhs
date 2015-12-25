@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <arpa/inet.h>
-#include <nk/format.hpp>
+#include <format.hpp>
 
 #include "dhcplua.hpp"
 #include "leasestore.hpp"
