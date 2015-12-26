@@ -42,7 +42,6 @@
 #include "leasestore.hpp"
 #include "dhcplua.hpp"
 #include "clientid.hpp"
-#include "make_unique.hpp"
 
 extern "C" {
 #include "options.h"
@@ -56,7 +55,7 @@ extern std::unique_ptr<DhcpLua> gLua;
 std::unique_ptr<ClientStates> client_states_v4;
 void init_client_states_v4(ba::io_service &io_service)
 {
-    client_states_v4 = nk::make_unique<ClientStates>(io_service);
+    client_states_v4 = std::make_unique<ClientStates>(io_service);
 }
 
 ClientListener::ClientListener(ba::io_service &io_service,

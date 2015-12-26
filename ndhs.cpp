@@ -58,7 +58,6 @@
 #include "dhcpclient.hpp"
 #include "dhcplua.hpp"
 #include "leasestore.hpp"
-#include "make_unique.hpp"
 
 extern "C" {
 #include "nk/privilege.h"
@@ -311,7 +310,7 @@ static void process_options(int ac, char *av[])
             try {
                 auto addy = boost::asio::ip::address_v4::any();
                 auto ep = boost::asio::ip::udp::endpoint(addy, 67);
-                listeners.emplace_back(nk::make_unique<ClientListener>
+                listeners.emplace_back(std::make_unique<ClientListener>
                                        (io_service, ep, i));
             } catch (boost::system::error_code &ec) {
                 fmt::print("bad interface: {}\n", i);
@@ -332,7 +331,7 @@ static void process_options(int ac, char *av[])
     process_signals();
     nk_fix_env(ndhs_uid, 0);
 
-    gLua = nk::make_unique<DhcpLua>(scriptfile_path);
+    gLua = std::make_unique<DhcpLua>(scriptfile_path);
 
     if (chroot_path.size())
         nk_set_chroot(chroot_path.c_str());
@@ -340,7 +339,7 @@ static void process_options(int ac, char *av[])
         nk_set_uidgid(ndhs_uid, ndhs_gid, NULL, 0);
 
     init_client_states_v4(io_service);
-    gLeaseStore = nk::make_unique<LeaseStore>(leasefile_path);
+    gLeaseStore = std::make_unique<LeaseStore>(leasefile_path);
 
     if (use_seccomp) {
         if (enforce_seccomp())
