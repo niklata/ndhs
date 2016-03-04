@@ -1,6 +1,6 @@
 /* ndhs.c - dhcp server
  *
- * (c) 2011-2014 Nicholas J. Kain <njkain at gmail dot com>
+ * (c) 2011-2016 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -177,6 +177,7 @@ static int enforce_seccomp(void)
     if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog))
         return -1;
     fmt::print("seccomp filter installed.  Please disable seccomp if you encounter problems.\n");
+    std::fflush(stdout);
     return 0;
 }
 
@@ -239,13 +240,13 @@ static po::variables_map fetch_options(int ac, char *av[])
 
     if (vm.count("help")) {
         fmt::print("ndhs " NDHS_VERSION ", dhcp server.\n"
-                  "Copyright (c) 2011-2014 Nicholas J. Kain\n"
+                  "Copyright (c) 2011-2016 Nicholas J. Kain\n"
                   "{} [options] interfaces...\n{}\n", av[0], gopts);
         std::exit(EXIT_FAILURE);
     }
     if (vm.count("version")) {
         fmt::print("ndhs " NDHS_VERSION ", dhcp server.\n"
-            "Copyright (c) 2011-2014 Nicholas J. Kain\n"
+            "Copyright (c) 2011-2016 Nicholas J. Kain\n"
             "All rights reserved.\n\n"
             "Redistribution and use in source and binary forms, with or without\n"
             "modification, are permitted provided that the following conditions are met:\n\n"
@@ -313,7 +314,7 @@ static void process_options(int ac, char *av[])
                 listeners.emplace_back(std::make_unique<ClientListener>
                                        (io_service, ep, i));
             } catch (boost::system::error_code &ec) {
-                fmt::print("bad interface: {}\n", i);
+                fmt::print(stderr, "bad interface: {}\n", i);
             }
         }
 

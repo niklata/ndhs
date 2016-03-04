@@ -232,8 +232,7 @@ DhcpLua::DhcpLua(const std::string &cfg)
         std::exit(EXIT_FAILURE);
     }
     if (lua_pcall(L_, 0, 0, 0) != 0) {
-        fmt::print(stderr, "failed to run configuration file: {}\n",
-                   lua_tostring(L_, -1));
+        fmt::print(stderr, "failed to run configuration file: {}\n", lua_tostring(L_, -1));
         std::exit(EXIT_FAILURE);
     }
 }

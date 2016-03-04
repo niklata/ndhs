@@ -1,6 +1,6 @@
 /* dhcpclient.cpp - dhcp client request handling
  *
- * (c) 2011-2014 Nicholas J. Kain <njkain at gmail dot com>
+ * (c) 2011-2016 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -274,6 +274,7 @@ void ClientListener::do_release(const ClientID &clientid) {
     if (lip != remote_endpoint_.address().to_string()) {
         fmt::print("do_release: ignoring spoofed release request.  {} != {}.\n",
                    remote_endpoint_.address().to_string(), lip);
+        std::fflush(stdout);
         return;
     }
     gLeaseStore->delLease(socket_.local_endpoint().address().to_string(),
