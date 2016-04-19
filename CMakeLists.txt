@@ -26,7 +26,7 @@ include_directories("${PROJECT_SOURCE_DIR}"
 add_subdirectory(ncmlib)
 add_subdirectory(cppformat)
 
-find_package( Boost COMPONENTS system program_options )
+find_package( Boost COMPONENTS system )
 link_directories ( ${Boost_LIBRARY_DIRS} )
 include_directories ( ${Boost_INCLUDE_DIRS} )
 find_package(Threads)
