@@ -26,8 +26,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <sstream>
-
 #include <unistd.h>
 #include <sys/types.h>
 #include <pwd.h>
