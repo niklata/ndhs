@@ -25,10 +25,8 @@ static int add_option_iplist(lua_State *L, uint8_t code)
             return 0;
         add_u32_option(dm, code, ip);
     } else if (lua_istable(L, 2)) {
-        union {
-            uint32_t ip32;
-            uint8_t ip8[4];
-        };
+        uint32_t ip32;
+        char ip8[4];
         std::string iplist;
         lua_pushnil(L);
         while (lua_next(L, 2) != 0) {
@@ -41,10 +39,9 @@ static int add_option_iplist(lua_State *L, uint8_t code)
                 lua_pop(L, 1);
                 continue;
             }
-            iplist.push_back(ip8[0]);
-            iplist.push_back(ip8[1]);
-            iplist.push_back(ip8[2]);
-            iplist.push_back(ip8[3]);
+            static_assert(sizeof ip8 == sizeof ip32, "size mismatch");
+            memcpy(ip8, &ip32, sizeof ip8);
+            iplist = std::string(ip8, sizeof ip8);
             lua_pop(L, 1);
         }
         if (iplist.size())
