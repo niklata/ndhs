@@ -30,7 +30,6 @@
 
 #include <string>
 #include <vector>
-
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,27 +41,22 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <ctype.h>
-
 #include <pwd.h>
 #include <grp.h>
-
 #include <signal.h>
 #include <errno.h>
-
 #include <boost/asio.hpp>
 #include <format.hpp>
-
-#include "dhcpclient.hpp"
-#include "dhcplua.hpp"
-#include "leasestore.hpp"
-#include "optionarg.hpp"
-
+#include <nk/optionarg.hpp>
 extern "C" {
 #include "nk/privilege.h"
 #include "nk/pidfile.h"
 #include "nk/exec.h"
 #include "nk/seccomp-bpf.h"
 }
+#include "dhcpclient.hpp"
+#include "dhcplua.hpp"
+#include "leasestore.hpp"
 
 boost::asio::io_service io_service;
 static boost::asio::signal_set asio_signal_set(io_service);
