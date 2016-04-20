@@ -2,7 +2,6 @@
 #define NDHS_DHCPLUA_HPP_
 
 #include <string>
-#include <boost/utility.hpp>
 #include "clientid.hpp"
 
 extern "C" {
@@ -12,10 +11,12 @@ extern "C" {
 #include "lua/lualib.h"
 }
 
-class DhcpLua : boost::noncopyable
+class DhcpLua
 {
 public:
     DhcpLua(const std::string &cfg);
+    DhcpLua(const DhcpLua &) = delete;
+    DhcpLua &operator=(const DhcpLua &) = delete;
     ~DhcpLua();
     bool reply_discover(dhcpmsg &dm, const std::string &lip,
                         const std::string &rip, const ClientID &clientid);

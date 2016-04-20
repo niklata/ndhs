@@ -3,17 +3,17 @@
 
 #include <string>
 #include <stdint.h>
-#include <boost/utility.hpp>
 #include "clientid.hpp"
-
 extern "C" {
 #include <sqlite3.h>
 }
 
-class LeaseStore : boost::noncopyable
+class LeaseStore
 {
 public:
     LeaseStore(const std::string &path);
+    LeaseStore(const LeaseStore &) = delete;
+    LeaseStore &operator=(const LeaseStore &) = delete;
     ~LeaseStore();
 
     bool addLease(const std::string &ifip, const ClientID &clientid,

@@ -33,10 +33,7 @@
 #include <memory>
 #include <unordered_map>
 #include <netdb.h>
-
 #include <boost/asio.hpp>
-#include <boost/utility.hpp>
-
 #include "dhcp.h"
 #include "clientid.hpp"
 
@@ -55,7 +52,7 @@
 // and 'm4d' tables.  This change would cause the deletion rate to increase
 // smoothly under heavy load, providing resistance to OOM DoS at the cost of
 // making it so that clients will need to complete their transactions quickly.
-class ClientStates : boost::noncopyable
+class ClientStates
 {
 public:
     ClientStates(boost::asio::io_service &io_service)
@@ -64,6 +61,8 @@ public:
         currentMap_ = 0;
         swapInterval_ = 60; // 1m
     }
+    ClientStates(const ClientStates &) = delete;
+    ClientStates &operator=(const ClientStates &) = delete;
     ~ClientStates() {}
     bool stateExists(uint32_t xid, const ClientID &clientid) const {
         std::string key(generateKey(xid, clientid));
@@ -134,12 +133,14 @@ private:
 
 void init_client_states_v4(boost::asio::io_service &io_service);
 
-class ClientListener : boost::noncopyable
+class ClientListener
 {
 public:
     ClientListener(boost::asio::io_service &io_service,
                    const boost::asio::ip::udp::endpoint &endpoint,
                    const std::string &ifname);
+    ClientListener(const ClientListener &) = delete;
+    ClientListener &operator=(const ClientListener &) = delete;
 private:
     void start_receive();
     uint64_t getNowTs(void) const;
