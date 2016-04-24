@@ -297,7 +297,6 @@ static void process_options(int ac, char *av[])
 
     umask(077);
     process_signals();
-    nk_fix_env(ndhs_uid, 0);
 
     gLua = std::make_unique<DhcpLua>(scriptfile_path);
 
