@@ -1,200 +1,122 @@
-ndhs, Copyright (C) 2011-2015 Nicholas J. Kain.
-See LICENSE for licensing information.  In short: Two-clause / New BSD.
+REQUIREMENTS
+------------
 
-Requirements:
-
-CMake (tested: 2.8+)
-Lua 5.1 (extract to lua subdirectory) [later versions through 5.3 may work; untested]
-SQLite (extract to sqlite subdirectory)
-cppformat (extract format.[ch]pp to cppformat subdirectory)
-ncmlib (extract or link to the ncmlib subdirectory)
-Boost (1.47-1.60 tested)
-Recent GCC with proper C++11 support
+Linux kernel
+GCC or Clang
+CMake
+ASIO (think-async.com)
+ncmlib
+cppformat
 
 INTRODUCTION
 ------------
 
-ndhs is a minimal DHCP server that is configured by writing Lua scripts.
+ndhs is a DHCPv4 and DHCPv6 server that also provides IPv6 router
+advertisements.  It is intended to be run on a router; IPv6 assumes that the
+default gateway for a network will provide router advertisements, and many
+hosts will need stateless DHCP6 information replies in order to determine the
+DNS and NTP services for a network.
 
-It is essentially a thin wrapper that provides a Lua API for DHCP client
-request events and DHCP lease storage (in a SQLite database).
+ndhs has been designed to be secure and function with minimal privilege.
 
-It is very flexible but it somewhat different to configure than the typical
-DHCP server by its nature.  I've used it as the DHCP server on my home
-network for several years, so it certainly works.
+REMARKS ON IPv4 AND IPv6 DIFFERENCES
+------------------------------------
 
-It's built to be secure, as it runs unprivileged in a chroot, and optionally
-enforces seccomp system call filtering (tuned to recent glibc).
+IPv6 is very different than IPv4.
 
-INSTALL
--------
+IPv6 supports two different methods (stateful, stateless) of automatic IP
+address allocation.  IPv4 only supports stateful allocation.
 
-0) Create the 'lua', 'cppformat', 'ncmlib',  and 'sqlite' subdirectories and
-   extract the lua, cppformat, ncmlib, and sqlite source code to these
-   directories.  The outcome should look like:
+Stateful allocation is the familiar DHCPv4 approach, where a centralized
+server has authority for IP address allocation on a set of
+local network segments.  Hosts make queries to this server and are
+provided with IP addresses by the server, which records the mappings
+(state) between hosts (identified by MAC or IAID/DUIDs) and IP addresses.
 
-   % ls lua
-   lapi.c      ldblib.c  lfunc.h   llimits.h   lopcodes.c  lstring.c  ltm.h      lundump.h
-   lapi.h      ldebug.c  lgc.c     lmathlib.c  lopcodes.h  lstring.h  lua.c      lvm.c
-   lauxlib.c   ldebug.h  lgc.h     lmem.c      loslib.c    lstrlib.c  luac.c     lvm.h
-   lauxlib.h   ldo.c     linit.c   lmem.h      lparser.c   ltable.c   luaconf.h  lzio.c
-   lbaselib.c  ldo.h     liolib.c  loadlib.c   lparser.h   ltable.h   lua.h      lzio.h
-   lcode.c     ldump.c   llex.c    lobject.c   lstate.c    ltablib.c  lualib.h   Makefile
-   lcode.h     lfunc.c   llex.h    lobject.h   lstate.h    ltm.c      lundump.c  print.c
-   % ls sqlite
-   CMakeLists.txt  shell.c  sqlite3.c  sqlite3ext.h  sqlite3.h
-   % ls cppformat
-   CMakeLists.txt  format.cpp  format.hpp
-   % ls ncmlib
-   asm             exec.c  log.c     network.c  pidfile.c    random.c
-   CMakeLists.txt  io.c    malloc.c  nk         privilege.c  signals.c
+DHCPv6 can support this model, but it also allows for stateless
+autoconfiguration, where address assignment is not explicitly tracked.
+
+IPv6 stateless address allocation eliminates the need for a centralized
+server to keep track of mappings between hosts and IP addresses.  Instead,
+information about the network (prefix, dns/ntp servers) is provided to
+hosts by routers on the local network segment (link).  Hosts use this
+information to calculate a probabalistically unique IP address, which
+is then verified for uniqueness by interrogating the network (using
+IPv6 Neighbor Discovery/Duplicate Address Detection).
+
+This is fine for situations where it does not matter what addresses
+are assigned to clients; these addresses may even intentionally
+change over time (see Privacy Extensions and Temporary Addresses).
+However, if it is necessary for mappings to remain constant, or
+to vary but be coordinated with DNS entries, stateful address
+assignment is necessary.
+
+Stateful assignment still requires router advertisements to be
+provided.  Many types of necessary information (notably the default gateway)
+are provided via router advertisements and not by DHCPv6.
+
+ndhs is designed to support the stateful autoconfiguration model.
+It provides all functionality required for stateful autoconfiguration to
+fully function for hosts.  It should be run only on IPv4/IPv6 routers,
+and only on interfaces on the router for which the router performs
+routing duties.
+
+STANDARD USAGE
+--------------
 
 1) Compile and install ndhs.
-    a) Create a build directory:
-       mkdir build && cd build
-    b) Create the makefiles:
-       cmake ..
-    c) Build ndhs:
-       make
-    d) Install the ndhs executable in a normal place.  I suggest /usr/sbin
-       or /usr/local/sbin.
+    a) mkdir build
+    b) cd build
+    c) cmake ..
+    d) make
+    e) Install the ndhs executable in a normal place.
+    f) Set up a user and chroot path (optional, but recommended).
+    g) Set up a configure file.  For now, look at cfg.rl to
+       see the syntax.
+    h) Make sure that ndhs can write to its state directory for
+       dynamic leases.  If you are using chroot, this by default
+       will be /state directory beneath the chroot.
+       If you are not using a chroot, then it will default to
+       /var/lib/ndhs/state.
 
-2) Create the jail where ndhs will run:
-    a) Become root and create new group "ndhs".
+2) Run ndhs.  Use ndhs --help to see all possible options.
 
-        $ su -
-        # umask 077
-        # groupadd ndhs
+    Examples:
 
-    b) Create new user "ndhs".  The primary group of these users should be "ndhs".
+        ndhs --user=ndhs --chroot /var/lib/ndhs
 
-        # useradd -d /var/lib/ndhs -s /sbin/nologin -g ndhs ndhs
+PORTABILITY
+-----------
 
-    c) Create the jail directory and set its ownership properly.
+ndhs could be ported to non-Linux systems, but will require new code
+to replace the netlink mechanism used in Linux.  Some security hardening
+features (seccomp-bpf syscall filtering, SO_LOCK_FILTER) would need to
+be disabled, too.
 
-        # mkdir /var/lib/ndhs
-        # chown root.root /var/lib/ndhs
-        # chmod a+rx /var/lib/ndhs
-        # cd /var/lib/ndhs
-        # mkdir store
-        # touch store/leases.db
-        # chown -R ndhs.ndhs var
-        # chmod a+rx var
+LICENSE
+-------
+ (c) 2014-2016 Nicholas J. Kain <njkain at gmail dot com>
+ All rights reserved.
 
-    d) Create a urandom device for ndhs to use within the jail.
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are met:
 
-        # mkdir dev
-        # mknod dev/urandom c 1 9
-        # mknod dev/null c 1 3
-        # chown -R root.root dev
-        # chmod a+rx dev
-        # chmod a+r dev/urandom
-        # chmod a+rw dev/null
+ - Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
 
-    e) (optional) If you wish for logging to properly work, you
-       will need to properly configure your logging daemon so that it
-       opens a domain socket in the proper location within the jail.
-       Since this varies per-daemon, I cannot provide a general
-       configuration.
+ - Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
 
-3) ndhs requires a configure file (or equivalent command-line options) and
-   a Lua script file to run when DHCP packets are received from clients.
-
-   It support multi-homing where a single server can serve requests on
-   multiple ethernet interfaces.
-
-   An example configure file (note that the leasefile path is relative to
-   the chroot directory, but the script path is not):
-
-        script = /etc/ndhs.lua
-        leasefile = /store/leases.db
-        chroot = /var/lib/ndhs
-        interface = lan0
-        interface = lan1
-        interface = wlan0
-        user = ndhs
-        seccomp-enforce = true
-
-4) The /etc/ndhs.lua file is where most of the configuration is done.  I suggest
-   taking a look at the bundled config.lua example and modifying it to suit your
-   network.
-
-5) Assuming that the configure file is located at /etc/ndhs.conf and the
-   ndhs executable is on the system path, then ndhs would be run as:
-
-   # ndhs -c /etc/ndhs.conf
-
-   It will stay in the foreground and do its job; I suggest running it from
-   a process supervisor like runit or s6 for reliability.
-
-SCRIPT INTERFACE
-----------------
-
-The Lua program (/etc/ndhs.lua by default) provides callback functions that are
-run when DHCP packets are received from clients.
-
-The three main callback functions are:
-
-function dhcp_reply_discover(dm, lip, rip, mac, cid)
-function dhcp_reply_request(dm, lip, rip, mac, cid)
-function dhcp_reply_inform(dm, lip, rip, mac, cid)
-
-Each has a very similar argument signature:
-
-dm is an opaque handle for the dhcp message state
-
-lip is the IP address of the interface of the dhcp server on which the message
-was received.
-
-rip is the IP address requested by the client (the dhcp server is not bound
-in any way to follow or even care about this request).
-
-mac is the hardware MAC address of the client that sent the message.
-
-cid is the opaque client identifier provided by the client.  It is the main key
-that identifies the client to the DHCP server.
-
-If any of these functions return false, it means that no reply should be
-sent to the client.  If the callback function returns true, then a reply
-will be sent.
-
-There are several functions that allow the response message to be manipulated
-by the Lua script:
-
-dhcpmsg_set_ip(dm, CLIENT_IP)
-dhcpmsg_set_lease_time(dm, LEASE_IN_SECONDS)
-dhcpmsg_set_subnet(dm, '255.255.255.0')
-dhcpmsg_set_broadcast(dm, '192.168.1.255')
-dhcpmsg_set_routers(dm, '192.168.1.1')
-dhcpmsg_set_dns(dm, '192.168.0.1')
-dhcpmsg_set_ntp(dm, '192.168.0.1')
-dhcpmsg_set_domain_name(dm, "example.net")
-
-These should be mostly self-explanatory.  None of these functions return
-a meaningful value.
-
-There is a function to query the lease database to see if there is an active
-lease on a particular IP.  It is useful for when the server is assigning
-non-static leases:
-
-is_leased = dhcp_is_ip_leased(lip, CHECK_IP, cid)
-
-lip and cid are as-above for the main callback functions.
-
-CHECK_IP is the IP address (as a dotted-decimal string) that is looked up in
-the lease database.  If the IP address is unassigned, the function will
-return false; otherwise it will return true.
-
-There is a function to look up the current lease for a particular clientid/cid:
-
-local curip = dhcp_get_current_lease(lip, cid)
-
-lip and cid are as-above for the main callback functions.
-
-If an active lease exists for the clientid, then the function will return
-the dotted-decimal string that corresponds to the IP address of that lease.
-Otherwise, it will return nil.
-
-There are no functions to explicitly set the lease database, as it is
-implicitly maintained by ndhs when responses are sent from the Lua script.
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ POSSIBILITY OF SUCH DAMAGE.
 

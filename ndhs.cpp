@@ -1,6 +1,6 @@
-/* ndhs.c - dhcp server
+/* ndhs.c - DHCPv4/DHCPv6 and IPv6 router advertisement server
  *
- * (c) 2011-2016 Nicholas J. Kain <njkain at gmail dot com>
+ * (c) 2014-2016 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,10 +26,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define NDHS_VERSION "1.0"
+#define NDHS_VERSION "2.0"
 
+#include <memory>
 #include <string>
 #include <vector>
+#include <random>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,27 +50,70 @@
 #include <boost/asio.hpp>
 #include <format.hpp>
 #include <nk/optionarg.hpp>
+#include <nk/str_to_int.hpp>
+#include <nk/xorshift.hpp>
 extern "C" {
+#include "nk/log.h"
 #include "nk/privilege.h"
 #include "nk/pidfile.h"
-#include "nk/exec.h"
 #include "nk/seccomp-bpf.h"
 }
-#include "dhcpclient.hpp"
-#include "dhcplua.hpp"
-#include "leasestore.hpp"
+#include "nlsocket.hpp"
+#include "dhcp6.hpp"
+#include "dhcp4.hpp"
+#include "dhcp_state.hpp"
+#include "dynlease.hpp"
 
 boost::asio::io_service io_service;
 static boost::asio::signal_set asio_signal_set(io_service);
-static std::vector<std::unique_ptr<ClientListener>> listeners;
+static std::string configfile{"/etc/ndhs.conf"};
 static uid_t ndhs_uid;
 static gid_t ndhs_gid;
-extern int gflags_detach;
-extern int gflags_quiet;
 static bool use_seccomp(false);
 
-std::unique_ptr<LeaseStore> gLeaseStore;
-std::unique_ptr<DhcpLua> gLua;
+std::unique_ptr<NLSocket> nl_socket;
+
+static std::vector<std::unique_ptr<D6Listener>> v6_listeners;
+static std::vector<std::unique_ptr<D4Listener>> v4_listeners;
+
+static std::random_device g_random_secure;
+nk::rng::xorshift64m g_random_prng(0);
+
+static std::string leasefile;
+
+extern void parse_config(const std::string &path);
+
+static void init_prng()
+{
+    std::array<uint32_t, nk::rng::xorshift64m::state_size> seed_data;
+    std::generate_n(seed_data.data(), seed_data.size(),
+                    std::ref(g_random_secure));
+    std::seed_seq seed_seq(std::begin(seed_data), std::end(seed_data));
+    g_random_prng.seed(seed_seq);
+}
+
+static void init_listeners()
+{
+    auto ios = &io_service;
+    auto v6l = &v6_listeners;
+    auto v4l = &v4_listeners;
+    bound_interfaces_foreach([ios, v6l, v4l](const std::string &i, bool use_v4, bool use_v6) {
+        if (use_v6) {
+            try {
+                v6l->emplace_back(std::make_unique<D6Listener>(*ios, i));
+            } catch (const std::out_of_range &exn) {
+                fmt::print(stderr, "Can't bind to v6 interface: {}\n", i);
+            }
+        }
+        if (use_v4) {
+            try {
+                v4l->emplace_back(std::make_unique<D4Listener>(*ios, i));
+            } catch (const boost::system::error_code &) {
+                fmt::print(stderr, "Can't bind to v4 interface: {}\n", i);
+            }
+        }
+    });
+}
 
 static void process_signals()
 {
@@ -83,7 +128,7 @@ static void process_signals()
     sigaddset(&mask, SIGHUP);
     if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0) {
         fmt::print(stderr, "sigprocmask failed\n");
-        std::quick_exit(EXIT_FAILURE);
+        std::exit(EXIT_FAILURE);
     }
     asio_signal_set.add(SIGINT);
     asio_signal_set.add(SIGTERM);
@@ -100,43 +145,15 @@ static int enforce_seccomp(bool changed_uidgid)
     struct sock_filter filter[] = {
         VALIDATE_ARCHITECTURE,
         EXAMINE_SYSCALL,
-
-#if defined(__x86_64__) || (defined(__arm__) && defined(__ARM_EABI__))
+        ALLOW_SYSCALL(epoll_wait),
         ALLOW_SYSCALL(sendmsg),
         ALLOW_SYSCALL(recvmsg),
-        ALLOW_SYSCALL(socket),
-        ALLOW_SYSCALL(getsockname),
-        ALLOW_SYSCALL(getpeername),
-        ALLOW_SYSCALL(setsockopt),
-        ALLOW_SYSCALL(connect),
-        ALLOW_SYSCALL(sendto), // used for glibc syslog routines
-        ALLOW_SYSCALL(recvfrom),
-        ALLOW_SYSCALL(fcntl),
-        ALLOW_SYSCALL(accept),
-        ALLOW_SYSCALL(shutdown),
-#elif defined(__i386__)
-        ALLOW_SYSCALL(socketcall),
-        ALLOW_SYSCALL(fcntl64),
-#else
-#error Target platform does not support seccomp-filter.
-#endif
-
+        ALLOW_SYSCALL(timerfd_settime),
+        ALLOW_SYSCALL(epoll_ctl),
         ALLOW_SYSCALL(read),
         ALLOW_SYSCALL(write),
-        ALLOW_SYSCALL(epoll_wait),
-        ALLOW_SYSCALL(epoll_ctl),
-        ALLOW_SYSCALL(stat),
-        ALLOW_SYSCALL(open),
+        ALLOW_SYSCALL(sendto), // used for glibc syslog routines
         ALLOW_SYSCALL(close),
-        ALLOW_SYSCALL(ioctl),
-        ALLOW_SYSCALL(timerfd_settime),
-        ALLOW_SYSCALL(access),
-        ALLOW_SYSCALL(fstat),
-        ALLOW_SYSCALL(lseek),
-        ALLOW_SYSCALL(umask),
-        ALLOW_SYSCALL(geteuid),
-        ALLOW_SYSCALL(fsync),
-        ALLOW_SYSCALL(unlink),
         ALLOW_SYSCALL(rt_sigreturn),
         ALLOW_SYSCALL(rt_sigaction),
 #ifdef __NR_sigreturn
@@ -155,7 +172,8 @@ static int enforce_seccomp(bool changed_uidgid)
         ALLOW_SYSCALL(brk),
         ALLOW_SYSCALL(mmap),
         ALLOW_SYSCALL(munmap),
-        ALLOW_SYSCALL(mremap),
+
+        ALLOW_SYSCALL(fstat),
 
         ALLOW_SYSCALL(exit_group),
         ALLOW_SYSCALL(exit),
@@ -176,8 +194,8 @@ static int enforce_seccomp(bool changed_uidgid)
 
 static void print_version(void)
 {
-    fmt::print("ndhs " NDHS_VERSION ", dhcp server.\n"
-               "Copyright (c) 2011-2016 Nicholas J. Kain\n"
+    fmt::print("ndhs " NDHS_VERSION ", ipv6 router advertisment and dhcp server.\n"
+               "Copyright (c) 2014-2016 Nicholas J. Kain\n"
                "All rights reserved.\n\n"
                "Redistribution and use in source and binary forms, with or without\n"
                "modification, are permitted provided that the following conditions are met:\n\n"
@@ -200,24 +218,23 @@ static void print_version(void)
 }
 
 enum OpIdx {
-    OPT_UNKNOWN, OPT_HELP, OPT_VERSION, OPT_BACKGROUND, OPT_PIDFILE,
-    OPT_CHROOT, OPT_USER, OPT_SCRIPTFILE, OPT_LEASEFILE, OPT_SECCOMP,
-    OPT_QUIET
+    OPT_UNKNOWN, OPT_HELP, OPT_VERSION, OPT_BACKGROUND, OPT_CONFIG,
+    OPT_LEASEFILE, OPT_PIDFILE, OPT_CHROOT, OPT_USER, OPT_SECCOMP, OPT_QUIET
 };
 static const option::Descriptor usage[] = {
     { OPT_UNKNOWN,    0,  "",           "", Arg::Unknown,
-        "ndhs " NDHS_VERSION ", dhcp server.\n"
-        "Copyright (c) 2011-2016 Nicholas J. Kain\n"
-        "ndhs [options] interface...\n\nOptions:" },
+        "ndhs " NDHS_VERSION ", DHCPv4/DHCPv6 and IPv6 Router Advertisement server.\n"
+        "Copyright (c) 2014-2016 Nicholas J. Kain\n"
+        "ndhs [options] [configfile]...\n\nOptions:" },
     { OPT_HELP,       0, "h",            "help",    Arg::None, "\t-h, \t--help  \tPrint usage and exit." },
     { OPT_VERSION,    0, "v",         "version",    Arg::None, "\t-v, \t--version  \tPrint version and exit." },
     { OPT_BACKGROUND, 0, "b",      "background",    Arg::None, "\t-b, \t--background  \tRun as a background daemon." },
+    { OPT_CONFIG,     0, "c",          "config",  Arg::String, "\t-c, \t--config  \tPath to configuration file (default: /etc/ndhs.conf)."},
+    { OPT_LEASEFILE,  0, "l",       "leasefile",  Arg::String, "\t-l, \t--leasefile  \tPath to lease file (path relative to chroot if it exists)." },
     { OPT_PIDFILE,    0, "f",         "pidfile",  Arg::String, "\t-f, \t--pidfile  \tPath to process id file." },
     { OPT_CHROOT,     0, "C",          "chroot",  Arg::String, "\t-C, \t--chroot  \tPath in which nident should chroot itself." },
-    { OPT_USER,       0, "u",            "user",  Arg::String, "\t-u, \t--user  \tUser name that nrad6 should run as." },
-    { OPT_SCRIPTFILE, 0, "s",          "script",  Arg::String, "\t-s, \t--script  \tPath to response script file." },
-    { OPT_LEASEFILE,  0, "l",       "leasefile",  Arg::String, "\t-l, \t--leasefile  \tPath to lease database file." },
-    { OPT_SECCOMP,    0, "S", "seccomp-enforce",    Arg::None, "\t-S  \t--seccomp-enforce  \tEnforce seccomp syscall restrictions." },
+    { OPT_USER,       0, "u",            "user",  Arg::String, "\t-u, \t--user  \tUser name that ndhs should run as." },
+    { OPT_SECCOMP,    0, "S", "seccomp-enforce",    Arg::None, "\t    \t--seccomp-enforce  \tEnforce seccomp syscall restrictions." },
     { OPT_QUIET,      0, "q",           "quiet",    Arg::None, "\t-q, \t--quiet  \tDon't log to std(out|err) or syslog." },
     {0,0,0,0,0,0}
 };
@@ -239,7 +256,9 @@ static void process_options(int ac, char *av[])
     if (parse.error())
         std::exit(EXIT_FAILURE);
     if (options[OPT_HELP]) {
-        int col = getenv("COLUMNS") ? atoi(getenv("COLUMNS")) : 80;
+        uint16_t col{80};
+        const auto cols = getenv("COLUMNS");
+        if (cols) col = nk::str_to_u16(cols);
         option::printUsage(fwrite, stdout, usage, col);
         std::exit(EXIT_FAILURE);
     }
@@ -248,13 +267,15 @@ static void process_options(int ac, char *av[])
         std::exit(EXIT_FAILURE);
     }
 
-    std::vector<std::string> iflist;
-    std::string pidfile, chroot_path, leasefile_path, scriptfile_path;
+    std::vector<std::string> addrlist;
+    std::string pidfile, chroot_path;
 
     for (int i = 0; i < parse.optionsCount(); ++i) {
         option::Option &opt = buffer[i];
         switch (opt.index()) {
             case OPT_BACKGROUND: gflags_detach = 1; break;
+            case OPT_CONFIG: configfile = std::string(opt.arg); break;
+            case OPT_LEASEFILE: leasefile = std::string(opt.arg); break;
             case OPT_PIDFILE: pidfile = std::string(opt.arg); break;
             case OPT_CHROOT: chroot_path = std::string(opt.arg); break;
             case OPT_USER: {
@@ -264,49 +285,48 @@ static void process_options(int ac, char *av[])
                 }
                 break;
             }
-            case OPT_SCRIPTFILE: scriptfile_path = std::string(opt.arg); break;
-            case OPT_LEASEFILE: leasefile_path = std::string(opt.arg); break;
             case OPT_SECCOMP: use_seccomp = true; break;
             case OPT_QUIET: gflags_quiet = 1; break;
         }
     }
-    for (int i = 0; i < parse.nonOptionsCount(); ++i) {
-        iflist.emplace_back(parse.nonOption(i));
-    }
 
-    for (const auto &i: iflist) {
-        try {
-            auto addy = boost::asio::ip::address_v4::any();
-            auto ep = boost::asio::ip::udp::endpoint(addy, 67);
-            listeners.emplace_back(std::make_unique<ClientListener>
-                                   (io_service, ep, i));
-        } catch (boost::system::error_code &ec) {
-            fmt::print(stderr, "bad interface: {}\n", i);
-        }
-    }
-    if (!iflist.size()) {
-        fmt::print(stderr, "At least one listening interface must be specified\n");
+    init_prng();
+    if (configfile.size())
+        parse_config(configfile);
+
+    for (int i = 0; i < parse.nonOptionsCount(); ++i)
+        parse_config(parse.nonOption(i));
+
+    if (!bound_interfaces_count()) {
+        fmt::print(stderr, "No interfaces have been bound\n");
         std::exit(EXIT_FAILURE);
     }
+
+    if (!leasefile.size()) {
+        leasefile = chroot_path.size() ? "/store/dynlease.txt"
+                                       : "/var/lib/ndhs/store/dynlease.txt";
+    }
+
+    nl_socket = std::make_unique<NLSocket>(io_service);
+    init_listeners();
+
     if (gflags_detach && daemon(0,0)) {
         fmt::print(stderr, "detaching fork failed\n");
         std::exit(EXIT_FAILURE);
     }
+
     if (pidfile.size() && file_exists(pidfile.c_str(), "w"))
         write_pid(pidfile.c_str());
 
     umask(077);
     process_signals();
 
-    gLua = std::make_unique<DhcpLua>(scriptfile_path);
-
-    if (chroot_path.size())
+    if (chroot_path.size()) {
         nk_set_chroot(chroot_path.c_str());
-    if (ndhs_uid != 0 || ndhs_gid != 0)
+    }
+    dynlease_deserialize(leasefile);
+    if (ndhs_uid || ndhs_gid)
         nk_set_uidgid(ndhs_uid, ndhs_gid, NULL, 0);
-
-    init_client_states_v4(io_service);
-    gLeaseStore = std::make_unique<LeaseStore>(leasefile_path);
 
     if (enforce_seccomp(ndhs_uid || ndhs_gid)) {
         fmt::print(stderr, "seccomp filter cannot be installed\n");
@@ -316,9 +336,13 @@ static void process_options(int ac, char *av[])
 
 int main(int ac, char *av[])
 {
+    gflags_log_name = const_cast<char *>("ndhs");
+
     process_options(ac, av);
 
     io_service.run();
+
+    dynlease_serialize(leasefile);
 
     std::exit(EXIT_SUCCESS);
 }
