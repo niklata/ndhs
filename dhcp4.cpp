@@ -39,27 +39,26 @@ extern "C" {
 #include "options.h"
 }
 
-namespace ba = boost::asio;
 extern std::unique_ptr<NLSocket> nl_socket;
 extern nk::rng::xorshift64m g_random_prng;
 
 static std::unique_ptr<ClientStates> client_states_v4;
-static void init_client_states_v4(ba::io_service &io_service)
+static void init_client_states_v4(asio::io_service &io_service)
 {
     static bool was_initialized;
     if (was_initialized) return;
     client_states_v4 = std::make_unique<ClientStates>(io_service);
 }
 
-D4Listener::D4Listener(ba::io_service &io_service, const std::string &ifname)
+D4Listener::D4Listener(asio::io_service &io_service, const std::string &ifname)
  : socket_(io_service), ifname_(ifname)
 {
     init_client_states_v4(io_service);
-    const auto endpoint = ba::ip::udp::endpoint(ba::ip::address_v4::any(), 67);
+    const auto endpoint = asio::ip::udp::endpoint(asio::ip::address_v4::any(), 67);
     socket_.open(endpoint.protocol());
-    socket_.set_option(ba::ip::udp::socket::broadcast(true));
-    socket_.set_option(ba::ip::udp::socket::do_not_route(true));
-    socket_.set_option(ba::ip::udp::socket::reuse_address(true));
+    socket_.set_option(asio::ip::udp::socket::broadcast(true));
+    socket_.set_option(asio::ip::udp::socket::do_not_route(true));
+    socket_.set_option(asio::ip::udp::socket::reuse_address(true));
     socket_.bind(endpoint);
     int fd = socket_.native();
 
@@ -117,31 +116,31 @@ void D4Listener::send_reply_do(const dhcpmsg &dm, SendReplyType srt)
     if (endloc < 0)
         return;
 
-    boost::system::error_code ignored_error;
-    auto buf = boost::asio::buffer((const char *)&dm, sizeof dm -
-                                   (sizeof dm.options - 1 - endloc));
+    std::error_code ignored_error;
+    auto buf = asio::buffer((const char *)&dm, sizeof dm -
+                            (sizeof dm.options - 1 - endloc));
 
     switch (srt) {
     case SendReplyType::UnicastCi: {
-        auto uct = ba::ip::address_v4(ntohl(dhcpmsg_.ciaddr));
-        socket_.send_to(buf, ba::ip::udp::endpoint(uct, 68), 0, ignored_error);
+        auto uct = asio::ip::address_v4(ntohl(dhcpmsg_.ciaddr));
+        socket_.send_to(buf, asio::ip::udp::endpoint(uct, 68), 0, ignored_error);
         break;
     }
     case SendReplyType::Broadcast: {
         auto remotebcast = remote_endpoint_.address().to_v4().broadcast();
-        socket_.send_to(buf, ba::ip::udp::endpoint(remotebcast, 68),
+        socket_.send_to(buf, asio::ip::udp::endpoint(remotebcast, 68),
                         0, ignored_error);
         break;
     }
     case SendReplyType::Relay: {
-        auto relay = ba::ip::address_v4(ntohl(dhcpmsg_.giaddr));
-        socket_.send_to(buf, ba::ip::udp::endpoint(relay, 67),
+        auto relay = asio::ip::address_v4(ntohl(dhcpmsg_.giaddr));
+        socket_.send_to(buf, asio::ip::udp::endpoint(relay, 67),
                         0, ignored_error);
         break;
     }
     case SendReplyType::UnicastYiCh: {
-        auto uct = ba::ip::address_v4(ntohl(dhcpmsg_.yiaddr));
-        socket_.send_to(buf, ba::ip::udp::endpoint(uct, 68), 0, ignored_error);
+        auto uct = asio::ip::address_v4(ntohl(dhcpmsg_.yiaddr));
+        socket_.send_to(buf, asio::ip::udp::endpoint(uct, 68), 0, ignored_error);
         break;
     }
     }
@@ -178,7 +177,7 @@ void D4Listener::send_reply(const dhcpmsg &reply)
 }
 
 bool D4Listener::iplist_option(dhcpmsg &reply, std::string &iplist, uint8_t code,
-                               const std::vector<boost::asio::ip::address_v4> &addrs)
+                               const std::vector<asio::ip::address_v4> &addrs)
 {
         iplist.clear();
         iplist.reserve(addrs.size() * 4);
@@ -195,7 +194,7 @@ bool D4Listener::iplist_option(dhcpmsg &reply, std::string &iplist, uint8_t code
 
 bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do_assign)
 {
-    using baia4 = boost::asio::ip::address_v4;
+    using baia4 = asio::ip::address_v4;
     if (!query_use_dynamic_v4(ifname_))
         return false;
 
@@ -206,7 +205,7 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     const auto expire_time = getNowTs() + dynamic_lifetime;
 
     auto v4a = dynlease_query_refresh(ifname_, hwaddr, expire_time);
-    if (v4a != boost::asio::ip::address_v4::any()) {
+    if (v4a != asio::ip::address_v4::any()) {
         reply.yiaddr = htonl(v4a.to_ulong());
         add_u32_option(&reply, DCODE_LEASET, htonl(dynamic_lifetime));
         fmt::print("Assigned existing dynamic IP: {}.\n", v4a.to_string());
@@ -297,7 +296,7 @@ void D4Listener::reply_request(bool is_direct)
     client_states_v4->stateKill(dhcpmsg_.xid, dhcpmsg_.chaddr);
 }
 
-static ba::ip::address_v4 zero_v4(0lu);
+static asio::ip::address_v4 zero_v4(0lu);
 void D4Listener::reply_inform()
 {
     fmt::print("Got DHCP4 inform message\n");
@@ -358,9 +357,8 @@ uint8_t D4Listener::validate_dhcp(size_t len) const
 void D4Listener::start_receive()
 {
     socket_.async_receive_from
-        (ba::buffer(recv_buffer_), remote_endpoint_,
-         [this](const boost::system::error_code &error,
-                std::size_t bytes_xferred)
+        (asio::buffer(recv_buffer_), remote_endpoint_,
+         [this](const std::error_code &error, std::size_t bytes_xferred)
          {
              bool direct_request = false;
              size_t msglen = std::min(bytes_xferred, sizeof dhcpmsg_);

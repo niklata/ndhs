@@ -1,29 +1,26 @@
 #include <unordered_map>
 #include <format.hpp>
-#include <boost/asio.hpp>
+#include <asio.hpp>
 #include "dhcp_state.hpp"
-
-using baia6 = boost::asio::ip::address_v6;
-using baia4 = boost::asio::ip::address_v4;
 
 struct interface_data
 {
     interface_data(bool use_v4, bool use_v6) : use_dhcpv4(use_v4), use_dhcpv6(use_v6) {}
     std::unordered_multimap<std::string, std::unique_ptr<dhcpv6_entry>> duid_mapping;
     std::unordered_map<std::string, std::unique_ptr<dhcpv4_entry>> macaddr_mapping;
-    std::vector<boost::asio::ip::address_v4> gateway;
-    std::vector<boost::asio::ip::address_v6> dns6_servers;
-    std::vector<boost::asio::ip::address_v4> dns4_servers;
-    std::vector<boost::asio::ip::address_v6> ntp6_servers;
-    std::vector<boost::asio::ip::address_v4> ntp4_servers;
-    std::vector<boost::asio::ip::address_v6> ntp6_multicasts;
+    std::vector<asio::ip::address_v4> gateway;
+    std::vector<asio::ip::address_v6> dns6_servers;
+    std::vector<asio::ip::address_v4> dns4_servers;
+    std::vector<asio::ip::address_v6> ntp6_servers;
+    std::vector<asio::ip::address_v4> ntp4_servers;
+    std::vector<asio::ip::address_v6> ntp6_multicasts;
     std::vector<std::string> dns_search;
     std::vector<std::string> ntp6_fqdns;
-    boost::asio::ip::address_v4 subnet;
-    boost::asio::ip::address_v4 broadcast;
+    asio::ip::address_v4 subnet;
+    asio::ip::address_v4 broadcast;
     std::vector<uint8_t> dns_search_blob;
     std::vector<uint8_t> ntp6_fqdns_blob;
-    std::pair<baia4, baia4> dynamic_range;
+    std::pair<asio::ip::address_v4, asio::ip::address_v4> dynamic_range;
     uint32_t dynamic_lifetime;
     bool use_dhcpv4:1;
     bool use_dhcpv6:1;
@@ -179,8 +176,8 @@ bool emplace_dhcp_state(size_t linenum, const std::string &interface, std::strin
         fmt::print(stderr, "No interface specified at line {}\n", linenum);
         return false;
     }
-    boost::system::error_code ec;
-    auto v6a = baia6::from_string(v6_addr, ec);
+    std::error_code ec;
+    auto v6a = asio::ip::address_v6::from_string(v6_addr, ec);
     if (ec) {
         fmt::print(stderr, "Bad IPv6 address at line {}: {}\n", linenum, v6_addr);
         return false;
@@ -200,8 +197,8 @@ bool emplace_dhcp_state(size_t linenum, const std::string &interface, const std:
         fmt::print(stderr, "No interface specified at line {}\n", linenum);
         return false;
     }
-    boost::system::error_code ec;
-    auto v4a = baia4::from_string(v4_addr, ec);
+    std::error_code ec;
+    auto v4a = asio::ip::address_v4::from_string(v4_addr, ec);
     if (ec) {
         fmt::print(stderr, "Bad IPv4 address at line {}: {}\n", linenum, v4_addr);
         return false;
@@ -225,16 +222,16 @@ bool emplace_dns_server(size_t linenum, const std::string &interface,
     }
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
-    boost::system::error_code ec;
+    std::error_code ec;
     if (is_v4) {
-        auto v4a = boost::asio::ip::address_v4::from_string(addr, ec);
+        auto v4a = asio::ip::address_v4::from_string(addr, ec);
         if (!ec) {
             si->second.dns4_servers.emplace_back(std::move(v4a));
             return true;
         } else
             fmt::print(stderr, "Bad IPv4 address at line {}: {}\n", linenum, addr);
     } else {
-        auto v6a = boost::asio::ip::address_v6::from_string(addr, ec);
+        auto v6a = asio::ip::address_v6::from_string(addr, ec);
         if (!ec) {
             si->second.dns6_servers.emplace_back(std::move(v6a));
             return true;
@@ -253,16 +250,16 @@ bool emplace_ntp_server(size_t linenum, const std::string &interface,
     }
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
-    boost::system::error_code ec;
+    std::error_code ec;
     if (is_v4) {
-        auto v4a = boost::asio::ip::address_v4::from_string(addr, ec);
+        auto v4a = asio::ip::address_v4::from_string(addr, ec);
         if (!ec) {
             si->second.ntp4_servers.emplace_back(std::move(v4a));
             return true;
         } else
             fmt::print(stderr, "Bad IPv4 address at line {}: {}\n", linenum, addr);
     } else {
-        auto v6a = boost::asio::ip::address_v6::from_string(addr, ec);
+        auto v6a = asio::ip::address_v6::from_string(addr, ec);
         if (!ec) {
             si->second.ntp6_servers.emplace_back(std::move(v6a));
             return true;
@@ -280,8 +277,8 @@ bool emplace_subnet(size_t linenum, const std::string &interface, const std::str
     }
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
-    boost::system::error_code ec;
-    auto v4a = boost::asio::ip::address_v4::from_string(addr, ec);
+    std::error_code ec;
+    auto v4a = asio::ip::address_v4::from_string(addr, ec);
     if (!ec) {
         si->second.subnet = std::move(v4a);
         return true;
@@ -298,8 +295,8 @@ bool emplace_gateway(size_t linenum, const std::string &interface, const std::st
     }
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
-    boost::system::error_code ec;
-    auto v4a = boost::asio::ip::address_v4::from_string(addr, ec);
+    std::error_code ec;
+    auto v4a = asio::ip::address_v4::from_string(addr, ec);
     if (!ec) {
         si->second.gateway.emplace_back(std::move(v4a));
         return true;
@@ -316,8 +313,8 @@ bool emplace_broadcast(size_t linenum, const std::string &interface, const std::
     }
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
-    boost::system::error_code ec;
-    auto v4a = boost::asio::ip::address_v4::from_string(addr, ec);
+    std::error_code ec;
+    auto v4a = asio::ip::address_v4::from_string(addr, ec);
     if (!ec) {
         si->second.broadcast = std::move(v4a);
         return true;
@@ -336,13 +333,13 @@ bool emplace_dynamic_range(size_t linenum, const std::string &interface,
     }
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
-    boost::system::error_code ec;
-    auto v4a_lo = boost::asio::ip::address_v4::from_string(lo_addr, ec);
+    std::error_code ec;
+    auto v4a_lo = asio::ip::address_v4::from_string(lo_addr, ec);
     if (ec) {
         fmt::print(stderr, "Bad IPv4 address at line {}: {}\n", linenum, lo_addr);
         return false;
     }
-    auto v4a_hi = boost::asio::ip::address_v4::from_string(hi_addr, ec);
+    auto v4a_hi = asio::ip::address_v4::from_string(hi_addr, ec);
     if (ec) {
         fmt::print(stderr, "Bad IPv4 address at line {}: {}\n", linenum, hi_addr);
         return false;
@@ -388,14 +385,14 @@ const dhcpv4_entry* query_dhcp_state(const std::string &interface, const uint8_t
     return f != si->second.macaddr_mapping.end() ? f->second.get() : nullptr;
 }
 
-const std::vector<boost::asio::ip::address_v6> &query_dns6_servers(const std::string &interface)
+const std::vector<asio::ip::address_v6> &query_dns6_servers(const std::string &interface)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) throw std::runtime_error("no such interface");
     return si->second.dns6_servers;
 }
 
-const std::vector<boost::asio::ip::address_v4> &query_dns4_servers(const std::string &interface)
+const std::vector<asio::ip::address_v4> &query_dns4_servers(const std::string &interface)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) throw std::runtime_error("no such interface");
@@ -409,14 +406,14 @@ const std::vector<uint8_t> &query_dns6_search_blob(const std::string &interface)
     return si->second.dns_search_blob;
 }
 
-const std::vector<boost::asio::ip::address_v6> &query_ntp6_servers(const std::string &interface)
+const std::vector<asio::ip::address_v6> &query_ntp6_servers(const std::string &interface)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) throw std::runtime_error("no such interface");
     return si->second.ntp6_servers;
 }
 
-const std::vector<boost::asio::ip::address_v4> &query_ntp4_servers(const std::string &interface)
+const std::vector<asio::ip::address_v4> &query_ntp4_servers(const std::string &interface)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) throw std::runtime_error("no such interface");
@@ -430,36 +427,36 @@ const std::vector<uint8_t> &query_ntp6_fqdns_blob(const std::string &interface)
     return si->second.ntp6_fqdns_blob;
 }
 
-const std::vector<boost::asio::ip::address_v6> &query_ntp6_multicasts(const std::string &interface)
+const std::vector<asio::ip::address_v6> &query_ntp6_multicasts(const std::string &interface)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) throw std::runtime_error("no such interface");
     return si->second.ntp6_multicasts;
 }
 
-const std::vector<boost::asio::ip::address_v4> &query_gateway(const std::string &interface)
+const std::vector<asio::ip::address_v4> &query_gateway(const std::string &interface)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) throw std::runtime_error("no such interface");
     return si->second.gateway;
 }
 
-const boost::asio::ip::address_v4 &query_subnet(const std::string &interface)
+const asio::ip::address_v4 &query_subnet(const std::string &interface)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) throw std::runtime_error("no such interface");
     return si->second.subnet;
 }
 
-const boost::asio::ip::address_v4 &query_broadcast(const std::string &interface)
+const asio::ip::address_v4 &query_broadcast(const std::string &interface)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) throw std::runtime_error("no such interface");
     return si->second.broadcast;
 }
 
-const std::pair<baia4, baia4> &query_dynamic_range(const std::string &interface,
-                                                   uint32_t &dynamic_lifetime)
+const std::pair<asio::ip::address_v4, asio::ip::address_v4> &
+query_dynamic_range(const std::string &interface, uint32_t &dynamic_lifetime)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) throw std::runtime_error("no such interface");

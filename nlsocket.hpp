@@ -33,7 +33,7 @@
 #include <string>
 #include <array>
 #include <map>
-#include <boost/asio.hpp>
+#include <asio.hpp>
 #include "asio_netlink.hpp"
 extern "C" {
 #include "nl.h"
@@ -51,10 +51,10 @@ struct netif_addr
 
     std::string if_name;
     int if_index;
-    boost::asio::ip::address address;
-    boost::asio::ip::address peer_address;
-    boost::asio::ip::address broadcast_address;
-    boost::asio::ip::address anycast_address;
+    asio::ip::address address;
+    asio::ip::address peer_address;
+    asio::ip::address broadcast_address;
+    asio::ip::address anycast_address;
     unsigned char addr_type;
     unsigned char prefixlen;
     unsigned char flags;
@@ -82,7 +82,7 @@ struct netif_info
 class NLSocket
 {
 public:
-    NLSocket(boost::asio::io_service &io_service);
+    NLSocket(asio::io_service &io_service);
     NLSocket(const NLSocket &) = delete;
     NLSocket &operator=(const NLSocket &) = delete;
     int get_ifindex(const std::string &name) const {
@@ -102,7 +102,7 @@ private:
     void request_links();
     void request_addrs();
     void request_addrs(int ifidx);
-    boost::asio::basic_raw_socket<nl_protocol> socket_;
+    asio::basic_raw_socket<nl_protocol> socket_;
     nl_endpoint<nl_protocol> remote_endpoint_;
     std::array<uint8_t, 8192> recv_buffer_;
     std::map<std::string, int> name_to_ifindex_;

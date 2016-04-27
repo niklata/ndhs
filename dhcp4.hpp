@@ -33,7 +33,7 @@
 #include <memory>
 #include <unordered_map>
 #include <netdb.h>
-#include <boost/asio.hpp>
+#include <asio.hpp>
 #include "dhcp.h"
 
 // There are two hashtables, a 'new' and a 'marked for death' table.  If these
@@ -54,7 +54,7 @@
 class ClientStates
 {
 public:
-    ClientStates(boost::asio::io_service &io_service)
+    ClientStates(asio::io_service &io_service)
             : swapTimer_(io_service)
         {
         currentMap_ = 0;
@@ -117,7 +117,7 @@ private:
     void setTimer(void) {
         swapTimer_.expires_from_now(boost::posix_time::seconds(swapInterval_));
         swapTimer_.async_wait
-            ([this](const boost::system::error_code& error)
+            ([this](const std::error_code& error)
              {
                  doSwap();
                  if (map_[0].size() || map_[1].size())
@@ -126,7 +126,7 @@ private:
     }
     // key_ is concatenation of xid|hwaddr.  Neither of these need to be
     // stored in explicit fields in the state structure.
-    boost::asio::deadline_timer swapTimer_;
+    asio::deadline_timer swapTimer_;
     std::unordered_map<std::string, uint8_t> map_[2];
     std::string key_; // Stored here to reduce number of allocations.
     int currentMap_; // Either 0 or 1.
@@ -136,7 +136,7 @@ private:
 class D4Listener
 {
 public:
-    D4Listener(boost::asio::io_service &io_service, const std::string &ifname);
+    D4Listener(asio::io_service &io_service, const std::string &ifname);
     D4Listener(const D4Listener &) = delete;
     D4Listener &operator=(const D4Listener &) = delete;
 private:
@@ -150,7 +150,7 @@ private:
     void send_reply_do(const dhcpmsg &dm, SendReplyType srt);
     void send_reply(const dhcpmsg &dm);
     bool iplist_option(dhcpmsg &reply, std::string &iplist, uint8_t code,
-                       const std::vector<boost::asio::ip::address_v4> &addrs);
+                       const std::vector<asio::ip::address_v4> &addrs);
     bool allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do_assign);
     bool create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_assign);
     void reply_discover();
@@ -160,13 +160,13 @@ private:
     std::string getChaddr(const struct dhcpmsg &dm) const;
     uint8_t validate_dhcp(size_t len) const;
 
-    boost::asio::ip::udp::socket socket_;
-    //boost::asio::ip::udp::socket broadcast_socket_;
-    boost::asio::ip::udp::endpoint remote_endpoint_;
+    asio::ip::udp::socket socket_;
+    //asio::ip::udp::socket broadcast_socket_;
+    asio::ip::udp::endpoint remote_endpoint_;
     std::array<uint8_t, 1024> recv_buffer_;
     struct dhcpmsg dhcpmsg_;
     std::string ifname_;
-    boost::asio::ip::address local_ip_;
+    asio::ip::address local_ip_;
 };
 
 #endif /* NK_DHCPCLIENT_H */

@@ -8,53 +8,53 @@
 #include <format.hpp>
 #include <nk/scopeguard.hpp>
 #include <nk/str_to_int.hpp>
-#include <boost/asio.hpp>
+#include <asio.hpp>
 
 #define MAX_LINE 2048
 
-using baia6 = boost::asio::ip::address_v6;
-using baia4 = boost::asio::ip::address_v4;
+using aia6 = asio::ip::address_v6;
+using aia4 = asio::ip::address_v4;
 
 struct lease_state_v4
 {
-    lease_state_v4(baia4 &&addr_, const std::string &ma, int64_t et)
+    lease_state_v4(aia4 &&addr_, const std::string &ma, int64_t et)
         : addr(std::move(addr_)), expire_time(et)
     {
         assert(ma.size() == 6);
         for (unsigned i = 0; i < 6; ++i)
             macaddr[i] = ma[i];
     }
-    lease_state_v4(baia4 &&addr_, const uint8_t *ma, int64_t et)
+    lease_state_v4(aia4 &&addr_, const uint8_t *ma, int64_t et)
         : addr(std::move(addr_)), expire_time(et)
     {
         for (unsigned i = 0; i < 6; ++i)
             macaddr[i] = ma[i];
     }
-    lease_state_v4(const baia4 &addr_, const std::string &ma, int64_t et)
+    lease_state_v4(const aia4 &addr_, const std::string &ma, int64_t et)
         : addr(addr_), expire_time(et)
     {
         assert(ma.size() == 6);
         for (unsigned i = 0; i < 6; ++i)
             macaddr[i] = ma[i];
     }
-    lease_state_v4(const baia4 &addr_, const uint8_t *ma, int64_t et)
+    lease_state_v4(const aia4 &addr_, const uint8_t *ma, int64_t et)
         : addr(addr_), expire_time(et)
     {
         for (unsigned i = 0; i < 6; ++i)
             macaddr[i] = ma[i];
     }
-    baia4 addr;
+    aia4 addr;
     uint8_t macaddr[6];
     int64_t expire_time;
 };
 
 struct lease_state_v6
 {
-    lease_state_v6(baia6 &&addr_, std::string &&duid_, uint32_t iaid_, int64_t et)
+    lease_state_v6(aia6 &&addr_, std::string &&duid_, uint32_t iaid_, int64_t et)
         : addr(std::move(addr_)), duid(std::move(duid_)), iaid(iaid_), expire_time(et) {}
-    lease_state_v6(const baia6 &addr_, const std::string &duid_, uint32_t iaid_, int64_t et)
+    lease_state_v6(const aia6 &addr_, const std::string &duid_, uint32_t iaid_, int64_t et)
         : addr(addr_), duid(duid_), iaid(iaid_), expire_time(et) {}
-    baia6 addr;
+    aia6 addr;
     std::string duid;
     uint32_t iaid;
     int64_t expire_time;
@@ -77,8 +77,8 @@ static bool emplace_dynlease_state(size_t linenum, std::string &&interface,
         auto x = dyn_leases_v4.emplace(std::make_pair(std::move(interface), dynlease_map_v4()));
         si = x.first;
     }
-    boost::system::error_code ec;
-    auto v4a = baia4::from_string(v4_addr, ec);
+    std::error_code ec;
+    auto v4a = aia4::from_string(v4_addr, ec);
     if (ec) {
         fmt::print(stderr, "Bad IPv4 address at line {}: {}\n", linenum, v4_addr);
         return false;
@@ -98,8 +98,8 @@ static bool emplace_dynlease_state(size_t linenum, std::string &&interface,
         auto x = dyn_leases_v6.emplace(std::make_pair(std::move(interface), dynlease_map_v6()));
         si = x.first;
     }
-    boost::system::error_code ec;
-    auto v6a = baia6::from_string(v6_addr, ec);
+    std::error_code ec;
+    auto v6a = aia6::from_string(v6_addr, ec);
     if (ec) {
         fmt::print(stderr, "Bad IPv6 address at line {}: {}\n", linenum, v6_addr);
         return false;
@@ -108,7 +108,7 @@ static bool emplace_dynlease_state(size_t linenum, std::string &&interface,
     return true;
 }
 
-bool dynlease_add(const std::string &interface, const baia4 &v4_addr, const uint8_t *macaddr,
+bool dynlease_add(const std::string &interface, const aia4 &v4_addr, const uint8_t *macaddr,
                   int64_t expire_time)
 {
     auto si = dyn_leases_v4.find(interface);
@@ -130,7 +130,7 @@ bool dynlease_add(const std::string &interface, const baia4 &v4_addr, const uint
     return true;
 }
 
-bool dynlease_add(const std::string &interface, const baia6 &v6_addr,
+bool dynlease_add(const std::string &interface, const aia6 &v6_addr,
                   const std::string &duid, uint32_t iaid, int64_t expire_time)
 {
     auto si = dyn_leases_v6.find(interface);
@@ -152,10 +152,10 @@ bool dynlease_add(const std::string &interface, const baia6 &v6_addr,
     return true;
 }
 
-const baia4 &dynlease_query_refresh(const std::string &interface, const uint8_t *macaddr,
-                                    int64_t expire_time)
+const aia4 &dynlease_query_refresh(const std::string &interface, const uint8_t *macaddr,
+                                   int64_t expire_time)
 {
-    static baia4 blank{};
+    static aia4 blank{};
     auto si = dyn_leases_v4.find(interface);
     if (si == dyn_leases_v4.end()) return blank;
 
@@ -169,10 +169,10 @@ const baia4 &dynlease_query_refresh(const std::string &interface, const uint8_t 
     return blank;
 }
 
-const baia6 &dynlease_query_refresh(const std::string &interface, const std::string &duid,
-                                    uint32_t iaid, int64_t expire_time)
+const aia6 &dynlease_query_refresh(const std::string &interface, const std::string &duid,
+                                   uint32_t iaid, int64_t expire_time)
 {
-    static baia6 blank{};
+    static aia6 blank{};
     auto si = dyn_leases_v6.find(interface);
     if (si == dyn_leases_v6.end()) return blank;
 
@@ -186,7 +186,7 @@ const baia6 &dynlease_query_refresh(const std::string &interface, const std::str
     return blank;
 }
 
-bool dynlease_exists(const std::string &interface, const baia4 &v4_addr, const uint8_t *macaddr)
+bool dynlease_exists(const std::string &interface, const aia4 &v4_addr, const uint8_t *macaddr)
 {
     auto si = dyn_leases_v4.find(interface);
     if (si == dyn_leases_v4.end()) return false;
@@ -202,7 +202,7 @@ bool dynlease_exists(const std::string &interface, const baia4 &v4_addr, const u
     return false;
 }
 
-bool dynlease_exists(const std::string &interface, const baia6 &v6_addr,
+bool dynlease_exists(const std::string &interface, const aia6 &v6_addr,
                      const std::string &duid, uint32_t iaid)
 {
     auto si = dyn_leases_v6.find(interface);
@@ -219,7 +219,7 @@ bool dynlease_exists(const std::string &interface, const baia6 &v6_addr,
     return false;
 }
 
-bool dynlease_del(const std::string &interface, const baia4 &v4_addr, const uint8_t *macaddr)
+bool dynlease_del(const std::string &interface, const aia4 &v4_addr, const uint8_t *macaddr)
 {
     auto si = dyn_leases_v4.find(interface);
     if (si == dyn_leases_v4.end()) return false;
@@ -234,7 +234,7 @@ bool dynlease_del(const std::string &interface, const baia4 &v4_addr, const uint
     return false;
 }
 
-bool dynlease_del(const std::string &interface, const baia6 &v6_addr,
+bool dynlease_del(const std::string &interface, const aia6 &v6_addr,
                   const std::string &duid, uint32_t iaid)
 {
     auto si = dyn_leases_v6.find(interface);

@@ -4,7 +4,7 @@
 #include <string>
 #include <stdint.h>
 #include <iterator>
-#include <boost/asio.hpp>
+#include <asio.hpp>
 #include <nk/netbits.hpp>
 #include "dhcp_state.hpp"
 #include "radv6.hpp"
@@ -130,17 +130,17 @@ public:
 };
 
 struct d6_ia_addr {
-    boost::asio::ip::address_v6 addr;
+    asio::ip::address_v6 addr;
     uint32_t prefer_lifetime;
     uint32_t valid_lifetime;
     static const std::size_t size = 24;
     friend std::istream& operator>>(std::istream &is, d6_ia_addr &ia)
     {
-        boost::asio::ip::address_v6::bytes_type addrbytes;
+        asio::ip::address_v6::bytes_type addrbytes;
         char data[24];
         is.read(data, sizeof data);
         memcpy(&addrbytes, data, 16);
-        ia.addr = boost::asio::ip::address_v6(addrbytes);
+        ia.addr = asio::ip::address_v6(addrbytes);
         ia.prefer_lifetime = decode32be(data + 16);
         ia.valid_lifetime = decode32be(data + 20);
         return is;
@@ -205,7 +205,7 @@ struct d6_statuscode
 class D6Listener
 {
 public:
-    D6Listener(boost::asio::io_service &io_service, const std::string &ifname);
+    D6Listener(asio::io_service &io_service, const std::string &ifname);
 private:
     using prev_opt_state = std::pair<int8_t, uint16_t>; // Type of parent opt and length left
     struct d6msg_state
@@ -235,19 +235,19 @@ private:
     bool attach_address_info(const d6msg_state &d6s, std::ostream &os);
     void attach_dns_ntp_info(const d6msg_state &d6s, std::ostream &os);
     void write_response_header(const d6msg_state &d6s, std::ostream &os, dhcp6_msgtype mtype);
-    void handle_solicit_msg(const d6msg_state &d6s, boost::asio::streambuf &send_buffer);
-    void handle_request_msg(const d6msg_state &d6s, boost::asio::streambuf &send_buffer);
+    void handle_solicit_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
+    void handle_request_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
     bool confirm_match(const d6msg_state &d6s) const;
-    void handle_confirm_msg(const d6msg_state &d6s, boost::asio::streambuf &send_buffer);
-    void handle_renew_msg(const d6msg_state &d6s, boost::asio::streambuf &send_buffer);
-    void handle_rebind_msg(const d6msg_state &d6s, boost::asio::streambuf &send_buffer);
-    void handle_information_msg(const d6msg_state &d6s, boost::asio::streambuf &send_buffer);
+    void handle_confirm_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
+    void handle_renew_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
+    void handle_rebind_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
+    void handle_information_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
     void start_receive();
     void attach_bpf(int fd);
-    boost::asio::streambuf recv_buffer_;
-    boost::asio::ip::udp::endpoint sender_endpoint_;
-    boost::asio::ip::address_v6 local_ip_;
-    boost::asio::ip::udp::socket socket_;
+    asio::streambuf recv_buffer_;
+    asio::ip::udp::endpoint sender_endpoint_;
+    asio::ip::address_v6 local_ip_;
+    asio::ip::udp::socket socket_;
     std::string ifname_;
     std::unique_ptr<RA6Listener> radv6_listener_;
     bool using_bpf_:1;

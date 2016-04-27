@@ -32,13 +32,11 @@ endif()
 
 include_directories("${PROJECT_SOURCE_DIR}"
                     "${PROJECT_SOURCE_DIR}/ncmlib"
+                    "${PROJECT_SOURCE_DIR}/asio"
                     "${PROJECT_SOURCE_DIR}/cppformat")
 add_subdirectory(ncmlib)
 add_subdirectory(cppformat)
 
-find_package( Boost COMPONENTS system )
-link_directories ( ${Boost_LIBRARY_DIRS} )
-include_directories ( ${Boost_INCLUDE_DIRS} )
 find_package(Threads)
 
 set(RAGEL_CFG ${CMAKE_CURRENT_BINARY_DIR}/cfg.cpp)
@@ -67,5 +65,5 @@ file(GLOB NDHS_SRCS_CPP "*.cpp")
 list(APPEND NDHS_SRCS ${NDHS_SRCS_C} ${NDHS_SRCS_CPP})
 
 add_executable(ndhs ${RAGEL_CFG} ${RAGEL_DYNLEASE} ${NDHS_SRCS})
-target_link_libraries(ndhs ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} ncmlib cppformat)
+target_link_libraries(ndhs ${CMAKE_THREAD_LIBS_INIT} ncmlib cppformat)
 

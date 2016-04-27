@@ -84,8 +84,6 @@ extern "C" {
  *                Autonomous Flag: True
  */
 
-namespace ba = boost::asio;
-
 class ipv6_header
 {
 public:
@@ -108,17 +106,17 @@ public:
     uint8_t hop_limit() const {
         return data_[7];
     }
-    boost::asio::ip::address_v6 source_address() const
+    asio::ip::address_v6 source_address() const
     {
-        boost::asio::ip::address_v6::bytes_type bytes;
+        asio::ip::address_v6::bytes_type bytes;
         memcpy(&bytes, data_ + 8, 16);
-        return boost::asio::ip::address_v6(bytes);
+        return asio::ip::address_v6(bytes);
     }
-    boost::asio::ip::address_v6 destination_address() const
+    asio::ip::address_v6 destination_address() const
     {
-        boost::asio::ip::address_v6::bytes_type bytes;
+        asio::ip::address_v6::bytes_type bytes;
         memcpy(&bytes, data_ + 24, 16);
-        return boost::asio::ip::address_v6(bytes);
+        return asio::ip::address_v6(bytes);
     }
     static const std::size_t size = 40;
     friend std::istream& operator>>(std::istream &is, ipv6_header &header)
@@ -302,18 +300,18 @@ public:
     bool router_addr_flag() const { return data_[3] & (1 << 5); }
     uint32_t valid_lifetime() const { return decode32be(data_ + 4); }
     uint32_t preferred_lifetime() const { return decode32be(data_ + 8); }
-    boost::asio::ip::address_v6 prefix() const
+    asio::ip::address_v6 prefix() const
     {
-        boost::asio::ip::address_v6::bytes_type bytes;
+        asio::ip::address_v6::bytes_type bytes;
         memcpy(&bytes, data_ + 16, 16);
-        return boost::asio::ip::address_v6(bytes);
+        return asio::ip::address_v6(bytes);
     }
     void on_link(bool v) { toggle_bit(v, data_, 3, 1 << 7); }
     void auto_addr_cfg(bool v) { toggle_bit(v, data_, 3, 1 << 6); }
     void router_addr_flag(bool v) { toggle_bit(v, data_, 3, 1 << 5); }
     void valid_lifetime(uint32_t v) { encode32be(v, data_ + 4); }
     void preferred_lifetime(uint32_t v) { encode32be(v, data_ + 8); }
-    void prefix(const boost::asio::ip::address_v6 &v, uint8_t pl) {
+    void prefix(const asio::ip::address_v6 &v, uint8_t pl) {
         uint8_t a6[16];
         data_[2] = pl;
         auto bytes = v.to_bytes();
@@ -408,18 +406,18 @@ private:
  * Windows needs DHCPv6 for DNS.
  */
 extern std::unique_ptr<NLSocket> nl_socket;
-static auto mc6_allhosts = ba::ip::address_v6::from_string("ff02::1");
-static auto mc6_allrouters = ba::ip::address_v6::from_string("ff02::2");
+static auto mc6_allhosts = asio::ip::address_v6::from_string("ff02::1");
+static auto mc6_allrouters = asio::ip::address_v6::from_string("ff02::2");
 static const uint8_t icmp_nexthdr(58); // Assigned value
 extern nk::rng::xorshift64m g_random_prng;
 
 // Can throw std::out_of_range
-RA6Listener::RA6Listener(ba::io_service &io_service, const std::string &ifname)
+RA6Listener::RA6Listener(asio::io_service &io_service, const std::string &ifname)
     : timer_(io_service), socket_(io_service), ifname_(ifname),
       advi_s_max_(600), using_bpf_(false)
 {
-    const ba::ip::icmp::endpoint global_ep(ba::ip::address_v6::any(), 0);
-    socket_.open(ba::ip::icmp::v6());
+    const asio::ip::icmp::endpoint global_ep(asio::ip::address_v6::any(), 0);
+    socket_.open(asio::ip::icmp::v6());
     attach_multicast(socket_.native(), ifname, mc6_allrouters);
     attach_bpf(socket_.native());
     socket_.bind(global_ep);
@@ -448,7 +446,7 @@ void RA6Listener::start_periodic_announce()
     auto advi_s = dist(g_random_prng);
     timer_.expires_from_now(boost::posix_time::seconds(advi_s));
     timer_.async_wait
-        ([this](const boost::system::error_code &ec)
+        ([this](const std::error_code &ec)
          {
              if (ec)
                 return;
@@ -515,7 +513,7 @@ void RA6Listener::send_advert()
         }
     }
 
-    const std::vector<boost::asio::ip::address_v6> *dns6_servers{nullptr};
+    const std::vector<asio::ip::address_v6> *dns6_servers{nullptr};
     const std::vector<uint8_t> *dns_search_blob{nullptr};
     try {
         const auto tt = query_dns6_servers(ifname_);
@@ -546,7 +544,7 @@ void RA6Listener::send_advert()
         pktl += sizeof ra6_dsrch + dns_search_blob->size() + dns_search_slack;
     }
 
-    auto llab = ba::ip::address_v6::any().to_bytes();
+    auto llab = asio::ip::address_v6::any().to_bytes();
     auto dstb = mc6_allhosts.to_bytes();
     csum = net_checksum161c_add(csum, net_checksum161c(&llab, sizeof llab));
     csum = net_checksum161c_add(csum, net_checksum161c(&dstb, sizeof dstb));
@@ -560,7 +558,7 @@ void RA6Listener::send_advert()
     }
     icmp_hdr.checksum(csum);
 
-    ba::streambuf send_buffer;
+    asio::streambuf send_buffer;
     std::ostream os(&send_buffer);
     os << icmp_hdr << ra6adv_hdr << ra6_slla << ra6_mtu;
     for (const auto &i: ra6_pfxs)
@@ -582,8 +580,8 @@ void RA6Listener::send_advert()
             os << zerob;
     }
 
-    ba::ip::icmp::endpoint dst(mc6_allhosts, 0);
-    boost::system::error_code ec;
+    asio::ip::icmp::endpoint dst(mc6_allhosts, 0);
+    std::error_code ec;
     socket_.send_to(send_buffer.data(), dst, 0, ec);
 }
 
@@ -592,8 +590,7 @@ void RA6Listener::start_receive()
     recv_buffer_.consume(recv_buffer_.size());
     socket_.async_receive_from
         (recv_buffer_.prepare(8192), remote_endpoint_,
-         [this](const boost::system::error_code &error,
-                std::size_t bytes_xferred)
+         [this](const std::error_code &error, std::size_t bytes_xferred)
          {
              recv_buffer_.commit(bytes_xferred);
 

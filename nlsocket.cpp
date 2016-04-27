@@ -32,10 +32,9 @@
 extern "C" {
 #include "nl.h"
 }
-namespace ba = boost::asio;
 extern nk::rng::xorshift64m g_random_prng;
 
-NLSocket::NLSocket(ba::io_service &io_service)
+NLSocket::NLSocket(asio::io_service &io_service)
 : socket_(io_service), nlseq_(g_random_prng())
 {
     initialized_ = false;
@@ -60,8 +59,8 @@ void NLSocket::request_links()
         std::exit(EXIT_FAILURE);
     }
     std::size_t bytes_xferred;
-    boost::system::error_code ec;
-    while ((bytes_xferred = socket_.receive(ba::buffer(recv_buffer_), 0, ec)))
+    std::error_code ec;
+    while ((bytes_xferred = socket_.receive(asio::buffer(recv_buffer_), 0, ec)))
         process_receive(bytes_xferred, link_seq, 0);
 }
 
@@ -74,8 +73,8 @@ void NLSocket::request_addrs()
         std::exit(EXIT_FAILURE);
     }
     std::size_t bytes_xferred;
-    boost::system::error_code ec;
-    while ((bytes_xferred = socket_.receive(ba::buffer(recv_buffer_), 0, ec)))
+    std::error_code ec;
+    while ((bytes_xferred = socket_.receive(asio::buffer(recv_buffer_), 0, ec)))
         process_receive(bytes_xferred, addr_seq, 0);
 }
 
@@ -89,17 +88,17 @@ void NLSocket::request_addrs(int ifidx)
     }
 }
 
-static void parse_raw_address6(boost::asio::ip::address &addr, struct rtattr *tb[], size_t type, int index)
+static void parse_raw_address6(asio::ip::address &addr, struct rtattr *tb[], size_t type, int index)
 {
-    boost::asio::ip::address_v6::bytes_type bytes;
+    asio::ip::address_v6::bytes_type bytes;
     memcpy(&bytes, RTA_DATA(tb[type]), sizeof bytes);
-    addr = boost::asio::ip::address_v6(bytes, index);
+    addr = asio::ip::address_v6(bytes, index);
 }
-static void parse_raw_address4(boost::asio::ip::address &addr, struct rtattr *tb[], size_t type)
+static void parse_raw_address4(asio::ip::address &addr, struct rtattr *tb[], size_t type)
 {
-    boost::asio::ip::address_v4::bytes_type bytes;
+    asio::ip::address_v4::bytes_type bytes;
     memcpy(&bytes, RTA_DATA(tb[type]), sizeof bytes);
-    addr = boost::asio::ip::address_v4(bytes);
+    addr = asio::ip::address_v4(bytes);
 }
 
 void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
@@ -306,9 +305,8 @@ void NLSocket::process_receive(std::size_t bytes_xferred,
 void NLSocket::start_receive()
 {
     socket_.async_receive_from
-        (ba::buffer(recv_buffer_), remote_endpoint_,
-         [this](const boost::system::error_code &error,
-                std::size_t bytes_xferred)
+        (asio::buffer(recv_buffer_), remote_endpoint_,
+         [this](const std::error_code &error, std::size_t bytes_xferred)
          {
              process_receive(bytes_xferred, 0, 0);
              start_receive();

@@ -78,8 +78,6 @@ struct cfg_parse_state {
     uint32_t default_lifetime;
 };
 
-using baia6 = boost::asio::ip::address_v6;
-
 %%{
     machine cfg_line_m;
     access cps.;

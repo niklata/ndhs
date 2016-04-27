@@ -2,15 +2,14 @@
 #define NK_NRAD6_MULTICAST6_HPP_
 
 #include <string>
-#include <boost/asio.hpp>
+#include <asio.hpp>
 #include "nlsocket.hpp"
 extern "C" {
 #include "nk/log.h"
 }
 
 extern std::unique_ptr<NLSocket> nl_socket;
-static void attach_multicast(int fd, const std::string &ifname,
-                             boost::asio::ip::address_v6 &mc6addr)
+static void attach_multicast(int fd, const std::string &ifname, asio::ip::address_v6 &mc6addr)
 {
     auto ifidx = nl_socket->get_ifindex(ifname);
     struct ifreq ifr;
@@ -38,7 +37,7 @@ static void attach_multicast(int fd, const std::string &ifname,
         suicide("failed to join router multicast group for socket: %s", strerror(errno));
 
 #if 0
-    boost::asio::ip::multicast::join_group mc_routers_group(mc6_allrouters);
+    asio::ip::multicast::join_group mc_routers_group(mc6_allrouters);
     socket_.set_option(mc_routers_group);
 #endif
 

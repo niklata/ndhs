@@ -47,7 +47,7 @@
 #include <grp.h>
 #include <signal.h>
 #include <errno.h>
-#include <boost/asio.hpp>
+#include <asio.hpp>
 #include <format.hpp>
 #include <nk/optionarg.hpp>
 #include <nk/str_to_int.hpp>
@@ -64,8 +64,8 @@ extern "C" {
 #include "dhcp_state.hpp"
 #include "dynlease.hpp"
 
-boost::asio::io_service io_service;
-static boost::asio::signal_set asio_signal_set(io_service);
+asio::io_service io_service;
+static asio::signal_set asio_signal_set(io_service);
 static std::string configfile{"/etc/ndhs.conf"};
 static uid_t ndhs_uid;
 static gid_t ndhs_gid;
@@ -108,7 +108,7 @@ static void init_listeners()
         if (use_v4) {
             try {
                 v4l->emplace_back(std::make_unique<D4Listener>(*ios, i));
-            } catch (const boost::system::error_code &) {
+            } catch (const std::error_code &) {
                 fmt::print(stderr, "Can't bind to v4 interface: {}\n", i);
             }
         }
@@ -132,10 +132,7 @@ static void process_signals()
     }
     asio_signal_set.add(SIGINT);
     asio_signal_set.add(SIGTERM);
-    asio_signal_set.async_wait(
-        [](const boost::system::error_code &, int signum) {
-            io_service.stop();
-        });
+    asio_signal_set.async_wait([](const std::error_code &, int signum) { io_service.stop(); });
 }
 
 static int enforce_seccomp(bool changed_uidgid)

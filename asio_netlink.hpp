@@ -10,7 +10,7 @@ class nl_endpoint
 {
 public:
     typedef Proto protocol_type;
-    typedef boost::asio::detail::socket_addr_type data_type;
+    typedef asio::detail::socket_addr_type data_type;
 
     nl_endpoint(int group, int pid = getpid()) {
         sockaddr_.nl_family = PF_NETLINK;
@@ -77,7 +77,7 @@ public:
     int protocol() const { return proto_; }
     int family() const { return PF_NETLINK; }
     typedef nl_endpoint<nl_protocol> endpoint;
-    typedef boost::asio::basic_raw_socket<nl_protocol> socket;
+    typedef asio::basic_raw_socket<nl_protocol> socket;
 private:
     int proto_;
 };

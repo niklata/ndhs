@@ -4,7 +4,7 @@ REQUIREMENTS
 Linux kernel
 GCC or Clang
 CMake
-ASIO (think-async.com)
+ASIO 1.10.6 (think-async.com)
 ncmlib
 cppformat
 

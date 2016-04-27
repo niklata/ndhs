@@ -4,12 +4,10 @@
 #include "dhcp6.hpp"
 #include "attach_bpf.h"
 
-namespace ba = boost::asio;
-
 extern std::unique_ptr<NLSocket> nl_socket;
-static auto mc6_alldhcp_ras = ba::ip::address_v6::from_string("ff02::1:2");
+static auto mc6_alldhcp_ras = asio::ip::address_v6::from_string("ff02::1:2");
 
-D6Listener::D6Listener(ba::io_service &io_service,
+D6Listener::D6Listener(asio::io_service &io_service,
                        const std::string &ifname)
   : socket_(io_service), ifname_(ifname), using_bpf_(false)
 {
@@ -17,8 +15,8 @@ D6Listener::D6Listener(ba::io_service &io_service,
     const auto &ifinfo = nl_socket->interfaces.at(ifidx);
     memcpy(macaddr_, ifinfo.macaddr, sizeof macaddr_);
 
-    socket_.open(ba::ip::udp::v6());
-    auto lla_ep = ba::ip::udp::endpoint(ba::ip::address_v6::any(), 547);
+    socket_.open(asio::ip::udp::v6());
+    auto lla_ep = asio::ip::udp::endpoint(asio::ip::address_v6::any(), 547);
     attach_multicast(socket_.native(), ifname, mc6_alldhcp_ras);
     attach_bpf(socket_.native());
     socket_.bind(lla_ep);
@@ -235,7 +233,7 @@ void D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, std::ostream &os)
     }
 }
 
-void D6Listener::handle_solicit_msg(const d6msg_state &d6s, ba::streambuf &send_buffer)
+void D6Listener::handle_solicit_msg(const d6msg_state &d6s, asio::streambuf &send_buffer)
 {
     std::ostream os(&send_buffer);
     write_response_header(d6s, os, !d6s.use_rapid_commit ? dhcp6_msgtype::advertise
@@ -252,7 +250,7 @@ void D6Listener::handle_solicit_msg(const d6msg_state &d6s, ba::streambuf &send_
     }
 }
 
-void D6Listener::handle_request_msg(const d6msg_state &d6s, ba::streambuf &send_buffer)
+void D6Listener::handle_request_msg(const d6msg_state &d6s, asio::streambuf &send_buffer)
 {
     std::ostream os(&send_buffer);
     write_response_header(d6s, os, dhcp6_msgtype::reply);
@@ -287,7 +285,7 @@ bool D6Listener::confirm_match(const d6msg_state &d6s) const
     return true;
 }
 
-void D6Listener::handle_confirm_msg(const d6msg_state &d6s, boost::asio::streambuf &send_buffer)
+void D6Listener::handle_confirm_msg(const d6msg_state &d6s, asio::streambuf &send_buffer)
 {
     std::ostream os(&send_buffer);
     write_response_header(d6s, os, dhcp6_msgtype::reply);
@@ -314,7 +312,7 @@ void D6Listener::handle_confirm_msg(const d6msg_state &d6s, boost::asio::streamb
     attach_dns_ntp_info(d6s, os);
 }
 
-void D6Listener::handle_renew_msg(const d6msg_state &d6s, boost::asio::streambuf &send_buffer)
+void D6Listener::handle_renew_msg(const d6msg_state &d6s, asio::streambuf &send_buffer)
 {
     std::ostream os(&send_buffer);
     write_response_header(d6s, os, dhcp6_msgtype::reply);
@@ -324,7 +322,7 @@ void D6Listener::handle_renew_msg(const d6msg_state &d6s, boost::asio::streambuf
     attach_dns_ntp_info(d6s, os);
 }
 
-void D6Listener::handle_rebind_msg(const d6msg_state &d6s, boost::asio::streambuf &send_buffer)
+void D6Listener::handle_rebind_msg(const d6msg_state &d6s, asio::streambuf &send_buffer)
 {
     std::ostream os(&send_buffer);
     write_response_header(d6s, os, dhcp6_msgtype::reply);
@@ -333,7 +331,7 @@ void D6Listener::handle_rebind_msg(const d6msg_state &d6s, boost::asio::streambu
     attach_dns_ntp_info(d6s, os);
 }
 
-void D6Listener::handle_information_msg(const d6msg_state &d6s, ba::streambuf &send_buffer)
+void D6Listener::handle_information_msg(const d6msg_state &d6s, asio::streambuf &send_buffer)
 {
     std::ostream os(&send_buffer);
     write_response_header(d6s, os, dhcp6_msgtype::reply);
@@ -379,7 +377,7 @@ void D6Listener::start_receive()
     recv_buffer_.consume(recv_buffer_.size());
     socket_.async_receive_from
         (recv_buffer_.prepare(8192), sender_endpoint_,
-         [this](const boost::system::error_code &error, std::size_t bytes_xferred)
+         [this](const std::error_code &error, std::size_t bytes_xferred)
          {
              fmt::print(stderr, "\nbytes_xferred={}\n", bytes_xferred);
              recv_buffer_.commit(bytes_xferred);
@@ -570,7 +568,7 @@ void D6Listener::start_receive()
                  }
              }
 
-             ba::streambuf send_buffer;
+             asio::streambuf send_buffer;
              switch (d6s.header.msg_type()) {
              case dhcp6_msgtype::solicit:
                  handle_solicit_msg(d6s, send_buffer); break;
@@ -589,7 +587,7 @@ void D6Listener::start_receive()
 
              fmt::print("Calling send_to => {}\n", sender_endpoint_.address().to_string());
 
-             boost::system::error_code ec;
+             std::error_code ec;
              socket_.send_to(send_buffer.data(), sender_endpoint_, 0, ec);
              start_receive();
          });
