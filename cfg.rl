@@ -32,6 +32,8 @@
 #include <format.hpp>
 #include <nk/str_to_int.hpp>
 #include "dhcp_state.hpp"
+extern void set_user_runas(size_t linenum, std::string &&username);
+extern void set_chroot_path(size_t linenum, std::string &&path);
 
 #define MAX_LINE 2048
 
@@ -93,6 +95,8 @@ struct cfg_parse_state {
 
     action Bind4En { emplace_bind(linenum, std::string(cps.st, p - cps.st), true); }
     action Bind6En { emplace_bind(linenum, std::string(cps.st, p - cps.st), false); }
+    action UserEn { set_user_runas(linenum, std::string(cps.st, p - cps.st)); }
+    action ChrootEn { set_chroot_path(linenum, std::string(cps.st, p - cps.st)); }
     action DefLifeEn { cps.default_lifetime = nk::str_to_u32(std::string(cps.st, p - cps.st)); }
     action InterfaceEn {
         cps.interface = std::string(cps.st, p - cps.st);
@@ -141,23 +145,26 @@ struct cfg_parse_state {
     v6_addr = (xdigit{1,4} | ':')+ >St %V6AddrEn;
 
     comment = space* ('//' any*)?;
-    bind4 = space* 'bind4' (space+ alnum+ >St %Bind4En)+ comment;
-    bind6 = space* 'bind6' (space+ alnum+ >St %Bind6En)+ comment;
-    default_lifetime = space* 'default_lifetime' space+ digit+ >St %DefLifeEn comment;
-    interface = space* 'interface' space+ alnum+ >St %InterfaceEn comment;
-    dns_server = space* 'dns_server' space+ (v4_addr | v6_addr) %DnsServerEn comment;
-    dns_search = space* 'dns_search' space+ graph+ >St %DnsSearchEn comment;
-    ntp_server = space* 'ntp_server' space+ (v4_addr | v6_addr) %NtpServerEn comment;
-    subnet = space* 'subnet' space+ v4_addr %SubnetEn comment;
-    gateway = space* 'gateway' space+ v4_addr %GatewayEn comment;
-    broadcast = space* 'broadcast' space+ v4_addr %BroadcastEn comment;
-    dynamic_range = space* 'dynamic_range' space+ v4_addr %DynRangePreEn space+ v4_addr %DynRangeEn comment;
-    v4_entry = space* 'v4' space+ macaddr space+ v4_addr comment;
-    v6_entry = space* 'v6' space+ duid space+ iaid space+ v6_addr comment;
+    tcomment = (space+ '//' any*)?;
+    bind4 = space* 'bind4' (space+ alnum+ >St %Bind4En)+ tcomment;
+    bind6 = space* 'bind6' (space+ alnum+ >St %Bind6En)+ tcomment;
+    user = space* 'user' space+ graph+ >St %UserEn tcomment;
+    chroot = space* 'chroot' space+ graph+ >St %ChrootEn tcomment;
+    default_lifetime = space* 'default_lifetime' space+ digit+ >St %DefLifeEn tcomment;
+    interface = space* 'interface' space+ alnum+ >St %InterfaceEn tcomment;
+    dns_server = space* 'dns_server' space+ (v4_addr | v6_addr) %DnsServerEn tcomment;
+    dns_search = space* 'dns_search' space+ graph+ >St %DnsSearchEn tcomment;
+    ntp_server = space* 'ntp_server' space+ (v4_addr | v6_addr) %NtpServerEn tcomment;
+    subnet = space* 'subnet' space+ v4_addr %SubnetEn tcomment;
+    gateway = space* 'gateway' space+ v4_addr %GatewayEn tcomment;
+    broadcast = space* 'broadcast' space+ v4_addr %BroadcastEn tcomment;
+    dynamic_range = space* 'dynamic_range' space+ v4_addr %DynRangePreEn space+ v4_addr %DynRangeEn tcomment;
+    v4_entry = space* 'v4' space+ macaddr space+ v4_addr tcomment;
+    v6_entry = space* 'v6' space+ duid space+ iaid space+ v6_addr tcomment;
 
-    main := comment | bind4 | bind6 | default_lifetime | interface | dns_server
-          | dns_search | ntp_server | subnet | gateway | broadcast | dynamic_range
-          | v6_entry %V6EntryEn | v4_entry %V4EntryEn;
+    main := comment | bind4 | bind6 | user | chroot | default_lifetime | interface
+          | dns_server | dns_search | ntp_server | subnet | gateway | broadcast
+          | dynamic_range | v6_entry %V6EntryEn | v4_entry %V4EntryEn;
 }%%
 
 %% write data;

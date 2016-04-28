@@ -19,6 +19,52 @@ DNS and NTP services for a network.
 
 ndhs has been designed to be secure and function with minimal privilege.
 
+STANDARD USAGE
+--------------
+
+1) Compile and install ndhs.
+
+    a) Create a build directory:
+       mkdir build && cd build
+    b) Create the makefiles:
+       cmake ..
+    c) Build ndhs:
+       make
+    d) Install the ndhs/ndhs executable in a normal place.  I would suggest
+       /usr/sbin or /usr/local/sbin.
+    e) Set up the user account and chroot directory for ndhs.  Example:
+
+        $ su -
+        # umask 077
+        # groupadd ndhs
+
+        # useradd -d /var/lib/ndhs -s /sbin/nologin -g ndhs ndhs
+
+        # umask 077
+        # mkdir -p /var/lib/ndhs/store
+        # chown root.root /var/lib/ndhs
+        # chmod a+rx /var/lib/ndhs
+        # cd /var/lib/ndhs
+
+        # mkdir dev
+        # mknod dev/urandom c 1 9
+        # mknod dev/null c 1 3
+        # chown -R root.root dev
+        # chmod a+rx dev
+        # chmod a+r dev/urandom
+        # chmod a+rw dev/null
+
+        # chown ndhs.ndhs store
+        # chmod 700 store
+
+    f) Set up a configure file.  For now, look at cfg.rl to
+       see the syntax.
+
+2) Run ndhs.  Use ndhs --help to see all possible options.  I strongly
+   suggest running ndhs under some sort of process supervision,
+   such as s6 or runit.  This will allow for reliable functioning
+   in the case of unforseen or unrecoverable errors.
+
 REMARKS ON IPv4 AND IPv6 DIFFERENCES
 ------------------------------------
 
@@ -60,30 +106,6 @@ It provides all functionality required for stateful autoconfiguration to
 fully function for hosts.  It should be run only on IPv4/IPv6 routers,
 and only on interfaces on the router for which the router performs
 routing duties.
-
-STANDARD USAGE
---------------
-
-1) Compile and install ndhs.
-    a) mkdir build
-    b) cd build
-    c) cmake ..
-    d) make
-    e) Install the ndhs executable in a normal place.
-    f) Set up a user and chroot path (optional, but recommended).
-    g) Set up a configure file.  For now, look at cfg.rl to
-       see the syntax.
-    h) Make sure that ndhs can write to its state directory for
-       dynamic leases.  If you are using chroot, this by default
-       will be /state directory beneath the chroot.
-       If you are not using a chroot, then it will default to
-       /var/lib/ndhs/state.
-
-2) Run ndhs.  Use ndhs --help to see all possible options.
-
-    Examples:
-
-        ndhs --user=ndhs --chroot /var/lib/ndhs
 
 PORTABILITY
 -----------

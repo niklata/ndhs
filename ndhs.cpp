@@ -27,6 +27,7 @@
  */
 
 #define NDHS_VERSION "2.0"
+#define LEASEFILE_PATH "/store/dynlease.txt"
 
 #include <memory>
 #include <string>
@@ -55,7 +56,6 @@
 extern "C" {
 #include "nk/log.h"
 #include "nk/privilege.h"
-#include "nk/pidfile.h"
 #include "nk/seccomp-bpf.h"
 }
 #include "nlsocket.hpp"
@@ -67,6 +67,7 @@ extern "C" {
 asio::io_service io_service;
 static asio::signal_set asio_signal_set(io_service);
 static std::string configfile{"/etc/ndhs.conf"};
+static std::string chroot_path;
 static uid_t ndhs_uid;
 static gid_t ndhs_gid;
 static bool use_seccomp(false);
@@ -78,8 +79,6 @@ static std::vector<std::unique_ptr<D4Listener>> v4_listeners;
 
 static std::random_device g_random_secure;
 nk::rng::xorshift64m g_random_prng(0);
-
-static std::string leasefile;
 
 extern void parse_config(const std::string &path);
 
@@ -113,6 +112,18 @@ static void init_listeners()
             }
         }
     });
+}
+
+void set_user_runas(size_t linenum, std::string &&username)
+{
+    if (nk_uidgidbyname(username.c_str(), &ndhs_uid, &ndhs_gid)) {
+        fmt::print(stderr, "invalid user '{}' specified\n", username);
+        std::exit(EXIT_FAILURE);
+    }
+}
+void set_chroot_path(size_t linenum, std::string &&path)
+{
+    chroot_path = std::move(path);
 }
 
 static void process_signals()
@@ -215,8 +226,7 @@ static void print_version(void)
 }
 
 enum OpIdx {
-    OPT_UNKNOWN, OPT_HELP, OPT_VERSION, OPT_BACKGROUND, OPT_CONFIG,
-    OPT_LEASEFILE, OPT_PIDFILE, OPT_CHROOT, OPT_USER, OPT_SECCOMP, OPT_QUIET
+    OPT_UNKNOWN, OPT_HELP, OPT_VERSION, OPT_CONFIG, OPT_SECCOMP, OPT_QUIET
 };
 static const option::Descriptor usage[] = {
     { OPT_UNKNOWN,    0,  "",           "", Arg::Unknown,
@@ -225,12 +235,7 @@ static const option::Descriptor usage[] = {
         "ndhs [options] [configfile]...\n\nOptions:" },
     { OPT_HELP,       0, "h",            "help",    Arg::None, "\t-h, \t--help  \tPrint usage and exit." },
     { OPT_VERSION,    0, "v",         "version",    Arg::None, "\t-v, \t--version  \tPrint version and exit." },
-    { OPT_BACKGROUND, 0, "b",      "background",    Arg::None, "\t-b, \t--background  \tRun as a background daemon." },
     { OPT_CONFIG,     0, "c",          "config",  Arg::String, "\t-c, \t--config  \tPath to configuration file (default: /etc/ndhs.conf)."},
-    { OPT_LEASEFILE,  0, "l",       "leasefile",  Arg::String, "\t-l, \t--leasefile  \tPath to lease file (path relative to chroot if it exists)." },
-    { OPT_PIDFILE,    0, "f",         "pidfile",  Arg::String, "\t-f, \t--pidfile  \tPath to process id file." },
-    { OPT_CHROOT,     0, "C",          "chroot",  Arg::String, "\t-C, \t--chroot  \tPath in which nident should chroot itself." },
-    { OPT_USER,       0, "u",            "user",  Arg::String, "\t-u, \t--user  \tUser name that ndhs should run as." },
     { OPT_SECCOMP,    0, "S", "seccomp-enforce",    Arg::None, "\t    \t--seccomp-enforce  \tEnforce seccomp syscall restrictions." },
     { OPT_QUIET,      0, "q",           "quiet",    Arg::None, "\t-q, \t--quiet  \tDon't log to std(out|err) or syslog." },
     {0,0,0,0,0,0}
@@ -265,23 +270,11 @@ static void process_options(int ac, char *av[])
     }
 
     std::vector<std::string> addrlist;
-    std::string pidfile, chroot_path;
 
     for (int i = 0; i < parse.optionsCount(); ++i) {
         option::Option &opt = buffer[i];
         switch (opt.index()) {
-            case OPT_BACKGROUND: gflags_detach = 1; break;
             case OPT_CONFIG: configfile = std::string(opt.arg); break;
-            case OPT_LEASEFILE: leasefile = std::string(opt.arg); break;
-            case OPT_PIDFILE: pidfile = std::string(opt.arg); break;
-            case OPT_CHROOT: chroot_path = std::string(opt.arg); break;
-            case OPT_USER: {
-                if (nk_uidgidbyname(opt.arg, &ndhs_uid, &ndhs_gid)) {
-                    fmt::print(stderr, "invalid user '{}' specified\n", opt.arg);
-                    std::exit(EXIT_FAILURE);
-                }
-                break;
-            }
             case OPT_SECCOMP: use_seccomp = true; break;
             case OPT_QUIET: gflags_quiet = 1; break;
         }
@@ -298,32 +291,24 @@ static void process_options(int ac, char *av[])
         fmt::print(stderr, "No interfaces have been bound\n");
         std::exit(EXIT_FAILURE);
     }
-
-    if (!leasefile.size()) {
-        leasefile = chroot_path.size() ? "/store/dynlease.txt"
-                                       : "/var/lib/ndhs/store/dynlease.txt";
+    if (!ndhs_uid || !ndhs_gid) {
+        fmt::print(stderr, "No non-root user account is specified.\n");
+        std::exit(EXIT_FAILURE);
+    }
+    if (chroot_path.empty()) {
+        fmt::print(stderr, "No chroot path is specified.\n");
+        std::exit(EXIT_FAILURE);
     }
 
     nl_socket = std::make_unique<NLSocket>(io_service);
     init_listeners();
 
-    if (gflags_detach && daemon(0,0)) {
-        fmt::print(stderr, "detaching fork failed\n");
-        std::exit(EXIT_FAILURE);
-    }
-
-    if (pidfile.size() && file_exists(pidfile.c_str(), "w"))
-        write_pid(pidfile.c_str());
-
     umask(077);
     process_signals();
 
-    if (chroot_path.size()) {
-        nk_set_chroot(chroot_path.c_str());
-    }
-    dynlease_deserialize(leasefile);
-    if (ndhs_uid || ndhs_gid)
-        nk_set_uidgid(ndhs_uid, ndhs_gid, NULL, 0);
+    nk_set_chroot(chroot_path.c_str());
+    dynlease_deserialize(LEASEFILE_PATH);
+    nk_set_uidgid(ndhs_uid, ndhs_gid, NULL, 0);
 
     if (enforce_seccomp(ndhs_uid || ndhs_gid)) {
         fmt::print(stderr, "seccomp filter cannot be installed\n");
@@ -339,7 +324,7 @@ int main(int ac, char *av[])
 
     io_service.run();
 
-    dynlease_serialize(leasefile);
+    dynlease_serialize(LEASEFILE_PATH);
 
     std::exit(EXIT_SUCCESS);
 }
