@@ -4,6 +4,8 @@
 #include <string>
 #include <asio.hpp>
 
+size_t dynlease4_count(const std::string &interface);
+size_t dynlease6_count(const std::string &interface);
 bool dynlease_add(const std::string &interface, const asio::ip::address_v4 &addr,
                   const uint8_t *macaddr, int64_t expire_time);
 bool dynlease_add(const std::string &interface, const asio::ip::address_v6 &addr,
@@ -22,6 +24,9 @@ bool dynlease_del(const std::string &interface, const asio::ip::address_v4 &addr
                   const uint8_t *macaddr);
 bool dynlease_del(const std::string &interface, const asio::ip::address_v6 &addr,
                   const std::string &duid, uint32_t iaid);
+
+bool dynlease_unused_addr(const std::string &interface, const asio::ip::address_v6 &addr);
+
 bool dynlease_serialize(const std::string &path);
 bool dynlease_deserialize(const std::string &path);
 

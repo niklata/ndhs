@@ -141,7 +141,6 @@ public:
     D4Listener &operator=(const D4Listener &) = delete;
 private:
     void start_receive();
-    int64_t getNowTs(void) const;
     void dhcpmsg_init(dhcpmsg &dm, char type, uint32_t xid) const;
     uint32_t local_ip() const;
     std::string ipStr(uint32_t ip) const;

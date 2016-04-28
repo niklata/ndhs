@@ -129,6 +129,9 @@ struct cfg_parse_state {
         emplace_dynamic_range(linenum, cps.interface, cps.v4_addr2, cps.v4_addr,
                               cps.default_lifetime);
     }
+    action DynamicV6En {
+        emplace_dynamic_v6(linenum, cps.interface);
+    }
     action V4EntryEn {
         emplace_dhcp_state(linenum, cps.interface, cps.macaddr, cps.v4_addr,
                            cps.default_lifetime);
@@ -159,12 +162,13 @@ struct cfg_parse_state {
     gateway = space* 'gateway' space+ v4_addr %GatewayEn tcomment;
     broadcast = space* 'broadcast' space+ v4_addr %BroadcastEn tcomment;
     dynamic_range = space* 'dynamic_range' space+ v4_addr %DynRangePreEn space+ v4_addr %DynRangeEn tcomment;
+    dynamic_v6 = space* 'dynamic_v6' %DynamicV6En tcomment;
     v4_entry = space* 'v4' space+ macaddr space+ v4_addr tcomment;
     v6_entry = space* 'v6' space+ duid space+ iaid space+ v6_addr tcomment;
 
     main := comment | bind4 | bind6 | user | chroot | default_lifetime | interface
           | dns_server | dns_search | ntp_server | subnet | gateway | broadcast
-          | dynamic_range | v6_entry %V6EntryEn | v4_entry %V4EntryEn;
+          | dynamic_range | dynamic_v6 | v6_entry %V6EntryEn | v4_entry %V4EntryEn;
 }%%
 
 %% write data;

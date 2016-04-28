@@ -108,6 +108,22 @@ static bool emplace_dynlease_state(size_t linenum, std::string &&interface,
     return true;
 }
 
+size_t dynlease4_count(const std::string &interface)
+{
+    auto si = dyn_leases_v4.find(interface);
+    if (si == dyn_leases_v4.end())
+        return 0;
+    return si->second.size();
+}
+
+size_t dynlease6_count(const std::string &interface)
+{
+    auto si = dyn_leases_v6.find(interface);
+    if (si == dyn_leases_v6.end())
+        return 0;
+    return si->second.size();
+}
+
 bool dynlease_add(const std::string &interface, const aia4 &v4_addr, const uint8_t *macaddr,
                   int64_t expire_time)
 {
@@ -248,6 +264,19 @@ bool dynlease_del(const std::string &interface, const aia6 &v6_addr,
         }
     }
     return false;
+}
+
+bool dynlease_unused_addr(const std::string &interface, const asio::ip::address_v6 &addr)
+{
+    auto si = dyn_leases_v6.find(interface);
+    if (si == dyn_leases_v6.end()) return true;
+
+    const auto iend = si->second.end();
+    for (auto i = si->second.begin(); i != iend; ++i) {
+        if (i->addr == addr)
+            return false;
+    }
+    return true;
 }
 
 // v4 <interface> <ip> <macaddr> <expire_time>

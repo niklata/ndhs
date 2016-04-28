@@ -231,6 +231,7 @@ private:
         bool use_rapid_commit:1;
     };
 
+    bool allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint32_t iaid);
     void emit_address(const d6msg_state &d6s, std::ostream &os, const dhcpv6_entry *v);
     bool attach_address_info(const d6msg_state &d6s, std::ostream &os);
     void attach_dns_ntp_info(const d6msg_state &d6s, std::ostream &os);
@@ -247,10 +248,12 @@ private:
     asio::streambuf recv_buffer_;
     asio::ip::udp::endpoint sender_endpoint_;
     asio::ip::address_v6 local_ip_;
+    asio::ip::address_v6 local_ip_prefix_;
     asio::ip::udp::socket socket_;
     std::string ifname_;
     std::unique_ptr<RA6Listener> radv6_listener_;
     bool using_bpf_:1;
+    char prefixlen_;
     char macaddr_[6];
 
     size_t bytes_left_dec(d6msg_state &d6s, std::size_t &bytes_left, size_t v);

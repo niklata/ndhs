@@ -41,6 +41,7 @@ extern "C" {
 
 extern std::unique_ptr<NLSocket> nl_socket;
 extern nk::rng::xorshift64m g_random_prng;
+extern int64_t get_current_ts();
 
 static std::unique_ptr<ClientStates> client_states_v4;
 static void init_client_states_v4(asio::io_service &io_service)
@@ -155,13 +156,6 @@ std::string D4Listener::ipStr(uint32_t ip) const
     return std::string(addrbuf);
 }
 
-int64_t D4Listener::getNowTs(void) const {
-    struct timespec ts;
-    if (clock_gettime(CLOCK_MONOTONIC, &ts))
-        throw std::runtime_error("clock_gettime failed");
-    return ts.tv_sec;
-}
-
 void D4Listener::send_reply(const dhcpmsg &reply)
 {
     if (dhcpmsg_.giaddr)
@@ -194,15 +188,15 @@ bool D4Listener::iplist_option(dhcpmsg &reply, std::string &iplist, uint8_t code
 
 bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do_assign)
 {
-    using baia4 = asio::ip::address_v4;
-    if (!query_use_dynamic_v4(ifname_))
+    using aia4 = asio::ip::address_v4;
+    uint32_t dynamic_lifetime;
+    if (!query_use_dynamic_v4(ifname_, dynamic_lifetime))
         return false;
 
     fmt::print("Checking dynamic IP.\n");
 
-    uint32_t dynamic_lifetime;
-    const auto dr = query_dynamic_range(ifname_, dynamic_lifetime);
-    const auto expire_time = getNowTs() + dynamic_lifetime;
+    const auto dr = query_dynamic_range(ifname_);
+    const auto expire_time = get_current_ts() + dynamic_lifetime;
 
     auto v4a = dynlease_query_refresh(ifname_, hwaddr, expire_time);
     if (v4a != asio::ip::address_v4::any()) {
@@ -226,8 +220,8 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     // If no success, scan from [al, rqs), taking the first empty slot.
     // If no success, then all IPs are taken, so return false.
     for (unsigned long i = al + rqs; i <= ah; ++i) {
-        const auto matched = do_assign ? dynlease_add(ifname_, baia4(i), hwaddr, expire_time)
-                                       : dynlease_exists(ifname_, baia4(i), hwaddr);
+        const auto matched = do_assign ? dynlease_add(ifname_, aia4(i), hwaddr, expire_time)
+                                       : dynlease_exists(ifname_, aia4(i), hwaddr);
         if (matched) {
             reply.yiaddr = htonl(i);
             add_u32_option(&reply, DCODE_LEASET, htonl(dynamic_lifetime));
@@ -235,8 +229,8 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
         }
     }
     for (unsigned long i = al; i < al + rqs; ++i) {
-        const auto matched = do_assign ? dynlease_add(ifname_, baia4(i), hwaddr, expire_time)
-                                       : dynlease_exists(ifname_, baia4(i), hwaddr);
+        const auto matched = do_assign ? dynlease_add(ifname_, aia4(i), hwaddr, expire_time)
+                                       : dynlease_exists(ifname_, aia4(i), hwaddr);
         if (matched) {
             reply.yiaddr = htonl(i);
             add_u32_option(&reply, DCODE_LEASET, htonl(dynamic_lifetime));

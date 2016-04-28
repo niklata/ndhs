@@ -1,11 +1,41 @@
 #include <format.hpp>
+#include <nk/xorshift.hpp>
 #include "nlsocket.hpp"
 #include "multicast6.hpp"
 #include "dhcp6.hpp"
+#include "dynlease.hpp"
 #include "attach_bpf.h"
 
+#define MAX_DYN_LEASES 1000u
+#define MAX_DYN_ATTEMPTS 100u
+
 extern std::unique_ptr<NLSocket> nl_socket;
+extern nk::rng::xorshift64m g_random_prng;
 static auto mc6_alldhcp_ras = asio::ip::address_v6::from_string("ff02::1:2");
+extern int64_t get_current_ts();
+
+static asio::ip::address_v6 mask_v6_addr(const asio::ip::address_v6 &addr, uint8_t mask)
+{
+    auto b = addr.to_bytes();
+    const auto keep_bytes = mask / 8u;
+    const auto keep_r_bits = mask % 8u;
+    b[keep_bytes] &= ~(0xffu >> keep_r_bits);
+    for (unsigned i = keep_bytes + 1; i < 16; ++i)
+        b[i] = 0u;
+    return asio::ip::address_v6(b, addr.scope_id());
+}
+static asio::ip::address_v6 v6_addr_random(const asio::ip::address_v6 &prefix, uint8_t prefixlen)
+{
+    const auto keep_bytes = prefixlen / 8u;
+    const auto keep_r_bits = prefixlen % 8u;
+    auto b = prefix.to_bytes();
+    unsigned i = 15;
+    for (; i > keep_bytes; --i)
+        b[i] = g_random_prng();
+    uint8_t c = g_random_prng();
+    b[i] |= c & (0xff >> keep_r_bits);
+    return asio::ip::address_v6(b, prefix.scope_id());
+}
 
 D6Listener::D6Listener(asio::io_service &io_service,
                        const std::string &ifname)
@@ -24,7 +54,10 @@ D6Listener::D6Listener(asio::io_service &io_service,
     for (const auto &i: ifinfo.addrs) {
         if (i.scope == netif_addr::Scope::Global && i.address.is_v6()) {
             local_ip_ = i.address.to_v6();
-            fmt::print(stderr, "IP address for {} is {}.\n", ifname, local_ip_);
+            prefixlen_ = i.prefixlen;
+            local_ip_prefix_ = mask_v6_addr(local_ip_, prefixlen_);
+            fmt::print(stderr, "IP address for {} is {}/{}.  Prefix is {}.\n",
+                       ifname, local_ip_, +prefixlen_, local_ip_prefix_);
         }
     }
     radv6_listener_ = std::make_unique<RA6Listener>(io_service, ifname);
@@ -89,6 +122,49 @@ static const char * dhcp6_opt_to_string(uint16_t opttype)
     }
 }
 
+bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint32_t iaid)
+{
+    uint32_t dynamic_lifetime;
+    if (!query_use_dynamic_v6(ifname_, dynamic_lifetime))
+        return false;
+
+    fmt::print("Checking dynamic IP.\n");
+
+    const auto expire_time = get_current_ts() + dynamic_lifetime;
+
+    auto v6a = dynlease_query_refresh(ifname_, d6s.client_duid, iaid, expire_time);
+    if (v6a != asio::ip::address_v6::any()) {
+        dhcpv6_entry de(iaid, v6a, dynamic_lifetime);
+        emit_address(d6s, os, &de);
+        fmt::print("Assigned existing dynamic IP: {}.\n", v6a.to_string());
+        return true;
+    }
+    // This check guards against OOM via DoS.
+    if (dynlease6_count(ifname_) >= MAX_DYN_LEASES) {
+        fmt::print("Maximum number of dynamic leases on {} ({}) reached.\n",
+                   ifname_, MAX_DYN_LEASES);
+        return false;
+    }
+    fmt::print("Selecting an unused dynamic IP.\n");
+
+    // Given a prefix, choose a random address.  Then check it against our
+    // existing static and dynamic leases.  If no collision, assign a
+    // dynamic lease to the random address and return it.
+    for (unsigned attempt = 0; attempt < MAX_DYN_ATTEMPTS; ++attempt) {
+        v6a = v6_addr_random(local_ip_prefix_, prefixlen_);
+        if (query_unused_addr(ifname_, v6a)) continue;
+        const auto assigned = dynlease_add(ifname_, v6a, d6s.client_duid, iaid, expire_time);
+        if (assigned) {
+            dhcpv6_entry de(iaid, v6a, dynamic_lifetime);
+            emit_address(d6s, os, &de);
+            return true;
+        }
+    }
+    fmt::print("Unable to select an unused dynamic IP after {} attempts.\n",
+               MAX_DYN_ATTEMPTS);
+    return false;
+}
+
 void D6Listener::write_response_header(const d6msg_state &d6s, std::ostream &os,
                                        dhcp6_msgtype mtype)
 {
@@ -143,12 +219,11 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, std::ostream &os)
             fmt::print("Found address: {}\n", x->address.to_string());
             emit_address(d6s, os, x);
         } else {
-            fmt::print("Unknown DUID={} IAID={} from addr={}\n",
-                       d6s.client_duid, i.iaid, sender_endpoint_.address().to_string());
+            ret = allot_dynamic_ip(d6s, os, i.iaid);
         }
     }
     if (!ret)
-        fmt::print("No info!\n");
+        fmt::print("Unable to asign an IP!\n");
     return ret;
 }
 

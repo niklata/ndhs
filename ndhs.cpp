@@ -114,6 +114,14 @@ static void init_listeners()
     });
 }
 
+int64_t get_current_ts()
+{
+    struct timespec ts;
+    if (clock_gettime(CLOCK_MONOTONIC, &ts))
+        throw std::runtime_error("clock_gettime failed");
+    return ts.tv_sec;
+}
+
 void set_user_runas(size_t linenum, std::string &&username)
 {
     if (nk_uidgidbyname(username.c_str(), &ndhs_uid, &ndhs_gid)) {

@@ -352,6 +352,18 @@ bool emplace_dynamic_range(size_t linenum, const std::string &interface,
     return true;
 }
 
+bool emplace_dynamic_v6(size_t linenum, const std::string &interface)
+{
+    if (interface.empty()) {
+        fmt::print(stderr, "No interface specified at line {}\n", linenum);
+        return false;
+    }
+    auto si = interface_state.find(interface);
+    if (si == interface_state.end()) return false;
+    si->second.use_dynamic_v6 = true;
+    return true;
+}
+
 bool emplace_dns_search(size_t linenum, const std::string &interface, std::string &&label)
 {
     if (interface.empty()) {
@@ -456,11 +468,10 @@ const asio::ip::address_v4 &query_broadcast(const std::string &interface)
 }
 
 const std::pair<asio::ip::address_v4, asio::ip::address_v4> &
-query_dynamic_range(const std::string &interface, uint32_t &dynamic_lifetime)
+query_dynamic_range(const std::string &interface)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) throw std::runtime_error("no such interface");
-    dynamic_lifetime = si->second.dynamic_lifetime;
     return si->second.dynamic_range;
 }
 
@@ -471,18 +482,32 @@ const std::vector<std::string> &query_dns_search(const std::string &interface)
     return si->second.dns_search;
 }
 
-bool query_use_dynamic_v4(const std::string &interface)
+bool query_use_dynamic_v4(const std::string &interface, uint32_t &dynamic_lifetime)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) throw std::runtime_error("no such interface");
+    dynamic_lifetime = si->second.dynamic_lifetime;
     return si->second.use_dynamic_v4;
 }
 
-bool query_use_dynamic_v6(const std::string &interface)
+bool query_use_dynamic_v6(const std::string &interface, uint32_t &dynamic_lifetime)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) throw std::runtime_error("no such interface");
+    dynamic_lifetime = si->second.dynamic_lifetime;
     return si->second.use_dynamic_v6;
+}
+
+bool query_unused_addr(const std::string &interface, const asio::ip::address_v6 &addr)
+{
+    auto si = interface_state.find(interface);
+    if (si == interface_state.end()) return true;
+
+    for (const auto &i: si->second.duid_mapping) {
+        if (i.second->address == addr)
+            return false;
+    }
+    return true;
 }
 
 size_t bound_interfaces_count()
