@@ -457,15 +457,6 @@ void D6Listener::start_receive()
              fmt::print(stderr, "\nbytes_xferred={}\n", bytes_xferred);
              recv_buffer_.commit(bytes_xferred);
 
-             // XXX: This stanza can probably be thrown away.
-             auto seps = sender_endpoint_.address().to_string();
-             const auto seps_ifr = seps.find_last_of('%');
-             if (seps_ifr != std::string::npos) {
-                 auto xx = seps.substr(seps_ifr + 1);
-                 if (xx != ifname_)
-                     throw std::logic_error("ifname doesn't match");
-             }
-
              std::size_t bytes_left = bytes_xferred;
              if (!using_bpf_) {
                  // Discard if the DHCP6 length < the size of a DHCP6 header.
