@@ -170,6 +170,8 @@ static int enforce_seccomp(bool changed_uidgid)
         ALLOW_SYSCALL(write),
         ALLOW_SYSCALL(sendto), // used for glibc syslog routines
         ALLOW_SYSCALL(close),
+        ALLOW_SYSCALL(socket),
+        ALLOW_SYSCALL(ioctl),
         ALLOW_SYSCALL(rt_sigreturn),
         ALLOW_SYSCALL(rt_sigaction),
 #ifdef __NR_sigreturn
@@ -178,18 +180,23 @@ static int enforce_seccomp(bool changed_uidgid)
 #ifdef __NR_sigaction
         ALLOW_SYSCALL(sigaction),
 #endif
-        // Allowed by vDSO
-        ALLOW_SYSCALL(getcpu),
-        ALLOW_SYSCALL(time),
-        ALLOW_SYSCALL(gettimeofday),
-        ALLOW_SYSCALL(clock_gettime),
-
         // operator new
         ALLOW_SYSCALL(brk),
         ALLOW_SYSCALL(mmap),
         ALLOW_SYSCALL(munmap),
 
+        ALLOW_SYSCALL(open),
+        ALLOW_SYSCALL(access),
         ALLOW_SYSCALL(fstat),
+        ALLOW_SYSCALL(rename),
+        ALLOW_SYSCALL(fdatasync),
+        ALLOW_SYSCALL(unlink),
+
+        // Allowed by vDSO
+        ALLOW_SYSCALL(getcpu),
+        ALLOW_SYSCALL(time),
+        ALLOW_SYSCALL(gettimeofday),
+        ALLOW_SYSCALL(clock_gettime),
 
         ALLOW_SYSCALL(exit_group),
         ALLOW_SYSCALL(exit),
