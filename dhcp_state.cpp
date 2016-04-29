@@ -214,16 +214,20 @@ bool emplace_dhcp_state(size_t linenum, const std::string &interface, const std:
 }
 
 bool emplace_dns_server(size_t linenum, const std::string &interface,
-                        const std::string &addr, bool is_v4)
+                        const std::string &addr, addr_type atype)
 {
     if (interface.empty()) {
         fmt::print(stderr, "No interface specified at line {}\n", linenum);
         return false;
     }
+    if (atype == addr_type::null) {
+        fmt::print(stderr, "Invalid address type at line {}\n", linenum);
+        return false;
+    }
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
     std::error_code ec;
-    if (is_v4) {
+    if (atype == addr_type::v4) {
         auto v4a = asio::ip::address_v4::from_string(addr, ec);
         if (!ec) {
             si->second.dns4_servers.emplace_back(std::move(v4a));
@@ -242,16 +246,20 @@ bool emplace_dns_server(size_t linenum, const std::string &interface,
 }
 
 bool emplace_ntp_server(size_t linenum, const std::string &interface,
-                        const std::string &addr, bool is_v4)
+                        const std::string &addr, addr_type atype)
 {
     if (interface.empty()) {
         fmt::print(stderr, "No interface specified at line {}\n", linenum);
         return false;
     }
+    if (atype == addr_type::null) {
+        fmt::print(stderr, "Invalid address type at line {}\n", linenum);
+        return false;
+    }
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
     std::error_code ec;
-    if (is_v4) {
+    if (atype == addr_type::v4) {
         auto v4a = asio::ip::address_v4::from_string(addr, ec);
         if (!ec) {
             si->second.ntp4_servers.emplace_back(std::move(v4a));

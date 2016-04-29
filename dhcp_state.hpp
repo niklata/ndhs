@@ -3,6 +3,8 @@
 
 #include <asio.hpp>
 
+enum class addr_type { null, v4, v6 };
+
 struct dhcpv6_entry {
     dhcpv6_entry(uint32_t iaid_, const asio::ip::address_v6 &addr_, uint32_t lifetime_)
         : address(addr_), iaid(iaid_), lifetime(lifetime_) {}
@@ -26,9 +28,9 @@ bool emplace_dhcp_state(size_t linenum, const std::string &interface, std::strin
 bool emplace_dhcp_state(size_t linenum, const std::string &interface, const std::string &macaddr,
                         const std::string &v4_addr, uint32_t default_lifetime);
 bool emplace_dns_server(size_t linenum, const std::string &interface,
-                        const std::string &addr, bool is_v4);
+                        const std::string &addr, addr_type atype);
 bool emplace_ntp_server(size_t linenum, const std::string &interface,
-                        const std::string &addr, bool is_v4);
+                        const std::string &addr, addr_type atype);
 bool emplace_subnet(size_t linenum, const std::string &interface, const std::string &addr);
 bool emplace_gateway(size_t linenum, const std::string &interface, const std::string &addr);
 bool emplace_broadcast(size_t linenum, const std::string &interface, const std::string &addr);

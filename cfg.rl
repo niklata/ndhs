@@ -58,14 +58,14 @@ v4 <MAC> <address> [lifetime=value]
 */
 
 struct cfg_parse_state {
-    cfg_parse_state() : st(nullptr), cs(0), default_lifetime(7200) {}
+    cfg_parse_state() : st(nullptr), cs(0), last_addr(addr_type::null), default_lifetime(7200) {}
     void newline() {
         duid.clear();
         iaid.clear();
         macaddr.clear();
-        v4_addr.clear();
-        v4_addr2.clear();
-        v6_addr.clear();
+        ipaddr.clear();
+        ipaddr2.clear();
+        last_addr = addr_type::null;
     }
     const char *st;
     int cs;
@@ -73,9 +73,9 @@ struct cfg_parse_state {
     std::string duid;
     std::string iaid;
     std::string macaddr;
-    std::string v4_addr;
-    std::string v4_addr2;
-    std::string v6_addr;
+    std::string ipaddr;
+    std::string ipaddr2;
+    addr_type last_addr;
     std::string interface;
     uint32_t default_lifetime;
 };
@@ -96,9 +96,14 @@ static inline std::string lc_string(const char *s, size_t slen)
     action DuidEn { cps.duid = lc_string(cps.st, p - cps.st); }
     action IaidEn { cps.iaid = lc_string(cps.st, p - cps.st); }
     action MacAddrEn { cps.macaddr = lc_string(cps.st, p - cps.st); }
-    action V4AddrEn { cps.v4_addr = lc_string(cps.st, p - cps.st); }
-    action V6AddrEn { cps.v6_addr = lc_string(cps.st, p - cps.st); }
-
+    action V4AddrEn {
+        cps.ipaddr = lc_string(cps.st, p - cps.st);
+        cps.last_addr = addr_type::v4;
+    }
+    action V6AddrEn {
+        cps.ipaddr = lc_string(cps.st, p - cps.st);
+        cps.last_addr = addr_type::v6;
+    }
     action Bind4En { emplace_bind(linenum, std::string(cps.st, p - cps.st), true); }
     action Bind6En { emplace_bind(linenum, std::string(cps.st, p - cps.st), false); }
     action UserEn { set_user_runas(linenum, std::string(cps.st, p - cps.st)); }
@@ -109,42 +114,40 @@ static inline std::string lc_string(const char *s, size_t slen)
         emplace_interface(linenum, cps.interface);
     }
     action DnsServerEn {
-        const auto is_v4 = !!cps.v4_addr.size();
-        emplace_dns_server(linenum, cps.interface, is_v4 ? cps.v4_addr : cps.v6_addr, is_v4);
+        emplace_dns_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
     }
     action DnsSearchEn {
         emplace_dns_search(linenum, cps.interface, std::string(cps.st, p - cps.st));
     }
     action NtpServerEn {
-        const auto is_v4 = !!cps.v4_addr.size();
-        emplace_ntp_server(linenum, cps.interface, is_v4 ? cps.v4_addr : cps.v6_addr, is_v4);
+        emplace_ntp_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
     }
     action SubnetEn {
-        emplace_subnet(linenum, cps.interface, cps.v4_addr);
+        emplace_subnet(linenum, cps.interface, cps.ipaddr);
     }
     action GatewayEn {
-        emplace_gateway(linenum, cps.interface, cps.v4_addr);
+        emplace_gateway(linenum, cps.interface, cps.ipaddr);
     }
     action BroadcastEn {
-        emplace_broadcast(linenum, cps.interface, cps.v4_addr);
+        emplace_broadcast(linenum, cps.interface, cps.ipaddr);
     }
     action DynRangePreEn {
-        cps.v4_addr2 = std::move(cps.v4_addr);
+        cps.ipaddr2 = std::move(cps.ipaddr);
     }
     action DynRangeEn {
-        emplace_dynamic_range(linenum, cps.interface, cps.v4_addr2, cps.v4_addr,
+        emplace_dynamic_range(linenum, cps.interface, cps.ipaddr2, cps.ipaddr,
                               cps.default_lifetime);
     }
     action DynamicV6En {
         emplace_dynamic_v6(linenum, cps.interface);
     }
     action V4EntryEn {
-        emplace_dhcp_state(linenum, cps.interface, cps.macaddr, cps.v4_addr,
+        emplace_dhcp_state(linenum, cps.interface, cps.macaddr, cps.ipaddr,
                            cps.default_lifetime);
     }
     action V6EntryEn {
         emplace_dhcp_state(linenum, cps.interface, std::move(cps.duid), nk::str_to_u32(cps.iaid),
-                           cps.v6_addr, cps.default_lifetime);
+                           cps.ipaddr, cps.default_lifetime);
     }
 
     duid = (xdigit+ | (xdigit{2} ('-' xdigit{2})*)+) >St %DuidEn;
@@ -161,9 +164,9 @@ static inline std::string lc_string(const char *s, size_t slen)
     chroot = space* 'chroot' space+ graph+ >St %ChrootEn tcomment;
     default_lifetime = space* 'default_lifetime' space+ digit+ >St %DefLifeEn tcomment;
     interface = space* 'interface' space+ alnum+ >St %InterfaceEn tcomment;
-    dns_server = space* 'dns_server' space+ (v4_addr | v6_addr) %DnsServerEn tcomment;
-    dns_search = space* 'dns_search' space+ graph+ >St %DnsSearchEn tcomment;
-    ntp_server = space* 'ntp_server' space+ (v4_addr | v6_addr) %NtpServerEn tcomment;
+    dns_server = space* 'dns_server' (space+ (v4_addr | v6_addr) %DnsServerEn)+ tcomment;
+    dns_search = space* 'dns_search' (space+ graph+ >St %DnsSearchEn)+ tcomment;
+    ntp_server = space* 'ntp_server' (space+ (v4_addr | v6_addr) %NtpServerEn)+ tcomment;
     subnet = space* 'subnet' space+ v4_addr %SubnetEn tcomment;
     gateway = space* 'gateway' space+ v4_addr %GatewayEn tcomment;
     broadcast = space* 'broadcast' space+ v4_addr %BroadcastEn tcomment;
