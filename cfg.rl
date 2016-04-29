@@ -80,18 +80,24 @@ struct cfg_parse_state {
     uint32_t default_lifetime;
 };
 
+static inline std::string lc_string(const char *s, size_t slen)
+{
+    auto r = std::string(s, slen);
+    for (auto &i: r) i = tolower(i);
+    return r;
+}
+
 %%{
     machine cfg_line_m;
     access cps.;
 
     action St { cps.st = p; }
 
-    # XXX: Normalize to lowercase!
-    action DuidEn { cps.duid = std::string(cps.st, p - cps.st); }
-    action IaidEn { cps.iaid = std::string(cps.st, p - cps.st); }
-    action MacAddrEn { cps.macaddr = std::string(cps.st, p - cps.st); }
-    action V4AddrEn { cps.v4_addr = std::string(cps.st, p - cps.st); }
-    action V6AddrEn { cps.v6_addr = std::string(cps.st, p - cps.st); }
+    action DuidEn { cps.duid = lc_string(cps.st, p - cps.st); }
+    action IaidEn { cps.iaid = lc_string(cps.st, p - cps.st); }
+    action MacAddrEn { cps.macaddr = lc_string(cps.st, p - cps.st); }
+    action V4AddrEn { cps.v4_addr = lc_string(cps.st, p - cps.st); }
+    action V6AddrEn { cps.v6_addr = lc_string(cps.st, p - cps.st); }
 
     action Bind4En { emplace_bind(linenum, std::string(cps.st, p - cps.st), true); }
     action Bind6En { emplace_bind(linenum, std::string(cps.st, p - cps.st), false); }
