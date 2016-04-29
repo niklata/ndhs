@@ -128,7 +128,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint
     if (!query_use_dynamic_v6(ifname_, dynamic_lifetime))
         return false;
 
-    fmt::print("Checking dynamic IP.\n");
+    fmt::print("\tChecking dynamic IP...\n");
 
     const auto expire_time = get_current_ts() + dynamic_lifetime;
 
@@ -136,16 +136,16 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint
     if (v6a != asio::ip::address_v6::any()) {
         dhcpv6_entry de(iaid, v6a, dynamic_lifetime);
         emit_address(d6s, os, &de);
-        fmt::print("Assigned existing dynamic IP: {}.\n", v6a.to_string());
+        fmt::print("\tAssigned existing dynamic IP: {}.\n", v6a.to_string());
         return true;
     }
     // This check guards against OOM via DoS.
     if (dynlease6_count(ifname_) >= MAX_DYN_LEASES) {
-        fmt::print("Maximum number of dynamic leases on {} ({}) reached.\n",
+        fmt::print("\tMaximum number of dynamic leases on {} ({}) reached.\n",
                    ifname_, MAX_DYN_LEASES);
         return false;
     }
-    fmt::print("Selecting an unused dynamic IP.\n");
+    fmt::print("\tSelecting an unused dynamic IP.\n");
 
     // Given a prefix, choose a random address.  Then check it against our
     // existing static and dynamic leases.  If no collision, assign a
@@ -160,7 +160,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint
             return true;
         }
     }
-    fmt::print("Unable to select an unused dynamic IP after {} attempts.\n",
+    fmt::print("\tUnable to select an unused dynamic IP after {} attempts.\n",
                MAX_DYN_ATTEMPTS);
     return false;
 }
@@ -216,14 +216,14 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, std::ostream &os)
         auto x = query_dhcp_state(ifname_, d6s.client_duid, i.iaid);
         if (x) {
             ret = true;
-            fmt::print("Found address: {}\n", x->address.to_string());
+            fmt::print("\tFound static address: {}\n", x->address.to_string());
             emit_address(d6s, os, x);
         } else {
             ret = allot_dynamic_ip(d6s, os, i.iaid);
         }
     }
     if (!ret)
-        fmt::print("Unable to asign an IP!\n");
+        fmt::print("\tUnable to asign an IP!\n");
     return ret;
 }
 
@@ -340,23 +340,23 @@ bool D6Listener::confirm_match(const d6msg_state &d6s) const
         printf("Querying duid='%s' iaid=%u...\n", d6s.client_duid.c_str(), i.iaid);
         auto x = query_dhcp_state(ifname_, d6s.client_duid, i.iaid);
         if (x) {
-            fmt::print("Found a possible match for an IA.\n");
+            fmt::print("\tFound a possible match for an IA.\n");
             bool found_addr{false};
             for (const auto &j: i.ia_na_addrs) {
                 if (j.addr == x->address)
                     found_addr = true;
             }
             if (!found_addr) {
-                fmt::print("Mismatched address. NAK.\n");
+                fmt::print("\tMismatched address. NAK.\n");
                 return false;
             }
         } else {
-            fmt::print("Unknown DUID={} IAID={} from addr={}. NAK.\n",
+            fmt::print("\tUnknown DUID={} IAID={} from addr={}. NAK.\n",
                        d6s.client_duid, i.iaid, sender_endpoint_.address().to_string());
             return false;
         }
     }
-    fmt::print("Everything matches and is OK.\n");
+    fmt::print("\tEverything matches and is OK.\n");
     return true;
 }
 
@@ -566,6 +566,7 @@ void D6Listener::start_receive()
                      }
                      d6s.optreq_exists = true;
                      l /= 2;
+                     fmt::print("\tOption Request:");
                      while (l--) {
                          char b[2];
                          b[1] = is.get();
@@ -573,7 +574,6 @@ void D6Listener::start_receive()
                          BYTES_LEFT_DEC(2);
                          uint16_t v;
                          memcpy(&v, b, 2);
-                         fmt::print("Option Request:");
                          switch (v) {
                          case 23: d6s.optreq_dns = true; fmt::print(" DNS"); break;
                          case 24: d6s.optreq_dns_search = true; fmt::print(" DNS_SEARCH"); break;
@@ -582,8 +582,8 @@ void D6Listener::start_receive()
                          case 56: d6s.optreq_ntp = true; fmt::print(" NTP"); break;
                          default: fmt::print(" {}", v); break;
                          }
-                         fmt::print("\n");
                      }
+                     fmt::print("\n");
                      fmt::print("\tOptions requested: dns={} dns_search={} info_refresh={} ntp={}\n",
                                 d6s.optreq_dns, d6s.optreq_dns_search,
                                 d6s.optreq_info_refresh_time, d6s.optreq_ntp);
@@ -651,8 +651,6 @@ void D6Listener::start_receive()
                  handle_information_msg(d6s, send_buffer); break;
              default: start_receive(); return;
              }
-
-             fmt::print("Calling send_to => {}\n", sender_endpoint_.address().to_string());
 
              std::error_code ec;
              socket_.send_to(send_buffer.data(), sender_endpoint_, 0, ec);
