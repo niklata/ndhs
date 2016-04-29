@@ -176,14 +176,12 @@ void D6Listener::write_response_header(const d6msg_state &d6s, std::ostream &os,
     dhcp6_opt_serverid send_serverid(macaddr_);
     os << send_serverid;
 
-    if (d6s.client_duid_blob.size()) {
-        dhcp6_opt send_clientid;
-        send_clientid.type(1);
-        send_clientid.length(d6s.client_duid_blob.size());
-        os << send_clientid;
-        for (const auto &i: d6s.client_duid_blob)
-            os << i;
-    }
+    dhcp6_opt send_clientid;
+    send_clientid.type(1);
+    send_clientid.length(d6s.client_duid_blob.size());
+    os << send_clientid;
+    for (const auto &i: d6s.client_duid_blob)
+        os << i;
 }
 
 void D6Listener::emit_address(const d6msg_state &d6s, std::ostream &os, const dhcpv6_entry *v)
@@ -633,6 +631,13 @@ void D6Listener::start_receive()
                          BYTES_LEFT_DEC(1);
                      }
                  }
+             }
+
+             // Clients are required to send a client identifier.
+             if (d6s.client_duid.empty() &&
+                 d6s.header.msg_type() != dhcp6_msgtype::information_request) {
+                 start_receive();
+                 return;
              }
 
              asio::streambuf send_buffer;
