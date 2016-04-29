@@ -43,13 +43,8 @@ D6Listener::D6Listener(asio::io_service &io_service,
 {
     int ifidx = nl_socket->get_ifindex(ifname_);
     const auto &ifinfo = nl_socket->interfaces.at(ifidx);
-    memcpy(macaddr_, ifinfo.macaddr, sizeof macaddr_);
-
-    socket_.open(asio::ip::udp::v6());
-    auto lla_ep = asio::ip::udp::endpoint(asio::ip::address_v6::any(), 547);
-    attach_multicast(socket_.native(), ifname, mc6_alldhcp_ras);
-    attach_bpf(socket_.native());
-    socket_.bind(lla_ep);
+    duid_[0] = 0; duid_[1] = 3; duid_[2] = 0; duid_[3] = 1;
+    memcpy(duid_ + 4, ifinfo.macaddr, sizeof duid_ - 4);
 
     for (const auto &i: ifinfo.addrs) {
         if (i.scope == netif_addr::Scope::Global && i.address.is_v6()) {
@@ -60,6 +55,11 @@ D6Listener::D6Listener(asio::io_service &io_service,
                        ifname, local_ip_, +prefixlen_, local_ip_prefix_);
         }
     }
+    socket_.open(asio::ip::udp::v6());
+    attach_multicast(socket_.native(), ifname, mc6_alldhcp_ras);
+    attach_bpf(socket_.native());
+    socket_.bind(asio::ip::udp::endpoint(asio::ip::address_v6::any(), 547));
+
     radv6_listener_ = std::make_unique<RA6Listener>(io_service, ifname);
 
     start_receive();
@@ -173,7 +173,7 @@ void D6Listener::write_response_header(const d6msg_state &d6s, std::ostream &os,
     send_d6hdr.xid(d6s.header.xid());
     os << send_d6hdr;
 
-    dhcp6_opt_serverid send_serverid(macaddr_);
+    dhcp6_opt_serverid send_serverid(duid_, sizeof duid_);
     os << send_serverid;
 
     dhcp6_opt send_clientid;
@@ -515,6 +515,18 @@ void D6Listener::start_receive()
                      }
                      if (d6s.client_duid.size() > 0)
                         fmt::print("\tDUID: {}\n", d6s.client_duid);
+                 } else if (ot == 2) { // ServerID
+                     d6s.server_duid_blob.reserve(l);
+                     std::string tmpstr;
+                     while (l--) {
+                         uint8_t c = is.get();
+                         d6s.server_duid_blob.push_back(c);
+                         tmpstr.append(fmt::sprintf("%02.x", c));
+                         BYTES_LEFT_DEC(1);
+                     }
+                     if (tmpstr.size() > 0)
+                        fmt::print("\tServer DUID: '{}' len: {}\n", tmpstr,
+                                   d6s.server_duid_blob.size());
                  } else if (ot == 3) { // Option_IA_NA
                      if (l < 12) {
                          CONSUME_OPT("Client-sent option IA_NA has a bad length.  Ignoring.\n");
@@ -633,32 +645,53 @@ void D6Listener::start_receive()
                  }
              }
 
+             std::error_code ec;
+             asio::streambuf send_buffer;
+
              // Clients are required to send a client identifier.
              if (d6s.client_duid.empty() &&
-                 d6s.header.msg_type() != dhcp6_msgtype::information_request) {
-                 start_receive();
-                 return;
-             }
+                 d6s.header.msg_type() != dhcp6_msgtype::information_request)
+                 goto skip_send;
 
-             asio::streambuf send_buffer;
              switch (d6s.header.msg_type()) {
              case dhcp6_msgtype::solicit:
+                 if (!d6s.server_duid_blob.empty()) goto skip_send;
                  handle_solicit_msg(d6s, send_buffer); break;
              case dhcp6_msgtype::request:
+                 if (d6s.server_duid_blob.size() != sizeof duid_ ||
+                     memcmp(d6s.server_duid_blob.data(), duid_, sizeof duid_))
+                     goto skip_send;
                  handle_request_msg(d6s, send_buffer); break;
              case dhcp6_msgtype::confirm:
+                 if (!d6s.server_duid_blob.empty()) goto skip_send;
                  handle_confirm_msg(d6s, send_buffer); break;
              case dhcp6_msgtype::renew:
+                 if (d6s.server_duid_blob.size() != sizeof duid_ ||
+                     memcmp(d6s.server_duid_blob.data(), duid_, sizeof duid_))
+                     goto skip_send;
                  handle_renew_msg(d6s, send_buffer); break;
              case dhcp6_msgtype::rebind:
+                 if (!d6s.server_duid_blob.empty()) goto skip_send;
                  handle_rebind_msg(d6s, send_buffer); break;
+             case dhcp6_msgtype::decline:
+             case dhcp6_msgtype::release:
+                 if (d6s.server_duid_blob.size() != sizeof duid_ ||
+                     memcmp(d6s.server_duid_blob.data(), duid_, sizeof duid_))
+                     goto skip_send;
+                 // XXX: Not implemented yet.
+                 break;
              case dhcp6_msgtype::information_request:
+                 if (!d6s.server_duid_blob.empty() &&
+                     (d6s.server_duid_blob.size() != sizeof duid_ ||
+                     memcmp(d6s.server_duid_blob.data(), duid_, sizeof duid_)))
+                     goto skip_send;
+                 if (!d6s.ias.empty()) goto skip_send;
                  handle_information_msg(d6s, send_buffer); break;
              default: start_receive(); return;
              }
 
-             std::error_code ec;
              socket_.send_to(send_buffer.data(), sender_endpoint_, 0, ec);
+skip_send:
              start_receive();
          });
 }

@@ -84,48 +84,18 @@ private:
 };
 
 // Server Identifier Option
-class dhcp6_opt_serverid
+struct dhcp6_opt_serverid
 {
-    class duid_hwaddr
-    {
-    public:
-        duid_hwaddr() {
-            std::fill(data_, data_ + sizeof data_, 0);
-            // Ethernet is assumed.
-            data_[1] = 3;
-            data_[3] = 1;
-        }
-        void macaddr(const char v[6]) { memcpy(data_ + 4, v, 6); }
-        static const std::size_t size = 10;
-        friend std::istream& operator>>(std::istream &is, duid_hwaddr &hwaddr)
-        {
-            is.read(reinterpret_cast<char *>(hwaddr.data_), size);
-            return is;
-        }
-        friend std::ostream& operator<<(std::ostream &os, const duid_hwaddr &hwaddr)
-        {
-            return os.write(reinterpret_cast<const char *>(hwaddr.data_), size);
-        }
-    private:
-        uint8_t data_[10];
-    };
-public:
-    dhcp6_opt_serverid(const char macaddr[6]) { duid.macaddr(macaddr); }
-    duid_hwaddr duid;
-    static const std::size_t size = duid_hwaddr::size;
-    friend std::istream& operator>>(std::istream &is, dhcp6_opt_serverid &opt)
-    {
-        is >> opt.duid;
-        return is;
-    }
+    dhcp6_opt_serverid(const char *s, size_t slen) : duid_string_(s), duid_len_(slen) {}
+    const char *duid_string_;
+    size_t duid_len_;
     friend std::ostream& operator<<(std::ostream &os, const dhcp6_opt_serverid &opt)
     {
         dhcp6_opt header;
         header.type(2);
-        header.length(10);
+        header.length(opt.duid_len_);
         os << header;
-        os << opt.duid;
-        return os;
+        return os.write(opt.duid_string_, opt.duid_len_);
     }
 };
 
@@ -217,6 +187,7 @@ private:
         std::string fqdn_;
         std::string client_duid;
         std::vector<uint8_t> client_duid_blob;
+        std::vector<uint8_t> server_duid_blob;
         std::vector<d6_ia> ias;
         std::vector<prev_opt_state> prev_opt;
         uint16_t elapsed_time;
@@ -254,7 +225,7 @@ private:
     std::unique_ptr<RA6Listener> radv6_listener_;
     bool using_bpf_:1;
     char prefixlen_;
-    char macaddr_[6];
+    char duid_[10];
 
     size_t bytes_left_dec(d6msg_state &d6s, std::size_t &bytes_left, size_t v);
 };
