@@ -67,7 +67,7 @@ D6Listener::D6Listener(asio::io_service &io_service,
 
 void D6Listener::attach_bpf(int fd)
 {
-    //using_bpf_ = attach_bpf_dhcp6_info(fd, ifname_.c_str());
+    using_bpf_ = attach_bpf_dhcp6_info(fd, ifname_.c_str());
 }
 
 static const char * dhcp6_msgtype_to_string(dhcp6_msgtype m)
@@ -454,7 +454,6 @@ void D6Listener::start_receive()
         (recv_buffer_.prepare(8192), sender_endpoint_,
          [this](const std::error_code &error, std::size_t bytes_xferred)
          {
-             fmt::print(stderr, "\nbytes_xferred={}\n", bytes_xferred);
              recv_buffer_.commit(bytes_xferred);
 
              std::size_t bytes_left = bytes_xferred;
@@ -477,13 +476,15 @@ void D6Listener::start_receive()
                         dhcp6_msgtype_to_string(d6s.header.msg_type()));
 
              // These message types are not allowed to be sent to servers.
-             switch (d6s.header.msg_type()) {
-             case dhcp6_msgtype::advertise:
-             case dhcp6_msgtype::reply:
-             case dhcp6_msgtype::reconfigure:
-             case dhcp6_msgtype::relay_reply:
-                 start_receive(); return;
-             default: break;
+             if (!using_bpf_) {
+                 switch (d6s.header.msg_type()) {
+                 case dhcp6_msgtype::advertise:
+                 case dhcp6_msgtype::reply:
+                 case dhcp6_msgtype::reconfigure:
+                 case dhcp6_msgtype::relay_reply:
+                     start_receive(); return;
+                 default: break;
+                 }
              }
 
              while (bytes_left >= 4) {
