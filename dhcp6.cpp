@@ -335,24 +335,28 @@ void D6Listener::handle_request_msg(const d6msg_state &d6s, asio::streambuf &sen
 bool D6Listener::confirm_match(const d6msg_state &d6s) const
 {
     for (const auto &i: d6s.ias) {
+        bool found_addr{false};
         printf("Querying duid='%s' iaid=%u...\n", d6s.client_duid.c_str(), i.iaid);
         auto x = query_dhcp_state(ifname_, d6s.client_duid, i.iaid);
         if (x) {
-            fmt::print("\tFound a possible match for an IA.\n");
-            bool found_addr{false};
             for (const auto &j: i.ia_na_addrs) {
-                if (j.addr == x->address)
+                if (j.addr == x->address) {
                     found_addr = true;
+                    break;
+                }
             }
-            if (!found_addr) {
-                fmt::print("\tMismatched address. NAK.\n");
-                return false;
-            }
-        } else {
-            fmt::print("\tUnknown DUID={} IAID={} from addr={}. NAK.\n",
-                       d6s.client_duid, i.iaid, sender_endpoint_.address().to_string());
-            return false;
+            if (found_addr) continue;
         }
+        for (const auto &j: i.ia_na_addrs) {
+            if (dynlease_exists(ifname_, j.addr, d6s.client_duid.c_str(), i.iaid)) {
+                found_addr = true;
+                break;
+            }
+        }
+        if (found_addr) continue;
+        fmt::print("\tUnknown DUID={} IAID={} from addr={}. NAK.\n",
+                   d6s.client_duid, i.iaid, sender_endpoint_.address().to_string());
+        return false;
     }
     fmt::print("\tEverything matches and is OK.\n");
     return true;
