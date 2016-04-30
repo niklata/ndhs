@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <format.hpp>
 #include <nk/scopeguard.hpp>
-#include <nk/str_to_int.hpp>
+#include <nk/from_string.hpp>
 #include <asio.hpp>
 
 #define MAX_LINE 2048
@@ -394,11 +394,13 @@ static inline std::string lc_string(const char *s, size_t slen)
 
     action InterfaceEn { cps.interface = std::string(cps.st, p - cps.st); }
     action DuidEn { cps.duid = lc_string(cps.st, p - cps.st); }
-    action IaidEn { cps.iaid = nk::str_to_u32(lc_string(cps.st, p - cps.st)); }
+    action IaidEn { cps.iaid = nk::from_string<uint32_t>(lc_string(cps.st, p - cps.st)); }
     action MacAddrEn { cps.macaddr = lc_string(cps.st, p - cps.st); }
     action V4AddrEn { cps.v4_addr = lc_string(cps.st, p - cps.st); }
     action V6AddrEn { cps.v6_addr = lc_string(cps.st, p - cps.st); }
-    action ExpireTimeEn { cps.expire_time = nk::str_to_s64(std::string(cps.st, p - cps.st)); }
+    action ExpireTimeEn {
+        cps.expire_time = nk::from_string<int64_t>(std::string(cps.st, p - cps.st));
+    }
 
     action V4EntryEn {
         emplace_dynlease_state(linenum, std::move(cps.interface), std::move(cps.v4_addr),

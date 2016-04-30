@@ -51,7 +51,7 @@
 #include <asio.hpp>
 #include <format.hpp>
 #include <nk/optionarg.hpp>
-#include <nk/str_to_int.hpp>
+#include <nk/from_string.hpp>
 #include <nk/xorshift.hpp>
 extern "C" {
 #include "nk/log.h"
@@ -275,7 +275,7 @@ static void process_options(int ac, char *av[])
     if (options[OPT_HELP]) {
         uint16_t col{80};
         const auto cols = getenv("COLUMNS");
-        if (cols) col = nk::str_to_u16(cols);
+        if (cols) col = nk::from_string<uint16_t>(cols);
         option::printUsage(fwrite, stdout, usage, col);
         std::exit(EXIT_FAILURE);
     }

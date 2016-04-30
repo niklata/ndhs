@@ -30,7 +30,7 @@
 #include <cstdio>
 #include <nk/scopeguard.hpp>
 #include <format.hpp>
-#include <nk/str_to_int.hpp>
+#include <nk/from_string.hpp>
 #include "dhcp_state.hpp"
 extern void set_user_runas(size_t linenum, std::string &&username);
 extern void set_chroot_path(size_t linenum, std::string &&path);
@@ -108,7 +108,9 @@ static inline std::string lc_string(const char *s, size_t slen)
     action Bind6En { emplace_bind(linenum, std::string(cps.st, p - cps.st), false); }
     action UserEn { set_user_runas(linenum, std::string(cps.st, p - cps.st)); }
     action ChrootEn { set_chroot_path(linenum, std::string(cps.st, p - cps.st)); }
-    action DefLifeEn { cps.default_lifetime = nk::str_to_u32(std::string(cps.st, p - cps.st)); }
+    action DefLifeEn {
+        cps.default_lifetime = nk::from_string<uint32_t>(std::string(cps.st, p - cps.st));
+    }
     action InterfaceEn {
         cps.interface = std::string(cps.st, p - cps.st);
         emplace_interface(linenum, cps.interface);
@@ -146,7 +148,8 @@ static inline std::string lc_string(const char *s, size_t slen)
                            cps.default_lifetime);
     }
     action V6EntryEn {
-        emplace_dhcp_state(linenum, cps.interface, std::move(cps.duid), nk::str_to_u32(cps.iaid),
+        emplace_dhcp_state(linenum, cps.interface, std::move(cps.duid),
+                           nk::from_string<uint32_t>(cps.iaid),
                            cps.ipaddr, cps.default_lifetime);
     }
 
