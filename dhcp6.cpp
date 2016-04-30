@@ -161,7 +161,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint
     // dynamic lease to the random address and return it.
     for (unsigned attempt = 0; attempt < MAX_DYN_ATTEMPTS; ++attempt) {
         v6a = v6_addr_random(local_ip_prefix_, prefixlen_);
-        if (query_unused_addr(ifname_, v6a)) continue;
+        if (!query_unused_addr(ifname_, v6a)) continue;
         const auto assigned = dynlease_add(ifname_, v6a, d6s.client_duid, iaid, expire_time);
         if (assigned) {
             dhcpv6_entry de(iaid, v6a, dynamic_lifetime);
