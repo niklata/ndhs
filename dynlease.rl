@@ -456,20 +456,19 @@ bool dynlease_deserialize(const std::string &path)
     size_t linenum = 0;
     cfg_parse_state ps;
     while (!feof(f)) {
-        auto fsv = fgets(buf, sizeof buf, f);
-        auto llen = strlen(buf);
-        if (buf[llen-1] == '\n')
-            buf[--llen] = 0;
-        ++linenum;
-        if (!fsv) {
+        if (!fgets(buf, sizeof buf, f)) {
             if (!feof(f))
                 fmt::print(stderr, "{}: io error fetching line of '{}'\n", __func__, path);
             break;
         }
+        auto llen = strlen(buf);
         if (llen == 0)
             continue;
+        if (buf[llen-1] == '\n')
+            buf[--llen] = 0;
+        ++linenum;
         ps.newline();
-        auto r = do_parse_dynlease_line(ps, buf, llen, linenum);
+        const auto r = do_parse_dynlease_line(ps, buf, llen, linenum);
         if (r < 0) {
             if (r == -2)
                 fmt::print(stderr, "{}: Incomplete dynlease at line {}; ignoring\n",
