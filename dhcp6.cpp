@@ -5,6 +5,7 @@
 #include "dhcp6.hpp"
 #include "dynlease.hpp"
 #include "attach_bpf.h"
+#include "asio_addrcmp.hpp"
 
 #define MAX_DYN_LEASES 1000u
 #define MAX_DYN_ATTEMPTS 100u
@@ -126,11 +127,14 @@ static const char * dhcp6_opt_to_string(uint16_t opttype)
     }
 }
 
-bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint32_t iaid)
+bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint32_t iaid,
+                                  d6_statuscode::code failcode)
 {
     uint32_t dynamic_lifetime;
-    if (!query_use_dynamic_v6(ifname_, dynamic_lifetime))
+    if (!query_use_dynamic_v6(ifname_, dynamic_lifetime)) {
+        emit_IA_fail(d6s, os, iaid, failcode);
         return false;
+    }
 
     fmt::print("\tChecking dynamic IP...\n");
 
@@ -139,7 +143,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint
     auto v6a = dynlease_query_refresh(ifname_, d6s.client_duid, iaid, expire_time);
     if (v6a != asio::ip::address_v6::any()) {
         dhcpv6_entry de(iaid, v6a, dynamic_lifetime);
-        emit_address(d6s, os, &de);
+        emit_IA(d6s, os, &de);
         fmt::print("\tAssigned existing dynamic IP: {}.\n", v6a.to_string());
         return true;
     }
@@ -147,6 +151,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint
     if (dynlease6_count(ifname_) >= MAX_DYN_LEASES) {
         fmt::print("\tMaximum number of dynamic leases on {} ({}) reached.\n",
                    ifname_, MAX_DYN_LEASES);
+        emit_IA_fail(d6s, os, iaid, failcode);
         return false;
     }
     fmt::print("\tSelecting an unused dynamic IP.\n");
@@ -160,13 +165,36 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint
         const auto assigned = dynlease_add(ifname_, v6a, d6s.client_duid, iaid, expire_time);
         if (assigned) {
             dhcpv6_entry de(iaid, v6a, dynamic_lifetime);
-            emit_address(d6s, os, &de);
+            emit_IA(d6s, os, &de);
             return true;
         }
     }
     fmt::print("\tUnable to select an unused dynamic IP after {} attempts.\n",
                MAX_DYN_ATTEMPTS);
+    emit_IA_fail(d6s, os, iaid, failcode);
     return false;
+}
+
+#define OPT_STATUSCODE_SIZE (4)
+
+void D6Listener::attach_status_code(const d6msg_state &d6s, std::ostream &os,
+                                    d6_statuscode::code scode)
+{
+    static char ok_str[] = "OK";
+    static char nak_str[] = "NO";
+    dhcp6_opt header;
+    header.type(13);
+    header.length(OPT_STATUSCODE_SIZE);
+    os << header;
+    d6_statuscode sc(scode);
+    os << sc;
+    if (scode == d6_statuscode::code::success) {
+        for (int i = 0; ok_str[i]; ++i)
+            os << ok_str[i];
+    } else {
+        for (int i = 0; nak_str[i]; ++i)
+            os << nak_str[i];
+    }
 }
 
 void D6Listener::write_response_header(const d6msg_state &d6s, std::ostream &os,
@@ -188,7 +216,9 @@ void D6Listener::write_response_header(const d6msg_state &d6s, std::ostream &os,
         os << i;
 }
 
-void D6Listener::emit_address(const d6msg_state &d6s, std::ostream &os, const dhcpv6_entry *v)
+// We control what IAs are valid, and we never assign multiple address to a single
+// IA.  Thus there's no reason to care about that case.
+void D6Listener::emit_IA(const d6msg_state &d6s, std::ostream &os, const dhcpv6_entry *v)
 {
     dhcp6_opt header;
     header.type(3);
@@ -209,7 +239,24 @@ void D6Listener::emit_address(const d6msg_state &d6s, std::ostream &os, const dh
     os << addr;
 }
 
-bool D6Listener::attach_address_info(const d6msg_state &d6s, std::ostream &os)
+void D6Listener::emit_IA_fail(const d6msg_state &d6s, std::ostream &os, uint32_t iaid,
+                              d6_statuscode::code scode)
+{
+    dhcp6_opt header;
+    header.type(3);
+    header.length(d6_ia::size + dhcp6_opt::size + OPT_STATUSCODE_SIZE);
+    os << header;
+    d6_ia ia;
+    ia.iaid = iaid;
+    ia.t1_seconds = 0;
+    ia.t2_seconds = 0;
+    os << ia;
+    attach_status_code(d6s, os, scode);
+}
+
+// Returns false if no addresses would be assigned.
+bool D6Listener::attach_address_info(const d6msg_state &d6s, std::ostream &os,
+                                     d6_statuscode::code failcode)
 {
     bool ret{false};
     // Look through IAs and send IA with assigned address as an option.
@@ -219,13 +266,17 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, std::ostream &os)
         if (x) {
             ret = true;
             fmt::print("\tFound static address: {}\n", x->address.to_string());
-            emit_address(d6s, os, x);
-        } else {
-            ret = allot_dynamic_ip(d6s, os, i.iaid);
+            emit_IA(d6s, os, x);
+            continue;
         }
+        if (allot_dynamic_ip(d6s, os, i.iaid, failcode)) {
+            ret = true;
+            continue;
+        }
+        emit_IA_fail(d6s, os, i.iaid, failcode);
     }
     if (!ret)
-        fmt::print("\tUnable to asign an IP!\n");
+        fmt::print("\tUnable to assign any IPs!\n");
     return ret;
 }
 
@@ -310,36 +361,18 @@ void D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, std::ostream &os)
     }
 }
 
-void D6Listener::handle_solicit_msg(const d6msg_state &d6s, asio::streambuf &send_buffer)
-{
-    std::ostream os(&send_buffer);
-    write_response_header(d6s, os, !d6s.use_rapid_commit ? dhcp6_msgtype::advertise
-                                                         : dhcp6_msgtype::reply);
-
-    attach_address_info(d6s, os);
-    attach_dns_ntp_info(d6s, os);
-
-    if (d6s.use_rapid_commit) {
-        dhcp6_opt rapid_commit;
-        rapid_commit.type(14);
-        rapid_commit.length(0);
-        os << rapid_commit;
-    }
-}
-
-void D6Listener::handle_request_msg(const d6msg_state &d6s, asio::streambuf &send_buffer)
-{
-    std::ostream os(&send_buffer);
-    write_response_header(d6s, os, dhcp6_msgtype::reply);
-
-    attach_address_info(d6s, os);
-    attach_dns_ntp_info(d6s, os);
-}
-
 bool D6Listener::confirm_match(const d6msg_state &d6s) const
 {
     for (const auto &i: d6s.ias) {
         bool found_addr{false};
+
+        for (const auto &j: i.ia_na_addrs) {
+            if (!asio::compare_ipv6(j.addr.to_bytes(), local_ip_prefix_.to_bytes(), prefixlen_)) {
+                fmt::print("Invalid prefix for IA IP: {}. NAK.\n", j);
+                return false;
+            }
+        }
+
         printf("Querying duid='%s' iaid=%u...\n", d6s.client_duid.c_str(), i.iaid);
         auto x = query_dhcp_state(ifname_, d6s.client_duid, i.iaid);
         if (x) {
@@ -366,30 +399,44 @@ bool D6Listener::confirm_match(const d6msg_state &d6s) const
     return true;
 }
 
+void D6Listener::handle_solicit_msg(const d6msg_state &d6s, asio::streambuf &send_buffer)
+{
+    std::ostream os(&send_buffer);
+    write_response_header(d6s, os, !d6s.use_rapid_commit ? dhcp6_msgtype::advertise
+                                                         : dhcp6_msgtype::reply);
+
+    const auto valid = attach_address_info(d6s, os, d6_statuscode::code::noaddrsavail);
+    attach_status_code(d6s, os,
+                       valid ? d6_statuscode::code::success : d6_statuscode::code::noaddrsavail);
+    attach_dns_ntp_info(d6s, os);
+
+    if (valid && d6s.use_rapid_commit) {
+        dhcp6_opt rapid_commit;
+        rapid_commit.type(14);
+        rapid_commit.length(0);
+        os << rapid_commit;
+    }
+}
+
+void D6Listener::handle_request_msg(const d6msg_state &d6s, asio::streambuf &send_buffer)
+{
+    std::ostream os(&send_buffer);
+    write_response_header(d6s, os, dhcp6_msgtype::reply);
+
+    const auto valid = attach_address_info(d6s, os, d6_statuscode::code::noaddrsavail);
+    attach_status_code(d6s, os,
+                       valid ? d6_statuscode::code::success : d6_statuscode::code::noaddrsavail);
+    attach_dns_ntp_info(d6s, os);
+}
+
 void D6Listener::handle_confirm_msg(const d6msg_state &d6s, asio::streambuf &send_buffer)
 {
     std::ostream os(&send_buffer);
     write_response_header(d6s, os, dhcp6_msgtype::reply);
 
-    bool all_ok = confirm_match(d6s);
-
-    // Write Status Code Success or NotOnLink.
-    char ok_str[] = "ACK";
-    char nak_str[] = "NAK";
-    dhcp6_opt header;
-    header.type(13);
-    header.length(5);
-    os << header;
-    d6_statuscode sc(all_ok ? d6_statuscode::code::success : d6_statuscode::code::notonlink);
-    os << sc;
-    if (all_ok) {
-        for (int i = 0; ok_str[i]; ++i)
-            os << ok_str[i];
-    } else {
-        for (int i = 0; nak_str[i]; ++i)
-            os << nak_str[i];
-    }
-
+    const auto valid = confirm_match(d6s);
+    attach_status_code(d6s, os,
+                       valid ? d6_statuscode::code::success : d6_statuscode::code::notonlink);
     attach_dns_ntp_info(d6s, os);
 }
 
@@ -398,8 +445,9 @@ void D6Listener::handle_renew_msg(const d6msg_state &d6s, asio::streambuf &send_
     std::ostream os(&send_buffer);
     write_response_header(d6s, os, dhcp6_msgtype::reply);
 
-    // XXX: Write Status Code NoBinding if no record exists.
-    attach_address_info(d6s, os);
+    const auto valid = attach_address_info(d6s, os, d6_statuscode::code::nobinding);
+    attach_status_code(d6s, os,
+                       valid ? d6_statuscode::code::success : d6_statuscode::code::nobinding);
     attach_dns_ntp_info(d6s, os);
 }
 
@@ -408,7 +456,9 @@ void D6Listener::handle_rebind_msg(const d6msg_state &d6s, asio::streambuf &send
     std::ostream os(&send_buffer);
     write_response_header(d6s, os, dhcp6_msgtype::reply);
 
-    attach_address_info(d6s, os);
+    const auto valid = attach_address_info(d6s, os, d6_statuscode::code::nobinding);
+    attach_status_code(d6s, os,
+                       valid ? d6_statuscode::code::success : d6_statuscode::code::nobinding);
     attach_dns_ntp_info(d6s, os);
 }
 

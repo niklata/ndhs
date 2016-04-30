@@ -202,10 +202,15 @@ private:
         bool use_rapid_commit:1;
     };
 
-    bool allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint32_t iaid);
-    void emit_address(const d6msg_state &d6s, std::ostream &os, const dhcpv6_entry *v);
-    bool attach_address_info(const d6msg_state &d6s, std::ostream &os);
+    bool allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint32_t iaid,
+                          d6_statuscode::code failcode);
+    void emit_IA(const d6msg_state &d6s, std::ostream &os, const dhcpv6_entry *v);
+    void emit_IA_fail(const d6msg_state &d6s, std::ostream &os, uint32_t iaid,
+                      d6_statuscode::code scode);
+    bool attach_address_info(const d6msg_state &d6s, std::ostream &os,
+                             d6_statuscode::code failcode);
     void attach_dns_ntp_info(const d6msg_state &d6s, std::ostream &os);
+    void attach_status_code(const d6msg_state &d6s, std::ostream &os, d6_statuscode::code scode);
     void write_response_header(const d6msg_state &d6s, std::ostream &os, dhcp6_msgtype mtype);
     void handle_solicit_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
     void handle_request_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
