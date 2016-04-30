@@ -220,6 +220,7 @@ private:
     asio::ip::udp::endpoint sender_endpoint_;
     asio::ip::address_v6 local_ip_;
     asio::ip::address_v6 local_ip_prefix_;
+    asio::ip::address_v6 link_local_ip_;
     asio::ip::udp::socket socket_;
     std::string ifname_;
     std::unique_ptr<RA6Listener> radv6_listener_;

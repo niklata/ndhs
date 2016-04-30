@@ -53,6 +53,10 @@ D6Listener::D6Listener(asio::io_service &io_service,
             local_ip_prefix_ = mask_v6_addr(local_ip_, prefixlen_);
             fmt::print(stderr, "IP address for {} is {}/{}.  Prefix is {}.\n",
                        ifname, local_ip_, +prefixlen_, local_ip_prefix_);
+        } else if (i.scope == netif_addr::Scope::Link && i.address.is_v6()) {
+            link_local_ip_ = i.address.to_v6();
+            fmt::print(stderr, "Link-local IP address for {} is {}.\n",
+                       ifname, link_local_ip_);
         }
     }
     socket_.open(asio::ip::udp::v6());
