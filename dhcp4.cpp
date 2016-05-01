@@ -40,7 +40,7 @@ extern "C" {
 }
 
 extern std::unique_ptr<NLSocket> nl_socket;
-extern nk::rng::xorshift64m g_random_prng;
+extern nk::rng::xoroshiro128p g_random_prng;
 extern int64_t get_current_ts();
 
 static std::unique_ptr<ClientStates> client_states_v4;

@@ -32,7 +32,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include <random>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -77,19 +76,9 @@ std::unique_ptr<NLSocket> nl_socket;
 static std::vector<std::unique_ptr<D6Listener>> v6_listeners;
 static std::vector<std::unique_ptr<D4Listener>> v4_listeners;
 
-static std::random_device g_random_secure;
-nk::rng::xorshift64m g_random_prng(0);
+nk::rng::xoroshiro128p g_random_prng;
 
 extern void parse_config(const std::string &path);
-
-static void init_prng()
-{
-    std::array<uint32_t, nk::rng::xorshift64m::state_size> seed_data;
-    std::generate_n(seed_data.data(), seed_data.size(),
-                    std::ref(g_random_secure));
-    std::seed_seq seed_seq(std::begin(seed_data), std::end(seed_data));
-    g_random_prng.seed(seed_seq);
-}
 
 static void init_listeners()
 {
@@ -295,7 +284,6 @@ static void process_options(int ac, char *av[])
         }
     }
 
-    init_prng();
     if (configfile.size())
         parse_config(configfile);
 

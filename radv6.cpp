@@ -409,7 +409,7 @@ extern std::unique_ptr<NLSocket> nl_socket;
 static auto mc6_allhosts = asio::ip::address_v6::from_string("ff02::1");
 static auto mc6_allrouters = asio::ip::address_v6::from_string("ff02::2");
 static const uint8_t icmp_nexthdr(58); // Assigned value
-extern nk::rng::xorshift64m g_random_prng;
+extern nk::rng::xoroshiro128p g_random_prng;
 
 // Can throw std::out_of_range
 RA6Listener::RA6Listener(asio::io_service &io_service, const std::string &ifname)

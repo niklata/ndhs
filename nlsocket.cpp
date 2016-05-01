@@ -32,7 +32,7 @@
 extern "C" {
 #include "nl.h"
 }
-extern nk::rng::xorshift64m g_random_prng;
+extern nk::rng::xoroshiro128p g_random_prng;
 
 NLSocket::NLSocket(asio::io_service &io_service)
 : socket_(io_service), nlseq_(g_random_prng())

@@ -11,7 +11,7 @@
 #define MAX_DYN_ATTEMPTS 100u
 
 extern std::unique_ptr<NLSocket> nl_socket;
-extern nk::rng::xorshift64m g_random_prng;
+extern nk::rng::xoroshiro128p g_random_prng;
 static auto mc6_alldhcp_ras = asio::ip::address_v6::from_string("ff02::1:2");
 extern int64_t get_current_ts();
 
