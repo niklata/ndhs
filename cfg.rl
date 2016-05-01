@@ -39,24 +39,6 @@ extern void set_chroot_path(size_t linenum, std::string &&path);
 
 extern void create_dns_search_blob();
 
-/*
-
-Our configuration file looks like:
-
-dns_server <value>
-dns_search <value>
-default_lifetime <value>
-
-// Comment
-v6 <DUID> <IAID> <address> [lifetime=value]
-v6 <DUID> <IAID> <address> [lifetime=value]
-v6 <DUID> <IAID> <address> [lifetime=value]
-v6 <DUID> <IAID> <address> [lifetime=value]
-
-v4 <MAC> <address> [lifetime=value]
-
-*/
-
 struct cfg_parse_state {
     cfg_parse_state() : st(nullptr), cs(0), last_addr(addr_type::null), default_lifetime(7200) {}
     void newline() {
@@ -238,6 +220,5 @@ void parse_config(const std::string &path)
         }
     }
     create_blobs();
-    //std::exit(EXIT_SUCCESS);
 }
 
