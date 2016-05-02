@@ -365,28 +365,18 @@ bool D6Listener::confirm_match(const d6msg_state &d6s) const
     for (const auto &i: d6s.ias) {
         bool found_addr{false};
 
+        fmt::print("Querying duid='{}' iaid={}...\n", d6s.client_duid, i.iaid);
+        auto x = query_dhcp_state(ifname_, d6s.client_duid, i.iaid);
         for (const auto &j: i.ia_na_addrs) {
             if (!asio::compare_ipv6(j.addr.to_bytes(), local_ip_prefix_.to_bytes(), prefixlen_)) {
                 fmt::print("Invalid prefix for IA IP: {}. NAK.\n", j);
                 return false;
             }
-        }
-
-        printf("Querying duid='%s' iaid=%u...\n", d6s.client_duid.c_str(), i.iaid);
-        auto x = query_dhcp_state(ifname_, d6s.client_duid, i.iaid);
-        if (x) {
-            for (const auto &j: i.ia_na_addrs) {
-                if (j.addr == x->address) {
-                    found_addr = true;
-                    break;
-                }
+            if (x && j.addr == x->address) {
+                found_addr = true; break;
             }
-            if (found_addr) continue;
-        }
-        for (const auto &j: i.ia_na_addrs) {
             if (dynlease_exists(ifname_, j.addr, d6s.client_duid.c_str(), i.iaid)) {
-                found_addr = true;
-                break;
+                found_addr = true; break;
             }
         }
         if (found_addr) continue;
