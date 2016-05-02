@@ -308,7 +308,7 @@ bool dynlease_serialize(const std::string &path)
                                iface, j.addr.to_string(),
                                j.macaddr[0], j.macaddr[1], j.macaddr[2],
                                j.macaddr[3], j.macaddr[4], j.macaddr[5], j.expire_time);
-            const auto fs = fwrite(wbuf.c_str(), wbuf.size(), 1, f);
+            const auto fs = fwrite(wbuf.c_str(), 1, wbuf.size(), f);
             if (fs != wbuf.size()) {
                 fmt::print(stderr, "{}: short write {} < {}\n", __func__, fs, wbuf.size());
                 return false;
@@ -329,8 +329,8 @@ bool dynlease_serialize(const std::string &path)
             wbuf = fmt::format("v6 {} {} ", iface, j.addr.to_string());
             for (const auto &k: j.duid)
                 wbuf.append(fmt::format("{:02x}", k));
-            wbuf.append(" {} {}\n", j.iaid, j.expire_time);
-            const auto fs = fwrite(wbuf.c_str(), wbuf.size(), 1, f);
+            wbuf.append(fmt::format(" {} {}\n", j.iaid, j.expire_time));
+            const auto fs = fwrite(wbuf.c_str(), 1, wbuf.size(), f);
             if (fs != wbuf.size()) {
                 fmt::print(stderr, "{}: short write {} < {}\n", __func__, fs, wbuf.size());
                 return false;
