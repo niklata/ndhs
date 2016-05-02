@@ -6,6 +6,7 @@
 #include "dynlease.hpp"
 #include "attach_bpf.h"
 #include "asio_addrcmp.hpp"
+#include "duid.hpp"
 
 #define MAX_DYN_LEASES 1000u
 #define MAX_DYN_ATTEMPTS 100u
@@ -44,8 +45,6 @@ D6Listener::D6Listener(asio::io_service &io_service,
 {
     int ifidx = nl_socket->get_ifindex(ifname_);
     const auto &ifinfo = nl_socket->interfaces.at(ifidx);
-    duid_[0] = 0; duid_[1] = 3; duid_[2] = 0; duid_[3] = 1;
-    memcpy(duid_ + 4, ifinfo.macaddr, sizeof duid_ - 4);
 
     for (const auto &i: ifinfo.addrs) {
         if (i.scope == netif_addr::Scope::Global && i.address.is_v6()) {
@@ -205,7 +204,7 @@ void D6Listener::write_response_header(const d6msg_state &d6s, std::ostream &os,
     send_d6hdr.xid(d6s.header.xid());
     os << send_d6hdr;
 
-    dhcp6_opt_serverid send_serverid(duid_, sizeof duid_);
+    dhcp6_opt_serverid send_serverid(g_server_duid, sizeof g_server_duid);
     os << send_serverid;
 
     dhcp6_opt send_clientid;
@@ -498,6 +497,12 @@ size_t D6Listener::bytes_left_dec(d6msg_state &d6s, std::size_t &bytes_left, siz
     return bytes_left;
 }
 
+bool D6Listener::serverid_incorrect(const d6msg_state &d6s) const
+{
+    return d6s.server_duid_blob.size() != sizeof g_server_duid
+        || memcmp(d6s.server_duid_blob.data(), g_server_duid, sizeof g_server_duid);
+}
+
 void D6Listener::start_receive()
 {
     recv_buffer_.consume(recv_buffer_.size());
@@ -711,33 +716,24 @@ void D6Listener::start_receive()
                  if (!d6s.server_duid_blob.empty()) goto skip_send;
                  handle_solicit_msg(d6s, send_buffer); break;
              case dhcp6_msgtype::request:
-                 if (d6s.server_duid_blob.size() != sizeof duid_ ||
-                     memcmp(d6s.server_duid_blob.data(), duid_, sizeof duid_))
-                     goto skip_send;
+                 if (serverid_incorrect(d6s)) goto skip_send;
                  handle_request_msg(d6s, send_buffer); break;
              case dhcp6_msgtype::confirm:
                  if (!d6s.server_duid_blob.empty()) goto skip_send;
                  handle_confirm_msg(d6s, send_buffer); break;
              case dhcp6_msgtype::renew:
-                 if (d6s.server_duid_blob.size() != sizeof duid_ ||
-                     memcmp(d6s.server_duid_blob.data(), duid_, sizeof duid_))
-                     goto skip_send;
+                 if (serverid_incorrect(d6s)) goto skip_send;
                  handle_renew_msg(d6s, send_buffer); break;
              case dhcp6_msgtype::rebind:
                  if (!d6s.server_duid_blob.empty()) goto skip_send;
                  handle_rebind_msg(d6s, send_buffer); break;
              case dhcp6_msgtype::decline:
              case dhcp6_msgtype::release:
-                 if (d6s.server_duid_blob.size() != sizeof duid_ ||
-                     memcmp(d6s.server_duid_blob.data(), duid_, sizeof duid_))
-                     goto skip_send;
+                 if (serverid_incorrect(d6s)) goto skip_send;
                  // XXX: Not implemented yet.
                  break;
              case dhcp6_msgtype::information_request:
-                 if (!d6s.server_duid_blob.empty() &&
-                     (d6s.server_duid_blob.size() != sizeof duid_ ||
-                     memcmp(d6s.server_duid_blob.data(), duid_, sizeof duid_)))
-                     goto skip_send;
+                 if (!d6s.server_duid_blob.empty() && serverid_incorrect(d6s)) goto skip_send;
                  if (!d6s.ias.empty()) goto skip_send;
                  handle_information_msg(d6s, send_buffer); break;
              default: start_receive(); return;

@@ -219,6 +219,7 @@ private:
     void handle_renew_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
     void handle_rebind_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
     void handle_information_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
+    bool serverid_incorrect(const d6msg_state &d6s) const;
     void start_receive();
     void attach_bpf(int fd);
     asio::streambuf recv_buffer_;
@@ -231,7 +232,6 @@ private:
     std::unique_ptr<RA6Listener> radv6_listener_;
     bool using_bpf_:1;
     char prefixlen_;
-    char duid_[10];
 
     size_t bytes_left_dec(d6msg_state &d6s, std::size_t &bytes_left, size_t v);
 };
