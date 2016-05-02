@@ -428,8 +428,8 @@ void D6Listener::handle_solicit_msg(const d6msg_state &d6s, asio::streambuf &sen
     write_response_header(d6s, os, !d6s.use_rapid_commit ? dhcp6_msgtype::advertise
                                                          : dhcp6_msgtype::reply);
 
+    // RFC7550 says servers MUST NOT return top-level Status Code noaddrsavail.
     const auto valid = attach_address_info(d6s, os, d6_statuscode::code::noaddrsavail);
-    if (!valid) attach_status_code(d6s, os, d6_statuscode::code::noaddrsavail);
     attach_dns_ntp_info(d6s, os);
 
     if (valid && d6s.use_rapid_commit) {
@@ -445,8 +445,7 @@ void D6Listener::handle_request_msg(const d6msg_state &d6s, asio::streambuf &sen
     std::ostream os(&send_buffer);
     write_response_header(d6s, os, dhcp6_msgtype::reply);
 
-    const auto valid = attach_address_info(d6s, os, d6_statuscode::code::noaddrsavail);
-    if (!valid) attach_status_code(d6s, os, d6_statuscode::code::noaddrsavail);
+    attach_address_info(d6s, os, d6_statuscode::code::noaddrsavail);
     attach_dns_ntp_info(d6s, os);
 }
 
@@ -465,8 +464,7 @@ void D6Listener::handle_renew_msg(const d6msg_state &d6s, asio::streambuf &send_
     std::ostream os(&send_buffer);
     write_response_header(d6s, os, dhcp6_msgtype::reply);
 
-    const auto valid = attach_address_info(d6s, os, d6_statuscode::code::nobinding);
-    if (!valid) attach_status_code(d6s, os, d6_statuscode::code::nobinding);
+    attach_address_info(d6s, os, d6_statuscode::code::nobinding);
     attach_dns_ntp_info(d6s, os);
 }
 
@@ -475,8 +473,7 @@ void D6Listener::handle_rebind_msg(const d6msg_state &d6s, asio::streambuf &send
     std::ostream os(&send_buffer);
     write_response_header(d6s, os, dhcp6_msgtype::reply);
 
-    const auto valid = attach_address_info(d6s, os, d6_statuscode::code::nobinding);
-    if (!valid) attach_status_code(d6s, os, d6_statuscode::code::nobinding);
+    attach_address_info(d6s, os, d6_statuscode::code::nobinding);
     attach_dns_ntp_info(d6s, os);
 }
 
