@@ -94,6 +94,7 @@ user <username>
 chroot <path>
 bind4 <interface_name>...
 bind6 <interface_name>...
+default_preference <value>
 default_lifetime <seconds>
 
 user specifies the username of the account that ndhs will switch to after performing
@@ -108,6 +109,12 @@ bind4 specifies a list of interfaces on which ndhs will provide dhcp4 service.
 
 bind6 specifies a list of interfaces on which ndhs will provide dhcp6 and
 router advertisement services.
+
+default_preference specifies the value of the Preference Option for dhcp6.  It
+must be between 0 to 255 inclusive and defaults to 0 if not specified.  A DHCP6
+client will prefer to choose responses from the server with the highest preference
+value if both servers provide valid DHCP6 replies.  This statement takes effect
+for all subsequent 'interface' keywords.
 
 default_lifetime specifies the duration in seconds for which dhcp leases will be valid.
 

@@ -22,6 +22,7 @@ struct interface_data
     std::vector<uint8_t> ntp6_fqdns_blob;
     std::pair<asio::ip::address_v4, asio::ip::address_v4> dynamic_range;
     uint32_t dynamic_lifetime;
+    uint8_t preference;
     bool use_dhcpv4:1;
     bool use_dhcpv6:1;
     bool use_dynamic_v4:1;
@@ -143,9 +144,9 @@ void create_blobs()
 
 bool emplace_bind(size_t linenum, std::string &&interface, bool is_v4)
 {
-    auto si = interface_state.find(interface);
     if (interface.empty())
         return false;
+    auto si = interface_state.find(interface);
     if (si == interface_state.end()) {
         interface_state.emplace(std::make_pair(std::move(interface),
                                                interface_data(is_v4, !is_v4)));
@@ -156,15 +157,16 @@ bool emplace_bind(size_t linenum, std::string &&interface, bool is_v4)
     return true;
 }
 
-bool emplace_interface(size_t linenum, const std::string &interface)
+bool emplace_interface(size_t linenum, const std::string &interface, uint8_t preference)
 {
-    auto si = interface_state.find(interface);
     if (interface.empty())
         return false;
+    auto si = interface_state.find(interface);
     if (si == interface_state.end()) {
         fmt::print(stderr, "interface specified at line {} is not bound\n", linenum);
         return false;
     }
+    si->second.preference = preference;
     return true;
 }
 
@@ -523,9 +525,9 @@ size_t bound_interfaces_count()
     return interface_state.size();
 }
 
-void bound_interfaces_foreach(std::function<void(const std::string&, bool, bool)> fn)
+void bound_interfaces_foreach(std::function<void(const std::string&, bool, bool, uint8_t)> fn)
 {
     for (const auto &i: interface_state)
-        fn(i.first, i.second.use_dhcpv4, i.second.use_dhcpv6);
+        fn(i.first, i.second.use_dhcpv4, i.second.use_dhcpv6, i.second.preference);
 }
 

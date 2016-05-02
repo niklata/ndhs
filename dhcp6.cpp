@@ -40,11 +40,13 @@ static asio::ip::address_v6 v6_addr_random(const asio::ip::address_v6 &prefix, u
 }
 
 D6Listener::D6Listener(asio::io_service &io_service,
-                       const std::string &ifname)
-  : socket_(io_service), ifname_(ifname), using_bpf_(false)
+                       const std::string &ifname, uint8_t preference)
+  : socket_(io_service), ifname_(ifname), using_bpf_(false), preference_(preference)
 {
     int ifidx = nl_socket->get_ifindex(ifname_);
     const auto &ifinfo = nl_socket->interfaces.at(ifidx);
+
+    fmt::print("DHCPv6 Preference for interface {} is {}.\n", ifname_, preference_);
 
     for (const auto &i: ifinfo.addrs) {
         if (i.scope == netif_addr::Scope::Global && i.address.is_v6()) {
@@ -213,6 +215,14 @@ void D6Listener::write_response_header(const d6msg_state &d6s, std::ostream &os,
     os << send_clientid;
     for (const auto &i: d6s.client_duid_blob)
         os << i;
+
+    if (preference_ > 0) {
+        dhcp6_opt send_pref;
+        send_pref.type(7);
+        send_pref.length(1);
+        os << send_pref;
+        os << preference_;
+    }
 }
 
 // We control what IAs are valid, and we never assign multiple address to a single

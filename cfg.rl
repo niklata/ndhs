@@ -40,7 +40,8 @@ extern void set_chroot_path(size_t linenum, std::string &&path);
 extern void create_dns_search_blob();
 
 struct cfg_parse_state {
-    cfg_parse_state() : st(nullptr), cs(0), last_addr(addr_type::null), default_lifetime(7200) {}
+    cfg_parse_state() : st(nullptr), cs(0), last_addr(addr_type::null), default_lifetime(7200),
+                        default_preference(0) {}
     void newline() {
         duid.clear();
         iaid.clear();
@@ -60,6 +61,7 @@ struct cfg_parse_state {
     addr_type last_addr;
     std::string interface;
     uint32_t default_lifetime;
+    uint8_t default_preference;
 };
 
 static inline std::string lc_string(const char *s, size_t slen)
@@ -91,11 +93,20 @@ static inline std::string lc_string(const char *s, size_t slen)
     action UserEn { set_user_runas(linenum, std::string(cps.st, p - cps.st)); }
     action ChrootEn { set_chroot_path(linenum, std::string(cps.st, p - cps.st)); }
     action DefLifeEn {
-        cps.default_lifetime = nk::from_string<uint32_t>(std::string(cps.st, p - cps.st));
+        cps.default_lifetime = nk::from_string<uint32_t>(cps.st, p - cps.st);
+    }
+    action DefPrefEn {
+        try {
+            cps.default_preference = nk::from_string<uint8_t>(cps.st, p - cps.st);
+        } catch (...) {
+            fmt::print("default_preference on line {} out of range [0,255]: {}\n",
+                       linenum, std::string(cps.st, p - cps.st));
+            exit(EXIT_FAILURE);
+        }
     }
     action InterfaceEn {
         cps.interface = std::string(cps.st, p - cps.st);
-        emplace_interface(linenum, cps.interface);
+        emplace_interface(linenum, cps.interface, cps.default_preference);
     }
     action DnsServerEn {
         emplace_dns_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
@@ -148,6 +159,7 @@ static inline std::string lc_string(const char *s, size_t slen)
     user = space* 'user' space+ graph+ >St %UserEn tcomment;
     chroot = space* 'chroot' space+ graph+ >St %ChrootEn tcomment;
     default_lifetime = space* 'default_lifetime' space+ digit+ >St %DefLifeEn tcomment;
+    default_preference = space* 'default_preference' space+ digit+ >St %DefPrefEn tcomment;
     interface = space* 'interface' space+ alnum+ >St %InterfaceEn tcomment;
     dns_server = space* 'dns_server' (space+ (v4_addr | v6_addr) %DnsServerEn)+ tcomment;
     dns_search = space* 'dns_search' (space+ graph+ >St %DnsSearchEn)+ tcomment;
@@ -160,8 +172,8 @@ static inline std::string lc_string(const char *s, size_t slen)
     v4_entry = space* 'v4' space+ macaddr space+ v4_addr tcomment;
     v6_entry = space* 'v6' space+ duid space+ iaid space+ v6_addr tcomment;
 
-    main := comment | bind4 | bind6 | user | chroot | default_lifetime | interface
-          | dns_server | dns_search | ntp_server | subnet | gateway | broadcast
+    main := comment | bind4 | bind6 | user | chroot | default_lifetime | default_preference
+          | interface | dns_server | dns_search | ntp_server | subnet | gateway | broadcast
           | dynamic_range | dynamic_v6 | v6_entry %V6EntryEn | v4_entry %V4EntryEn;
 }%%
 

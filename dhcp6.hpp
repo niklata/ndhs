@@ -175,7 +175,7 @@ struct d6_statuscode
 class D6Listener
 {
 public:
-    D6Listener(asio::io_service &io_service, const std::string &ifname);
+    D6Listener(asio::io_service &io_service, const std::string &ifname, uint8_t preference);
 private:
     using prev_opt_state = std::pair<int8_t, uint16_t>; // Type of parent opt and length left
     struct d6msg_state
@@ -235,6 +235,7 @@ private:
     std::unique_ptr<RA6Listener> radv6_listener_;
     bool using_bpf_:1;
     char prefixlen_;
+    uint8_t preference_;
 
     size_t bytes_left_dec(d6msg_state &d6s, std::size_t &bytes_left, size_t v);
 };
