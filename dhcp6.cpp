@@ -388,6 +388,30 @@ bool D6Listener::confirm_match(const d6msg_state &d6s) const
     return true;
 }
 
+bool D6Listener::mark_addr_unused(const d6msg_state &d6s, std::ostream &os)
+{
+    bool freed_addr{false};
+    for (const auto &i: d6s.ias) {
+        bool freed_ia_addr{false};
+        fmt::print("Marking duid='{}' iaid={} unused...", d6s.client_duid, i.iaid);
+        auto x = query_dhcp_state(ifname_, d6s.client_duid, i.iaid);
+        for (const auto &j: i.ia_na_addrs) {
+            if (x && j.addr == x->address) {
+                fmt::print(" found static lease\n");
+                freed_ia_addr = freed_addr = true;
+            } else if (dynlease_del(ifname_, j.addr, d6s.client_duid.c_str(), i.iaid)) {
+                fmt::print(" found dynamic lease\n");
+                freed_ia_addr = freed_addr = true;
+            }
+        }
+        if (!freed_ia_addr) {
+            emit_IA_fail(d6s, os, i.iaid, d6_statuscode::code::nobinding);
+            fmt::print(" no dynamic lease found\n");
+        }
+    }
+    return freed_addr;
+}
+
 void D6Listener::handle_solicit_msg(const d6msg_state &d6s, asio::streambuf &send_buffer)
 {
     std::ostream os(&send_buffer);
@@ -452,6 +476,22 @@ void D6Listener::handle_information_msg(const d6msg_state &d6s, asio::streambuf 
     write_response_header(d6s, os, dhcp6_msgtype::reply);
     attach_dns_ntp_info(d6s, os);
     fmt::print("Sending Information Message in response.\n");
+}
+
+void D6Listener::handle_release_msg(const d6msg_state &d6s, asio::streambuf &send_buffer)
+{
+    std::ostream os(&send_buffer);
+    write_response_header(d6s, os, dhcp6_msgtype::reply);
+    mark_addr_unused(d6s, os);
+    attach_dns_ntp_info(d6s, os);
+}
+
+void D6Listener::handle_decline_msg(const d6msg_state &d6s, asio::streambuf &send_buffer)
+{
+    std::ostream os(&send_buffer);
+    write_response_header(d6s, os, dhcp6_msgtype::reply);
+    mark_addr_unused(d6s, os);
+    attach_dns_ntp_info(d6s, os);
 }
 
 #define BYTES_LEFT_DEC(BLD_VAL) bytes_left_dec(d6s, bytes_left, (BLD_VAL))
@@ -717,11 +757,12 @@ void D6Listener::start_receive()
              case dhcp6_msgtype::rebind:
                  if (!d6s.server_duid_blob.empty()) goto skip_send;
                  handle_rebind_msg(d6s, send_buffer); break;
-             case dhcp6_msgtype::decline:
              case dhcp6_msgtype::release:
                  if (serverid_incorrect(d6s)) goto skip_send;
-                 // XXX: Not implemented yet.
-                 break;
+                 handle_release_msg(d6s, send_buffer); break;
+             case dhcp6_msgtype::decline:
+                 if (serverid_incorrect(d6s)) goto skip_send;
+                 handle_decline_msg(d6s, send_buffer); break;
              case dhcp6_msgtype::information_request:
                  if (!d6s.server_duid_blob.empty() && serverid_incorrect(d6s)) goto skip_send;
                  if (!d6s.ias.empty()) goto skip_send;
