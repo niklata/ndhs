@@ -62,6 +62,7 @@ extern "C" {
 #include "dhcp4.hpp"
 #include "dhcp_state.hpp"
 #include "dynlease.hpp"
+#include "duid.hpp"
 
 asio::io_service io_service;
 static asio::signal_set asio_signal_set(io_service);
@@ -310,6 +311,7 @@ static void process_options(int ac, char *av[])
     process_signals();
 
     nk_set_chroot(chroot_path.c_str());
+    duid_load_from_file();
     dynlease_deserialize(LEASEFILE_PATH);
     nk_set_uidgid(ndhs_uid, ndhs_gid, NULL, 0);
 
