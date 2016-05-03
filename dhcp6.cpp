@@ -133,7 +133,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint
 {
     uint32_t dynamic_lifetime;
     if (!query_use_dynamic_v6(ifname_, dynamic_lifetime)) {
-        emit_IA_fail(d6s, os, iaid, failcode);
+        emit_IA_code(d6s, os, iaid, failcode);
         return false;
     }
 
@@ -144,7 +144,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint
     auto v6a = dynlease_query_refresh(ifname_, d6s.client_duid, iaid, expire_time);
     if (v6a != asio::ip::address_v6::any()) {
         dhcpv6_entry de(iaid, v6a, dynamic_lifetime);
-        emit_IA(d6s, os, &de);
+        emit_IA_addr(d6s, os, &de);
         fmt::print("\tAssigned existing dynamic IP: {}.\n", v6a.to_string());
         return true;
     }
@@ -152,7 +152,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint
     if (dynlease6_count(ifname_) >= MAX_DYN_LEASES) {
         fmt::print("\tMaximum number of dynamic leases on {} ({}) reached.\n",
                    ifname_, MAX_DYN_LEASES);
-        emit_IA_fail(d6s, os, iaid, failcode);
+        emit_IA_code(d6s, os, iaid, failcode);
         return false;
     }
     fmt::print("\tSelecting an unused dynamic IP.\n");
@@ -166,13 +166,13 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint
         const auto assigned = dynlease_add(ifname_, v6a, d6s.client_duid, iaid, expire_time);
         if (assigned) {
             dhcpv6_entry de(iaid, v6a, dynamic_lifetime);
-            emit_IA(d6s, os, &de);
+            emit_IA_addr(d6s, os, &de);
             return true;
         }
     }
     fmt::print("\tUnable to select an unused dynamic IP after {} attempts.\n",
                MAX_DYN_ATTEMPTS);
-    emit_IA_fail(d6s, os, iaid, failcode);
+    emit_IA_code(d6s, os, iaid, failcode);
     return false;
 }
 
@@ -227,7 +227,7 @@ void D6Listener::write_response_header(const d6msg_state &d6s, std::ostream &os,
 
 // We control what IAs are valid, and we never assign multiple address to a single
 // IA.  Thus there's no reason to care about that case.
-void D6Listener::emit_IA(const d6msg_state &d6s, std::ostream &os, const dhcpv6_entry *v)
+void D6Listener::emit_IA_addr(const d6msg_state &d6s, std::ostream &os, const dhcpv6_entry *v)
 {
     dhcp6_opt header;
     header.type(3);
@@ -248,7 +248,7 @@ void D6Listener::emit_IA(const d6msg_state &d6s, std::ostream &os, const dhcpv6_
     os << addr;
 }
 
-void D6Listener::emit_IA_fail(const d6msg_state &d6s, std::ostream &os, uint32_t iaid,
+void D6Listener::emit_IA_code(const d6msg_state &d6s, std::ostream &os, uint32_t iaid,
                               d6_statuscode::code scode)
 {
     dhcp6_opt header;
@@ -275,14 +275,14 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, std::ostream &os,
         if (x) {
             ret = true;
             fmt::print("\tFound static address: {}\n", x->address.to_string());
-            emit_IA(d6s, os, x);
+            emit_IA_addr(d6s, os, x);
             continue;
         }
         if (allot_dynamic_ip(d6s, os, i.iaid, failcode)) {
             ret = true;
             continue;
         }
-        emit_IA_fail(d6s, os, i.iaid, failcode);
+        emit_IA_code(d6s, os, i.iaid, failcode);
     }
     if (!ret)
         fmt::print("\tUnable to assign any IPs!\n");
@@ -370,32 +370,24 @@ void D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, std::ostream &os)
     }
 }
 
-bool D6Listener::confirm_match(const d6msg_state &d6s) const
+bool D6Listener::confirm_match(const d6msg_state &d6s, std::ostream &os)
 {
+    bool any_bad{false};
     for (const auto &i: d6s.ias) {
-        bool found_addr{false};
-
+        bool bad_link{false};
         fmt::print("Querying duid='{}' iaid={}...\n", d6s.client_duid, i.iaid);
-        auto x = query_dhcp_state(ifname_, d6s.client_duid, i.iaid);
         for (const auto &j: i.ia_na_addrs) {
             if (!asio::compare_ipv6(j.addr.to_bytes(), local_ip_prefix_.to_bytes(), prefixlen_)) {
                 fmt::print("Invalid prefix for IA IP: {}. NAK.\n", j);
-                return false;
-            }
-            if (x && j.addr == x->address) {
-                found_addr = true; break;
-            }
-            if (dynlease_exists(ifname_, j.addr, d6s.client_duid.c_str(), i.iaid)) {
-                found_addr = true; break;
+                any_bad = bad_link = true;
+                emit_IA_code(d6s, os, i.iaid, d6_statuscode::code::notonlink);
+                break;
             }
         }
-        if (found_addr) continue;
-        fmt::print("\tUnknown DUID={} IAID={} from addr={}. NAK.\n",
-                   d6s.client_duid, i.iaid, sender_endpoint_.address().to_string());
-        return false;
+        if (!bad_link) fmt::print("\tIA iaid={} has a valid prefix.\n", i.iaid);
+        emit_IA_code(d6s, os, i.iaid, d6_statuscode::code::success);
     }
-    fmt::print("\tEverything matches and is OK.\n");
-    return true;
+    return any_bad;
 }
 
 bool D6Listener::mark_addr_unused(const d6msg_state &d6s, std::ostream &os)
@@ -415,7 +407,7 @@ bool D6Listener::mark_addr_unused(const d6msg_state &d6s, std::ostream &os)
             }
         }
         if (!freed_ia_addr) {
-            emit_IA_fail(d6s, os, i.iaid, d6_statuscode::code::nobinding);
+            emit_IA_code(d6s, os, i.iaid, d6_statuscode::code::nobinding);
             fmt::print(" no dynamic lease found\n");
         }
     }
@@ -454,8 +446,7 @@ void D6Listener::handle_confirm_msg(const d6msg_state &d6s, asio::streambuf &sen
     std::ostream os(&send_buffer);
     write_response_header(d6s, os, dhcp6_msgtype::reply);
 
-    const auto valid = confirm_match(d6s);
-    if (!valid) attach_status_code(d6s, os, d6_statuscode::code::notonlink);
+    confirm_match(d6s, os);
     attach_dns_ntp_info(d6s, os);
 }
 

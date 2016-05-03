@@ -204,8 +204,8 @@ private:
 
     bool allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint32_t iaid,
                           d6_statuscode::code failcode);
-    void emit_IA(const d6msg_state &d6s, std::ostream &os, const dhcpv6_entry *v);
-    void emit_IA_fail(const d6msg_state &d6s, std::ostream &os, uint32_t iaid,
+    void emit_IA_addr(const d6msg_state &d6s, std::ostream &os, const dhcpv6_entry *v);
+    void emit_IA_code(const d6msg_state &d6s, std::ostream &os, uint32_t iaid,
                       d6_statuscode::code scode);
     bool attach_address_info(const d6msg_state &d6s, std::ostream &os,
                              d6_statuscode::code failcode);
@@ -214,7 +214,7 @@ private:
     void write_response_header(const d6msg_state &d6s, std::ostream &os, dhcp6_msgtype mtype);
     void handle_solicit_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
     void handle_request_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
-    bool confirm_match(const d6msg_state &d6s) const;
+    bool confirm_match(const d6msg_state &d6s, std::ostream &os);
     bool mark_addr_unused(const d6msg_state &d6s, std::ostream &os);
     void handle_confirm_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
     void handle_renew_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
