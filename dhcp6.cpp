@@ -372,14 +372,15 @@ void D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, std::ostream &os)
 
 bool D6Listener::confirm_match(const d6msg_state &d6s, std::ostream &os)
 {
-    bool any_bad{false};
+    bool had_address{false};
     for (const auto &i: d6s.ias) {
         bool bad_link{false};
         fmt::print("Querying duid='{}' iaid={}...\n", d6s.client_duid, i.iaid);
         for (const auto &j: i.ia_na_addrs) {
+            had_address = true;
             if (!asio::compare_ipv6(j.addr.to_bytes(), local_ip_prefix_.to_bytes(), prefixlen_)) {
                 fmt::print("Invalid prefix for IA IP: {}. NAK.\n", j);
-                any_bad = bad_link = true;
+                bad_link = true;
                 emit_IA_code(d6s, os, i.iaid, d6_statuscode::code::notonlink);
                 break;
             }
@@ -387,7 +388,7 @@ bool D6Listener::confirm_match(const d6msg_state &d6s, std::ostream &os)
         if (!bad_link) fmt::print("\tIA iaid={} has a valid prefix.\n", i.iaid);
         emit_IA_code(d6s, os, i.iaid, d6_statuscode::code::success);
     }
-    return any_bad;
+    return had_address;
 }
 
 bool D6Listener::mark_addr_unused(const d6msg_state &d6s, std::ostream &os)
@@ -441,13 +442,14 @@ void D6Listener::handle_request_msg(const d6msg_state &d6s, asio::streambuf &sen
     attach_dns_ntp_info(d6s, os);
 }
 
-void D6Listener::handle_confirm_msg(const d6msg_state &d6s, asio::streambuf &send_buffer)
+bool D6Listener::handle_confirm_msg(const d6msg_state &d6s, asio::streambuf &send_buffer)
 {
     std::ostream os(&send_buffer);
     write_response_header(d6s, os, dhcp6_msgtype::reply);
 
-    confirm_match(d6s, os);
+    const auto had_address = confirm_match(d6s, os);
     attach_dns_ntp_info(d6s, os);
+    return had_address;
 }
 
 void D6Listener::handle_renew_msg(const d6msg_state &d6s, asio::streambuf &send_buffer)
@@ -748,7 +750,7 @@ void D6Listener::start_receive()
                  handle_request_msg(d6s, send_buffer); break;
              case dhcp6_msgtype::confirm:
                  if (!d6s.server_duid_blob.empty()) goto skip_send;
-                 handle_confirm_msg(d6s, send_buffer); break;
+                 if (!handle_confirm_msg(d6s, send_buffer)) goto skip_send; break;
              case dhcp6_msgtype::renew:
                  if (serverid_incorrect(d6s)) goto skip_send;
                  handle_renew_msg(d6s, send_buffer); break;

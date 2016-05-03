@@ -216,7 +216,7 @@ private:
     void handle_request_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
     bool confirm_match(const d6msg_state &d6s, std::ostream &os);
     bool mark_addr_unused(const d6msg_state &d6s, std::ostream &os);
-    void handle_confirm_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
+    bool handle_confirm_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
     void handle_renew_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
     void handle_rebind_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
     void handle_information_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
