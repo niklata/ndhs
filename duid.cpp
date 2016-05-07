@@ -20,10 +20,10 @@ char g_server_duid[g_server_duid_len];
 
 static void print_duid()
 {
-    fmt::printf("DUID is '%02.x", static_cast<uint8_t>(g_server_duid[0]));
+    fmt::fprintf(stderr, "DUID is '%02.x", static_cast<uint8_t>(g_server_duid[0]));
     for (unsigned i = 1; i < g_server_duid_len; ++i)
-        fmt::printf("-%02.x", static_cast<uint8_t>(g_server_duid[i]));
-    fmt::print("'\n");
+        fmt::fprintf(stderr, "-%02.x", static_cast<uint8_t>(g_server_duid[i]));
+    fmt::print(stderr, "'\n");
 }
 
 // Use DUID-UUID (RFC6355)
@@ -56,7 +56,7 @@ void duid_load_from_file()
 {
     const auto fd = open(DUID_PATH, O_RDONLY, 0);
     if (fd < 0) {
-        fmt::print("No DUID found.  Generating a DUID.\n");
+        fmt::print(stderr, "No DUID found.  Generating a DUID.\n");
         generate_duid();
         return;
     }
@@ -65,7 +65,7 @@ void duid_load_from_file()
     if (r < 0) throw std::runtime_error(fmt::format("{}: failed to read duid from {}\n",
                                                     __func__, DUID_PATH));
     if (r != g_server_duid_len) {
-        fmt::print("DUID is too short to be valid.  Generating a new DUID.\n");
+        fmt::print(stderr, "DUID is too short to be valid.  Generating a new DUID.\n");
         generate_duid();
         return;
     }

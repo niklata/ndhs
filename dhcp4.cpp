@@ -193,7 +193,7 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     if (!query_use_dynamic_v4(ifname_, dynamic_lifetime))
         return false;
 
-    fmt::print("Checking dynamic IP.\n");
+    fmt::print(stderr, "Checking dynamic IP.\n");
 
     const auto dr = query_dynamic_range(ifname_);
     const auto expire_time = get_current_ts() + dynamic_lifetime;
@@ -202,10 +202,10 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     if (v4a != asio::ip::address_v4::any()) {
         reply.yiaddr = htonl(v4a.to_ulong());
         add_u32_option(&reply, DCODE_LEASET, htonl(dynamic_lifetime));
-        fmt::print("Assigned existing dynamic IP: {}.\n", v4a.to_string());
+        fmt::print(stderr, "Assigned existing dynamic IP: {}.\n", v4a.to_string());
         return true;
     }
-    fmt::print("Selecting an unused dynamic IP.\n");
+    fmt::print(stderr, "Selecting an unused dynamic IP.\n");
 
     // IP is randomly selected from the dynamic range.
     const auto al = dr.first.to_ulong();
@@ -272,7 +272,7 @@ bool D4Listener::create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_ass
 
 void D4Listener::reply_discover()
 {
-    fmt::print("Got DHCP4 discover message\n");
+    fmt::print(stderr, "Got DHCP4 discover message\n");
     dhcpmsg reply;
     dhcpmsg_init(reply, DHCPOFFER, dhcpmsg_.xid);
     if (create_reply(reply, dhcpmsg_.chaddr, true))
@@ -281,7 +281,7 @@ void D4Listener::reply_discover()
 
 void D4Listener::reply_request(bool is_direct)
 {
-    fmt::print("Got DHCP4 request message\n");
+    fmt::print(stderr, "Got DHCP4 request message\n");
     dhcpmsg reply;
     dhcpmsg_init(reply, DHCPACK, dhcpmsg_.xid);
     if (create_reply(reply, dhcpmsg_.chaddr, true)) {
@@ -293,7 +293,7 @@ void D4Listener::reply_request(bool is_direct)
 static asio::ip::address_v4 zero_v4(0lu);
 void D4Listener::reply_inform()
 {
-    fmt::print("Got DHCP4 inform message\n");
+    fmt::print(stderr, "Got DHCP4 inform message\n");
     struct dhcpmsg reply;
     dhcpmsg_init(reply, DHCPACK, dhcpmsg_.xid);
     if (create_reply(reply, dhcpmsg_.chaddr, false)) {
@@ -324,7 +324,7 @@ void D4Listener::reply_inform()
 void D4Listener::do_release() {
     auto valid = dynlease_exists(ifname_, remote_endpoint_.address().to_v4(), dhcpmsg_.chaddr);
     if (!valid) {
-        fmt::print("do_release: ignoring spoofed release request for {}.\n",
+        fmt::print(stderr, "do_release: ignoring spoofed release request for {}.\n",
                    remote_endpoint_.address().to_string());
         std::fflush(stdout);
         return;
@@ -393,7 +393,7 @@ void D4Listener::start_receive()
              case DHCPREQUEST:  reply_request(direct_request); break;
              case DHCPINFORM:   reply_inform(); break;
              case DHCPDECLINE:
-                                fmt::print("Received a DHCPDECLINE.  Clients conflict?\n");
+                                fmt::print(stderr, "Received a DHCPDECLINE.  Clients conflict?\n");
              case DHCPRELEASE:  do_release(); break;
              }
              start_receive();

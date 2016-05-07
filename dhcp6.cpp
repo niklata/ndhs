@@ -46,7 +46,7 @@ D6Listener::D6Listener(asio::io_service &io_service,
     int ifidx = nl_socket->get_ifindex(ifname_);
     const auto &ifinfo = nl_socket->interfaces.at(ifidx);
 
-    fmt::print("DHCPv6 Preference for interface {} is {}.\n", ifname_, preference_);
+    fmt::print(stderr, "DHCPv6 Preference for interface {} is {}.\n", ifname_, preference_);
 
     for (const auto &i: ifinfo.addrs) {
         if (i.scope == netif_addr::Scope::Global && i.address.is_v6()) {
@@ -123,7 +123,7 @@ static const char * dhcp6_opt_to_string(uint16_t opttype)
     case 39: return "Client FQDN"; // RFC4704
     case 56: return "NTP Server"; // RFC5908
     default:
-             fmt::print("Unknown DHCP Option type: {}\n", opttype);
+             fmt::print(stderr, "Unknown DHCP Option type: {}\n", opttype);
              return "Unknown";
     }
 }
@@ -137,7 +137,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint
         return false;
     }
 
-    fmt::print("\tChecking dynamic IP...\n");
+    fmt::print(stderr, "\tChecking dynamic IP...\n");
 
     const auto expire_time = get_current_ts() + dynamic_lifetime;
 
@@ -145,17 +145,17 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint
     if (v6a != asio::ip::address_v6::any()) {
         dhcpv6_entry de(iaid, v6a, dynamic_lifetime);
         emit_IA_addr(d6s, os, &de);
-        fmt::print("\tAssigned existing dynamic IP: {}.\n", v6a.to_string());
+        fmt::print(stderr, "\tAssigned existing dynamic IP: {}.\n", v6a.to_string());
         return true;
     }
     // This check guards against OOM via DoS.
     if (dynlease6_count(ifname_) >= MAX_DYN_LEASES) {
-        fmt::print("\tMaximum number of dynamic leases on {} ({}) reached.\n",
+        fmt::print(stderr, "\tMaximum number of dynamic leases on {} ({}) reached.\n",
                    ifname_, MAX_DYN_LEASES);
         emit_IA_code(d6s, os, iaid, failcode);
         return false;
     }
-    fmt::print("\tSelecting an unused dynamic IP.\n");
+    fmt::print(stderr, "\tSelecting an unused dynamic IP.\n");
 
     // Given a prefix, choose a random address.  Then check it against our
     // existing static and dynamic leases.  If no collision, assign a
@@ -170,7 +170,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint
             return true;
         }
     }
-    fmt::print("\tUnable to select an unused dynamic IP after {} attempts.\n",
+    fmt::print(stderr, "\tUnable to select an unused dynamic IP after {} attempts.\n",
                MAX_DYN_ATTEMPTS);
     emit_IA_code(d6s, os, iaid, failcode);
     return false;
@@ -274,7 +274,7 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, std::ostream &os,
         auto x = query_dhcp_state(ifname_, d6s.client_duid, i.iaid);
         if (x) {
             ret = true;
-            fmt::print("\tFound static address: {}\n", x->address.to_string());
+            fmt::print(stderr, "\tFound static address: {}\n", x->address.to_string());
             emit_IA_addr(d6s, os, x);
             continue;
         }
@@ -285,7 +285,7 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, std::ostream &os,
         emit_IA_code(d6s, os, i.iaid, failcode);
     }
     if (!ret)
-        fmt::print("\tUnable to assign any IPs!\n");
+        fmt::print(stderr, "\tUnable to assign any IPs!\n");
     return ret;
 }
 
@@ -375,17 +375,17 @@ bool D6Listener::confirm_match(const d6msg_state &d6s, std::ostream &os)
     bool had_address{false};
     for (const auto &i: d6s.ias) {
         bool bad_link{false};
-        fmt::print("Querying duid='{}' iaid={}...\n", d6s.client_duid, i.iaid);
+        fmt::print(stderr, "Querying duid='{}' iaid={}...\n", d6s.client_duid, i.iaid);
         for (const auto &j: i.ia_na_addrs) {
             had_address = true;
             if (!asio::compare_ipv6(j.addr.to_bytes(), local_ip_prefix_.to_bytes(), prefixlen_)) {
-                fmt::print("Invalid prefix for IA IP: {}. NAK.\n", j);
+                fmt::print(stderr, "Invalid prefix for IA IP: {}. NAK.\n", j);
                 bad_link = true;
                 emit_IA_code(d6s, os, i.iaid, d6_statuscode::code::notonlink);
                 break;
             }
         }
-        if (!bad_link) fmt::print("\tIA iaid={} has a valid prefix.\n", i.iaid);
+        if (!bad_link) fmt::print(stderr, "\tIA iaid={} has a valid prefix.\n", i.iaid);
         emit_IA_code(d6s, os, i.iaid, d6_statuscode::code::success);
     }
     return had_address;
@@ -396,20 +396,20 @@ bool D6Listener::mark_addr_unused(const d6msg_state &d6s, std::ostream &os)
     bool freed_addr{false};
     for (const auto &i: d6s.ias) {
         bool freed_ia_addr{false};
-        fmt::print("Marking duid='{}' iaid={} unused...", d6s.client_duid, i.iaid);
+        fmt::print(stderr, "Marking duid='{}' iaid={} unused...", d6s.client_duid, i.iaid);
         auto x = query_dhcp_state(ifname_, d6s.client_duid, i.iaid);
         for (const auto &j: i.ia_na_addrs) {
             if (x && j.addr == x->address) {
-                fmt::print(" found static lease\n");
+                fmt::print(stderr, " found static lease\n");
                 freed_ia_addr = freed_addr = true;
             } else if (dynlease_del(ifname_, j.addr, d6s.client_duid.c_str(), i.iaid)) {
-                fmt::print(" found dynamic lease\n");
+                fmt::print(stderr, " found dynamic lease\n");
                 freed_ia_addr = freed_addr = true;
             }
         }
         if (!freed_ia_addr) {
             emit_IA_code(d6s, os, i.iaid, d6_statuscode::code::nobinding);
-            fmt::print(" no dynamic lease found\n");
+            fmt::print(stderr, " no dynamic lease found\n");
         }
     }
     return freed_addr;
@@ -475,7 +475,7 @@ void D6Listener::handle_information_msg(const d6msg_state &d6s, asio::streambuf 
     std::ostream os(&send_buffer);
     write_response_header(d6s, os, dhcp6_msgtype::reply);
     attach_dns_ntp_info(d6s, os);
-    fmt::print("Sending Information Message in response.\n");
+    fmt::print(stderr, "Sending Information Message in response.\n");
 }
 
 void D6Listener::handle_release_msg(const d6msg_state &d6s, asio::streambuf &send_buffer)
@@ -602,7 +602,7 @@ void D6Listener::start_receive()
                          BYTES_LEFT_DEC(1);
                      }
                      if (d6s.client_duid.size() > 0)
-                        fmt::print("\tDUID: {}\n", d6s.client_duid);
+                        fmt::print(stderr, "\tDUID: {}\n", d6s.client_duid);
                  } else if (ot == 2) { // ServerID
                      d6s.server_duid_blob.reserve(l);
                      std::string tmpstr;
@@ -613,7 +613,7 @@ void D6Listener::start_receive()
                          BYTES_LEFT_DEC(1);
                      }
                      if (tmpstr.size() > 0)
-                        fmt::print("\tServer DUID: '{}' len: {}\n", tmpstr,
+                        fmt::print(stderr, "\tServer DUID: '{}' len: {}\n", tmpstr,
                                    d6s.server_duid_blob.size());
                  } else if (ot == 3) { // Option_IA_NA
                      if (l < 12) {
@@ -627,9 +627,9 @@ void D6Listener::start_receive()
                      if (na_options_len > 0)
                          d6s.prev_opt.emplace_back(std::make_pair(3, na_options_len));
 
-                     fmt::printf("\tIA_NA: iaid=%u t1=%us t2=%us opt_len=%u\n",
-                                d6s.ias.back().iaid, d6s.ias.back().t1_seconds,
-                                d6s.ias.back().t2_seconds, na_options_len);
+                     fmt::fprintf(stderr, "\tIA_NA: iaid=%u t1=%us t2=%us opt_len=%u\n",
+                                  d6s.ias.back().iaid, d6s.ias.back().t1_seconds,
+                                  d6s.ias.back().t2_seconds, na_options_len);
                  } else if (ot == 5) { // Address
                      if (l < 24) {
                          CONSUME_OPT("Client-sent option IAADDR has a bad length.  Ignoring.\n");
@@ -652,7 +652,7 @@ void D6Listener::start_receive()
                      if (iaa_options_len > 0)
                          d6s.prev_opt.emplace_back(std::make_pair(5, iaa_options_len));
 
-                     fmt::print("\tIA Address: {} prefer={}s valid={}s opt_len={}\n",
+                     fmt::print(stderr, "\tIA Address: {} prefer={}s valid={}s opt_len={}\n",
                                 d6s.ias.back().ia_na_addrs.back().addr.to_string(),
                                 d6s.ias.back().ia_na_addrs.back().prefer_lifetime,
                                 d6s.ias.back().ia_na_addrs.back().valid_lifetime,
@@ -664,7 +664,7 @@ void D6Listener::start_receive()
                      }
                      d6s.optreq_exists = true;
                      l /= 2;
-                     fmt::print("\tOption Request:");
+                     fmt::print(stderr, "\tOption Request:");
                      while (l--) {
                          char b[2];
                          b[1] = is.get();
@@ -673,16 +673,16 @@ void D6Listener::start_receive()
                          uint16_t v;
                          memcpy(&v, b, 2);
                          switch (v) {
-                         case 23: d6s.optreq_dns = true; fmt::print(" DNS"); break;
-                         case 24: d6s.optreq_dns_search = true; fmt::print(" DNS_SEARCH"); break;
-                         case 31: d6s.optreq_sntp = true; fmt::print(" SNTP"); break;
-                         case 32: d6s.optreq_info_refresh_time = true; fmt::print(" INFO_REFRESH"); break;
-                         case 56: d6s.optreq_ntp = true; fmt::print(" NTP"); break;
-                         default: fmt::print(" {}", v); break;
+                         case 23: d6s.optreq_dns = true; fmt::print(stderr, " DNS"); break;
+                         case 24: d6s.optreq_dns_search = true; fmt::print(stderr, " DNS_SEARCH"); break;
+                         case 31: d6s.optreq_sntp = true; fmt::print(stderr, " SNTP"); break;
+                         case 32: d6s.optreq_info_refresh_time = true; fmt::print(stderr, " INFO_REFRESH"); break;
+                         case 56: d6s.optreq_ntp = true; fmt::print(stderr, " NTP"); break;
+                         default: fmt::print(stderr, " {}", v); break;
                          }
                      }
-                     fmt::print("\n");
-                     fmt::print("\tOptions requested: dns={} dns_search={} info_refresh={} ntp={}\n",
+                     fmt::print(stderr, "\n");
+                     fmt::print(stderr, "\tOptions requested: dns={} dns_search={} info_refresh={} ntp={}\n",
                                 d6s.optreq_dns, d6s.optreq_dns_search,
                                 d6s.optreq_info_refresh_time, d6s.optreq_ntp);
                  } else if (ot == 8) { // ElapsedTime
@@ -701,7 +701,7 @@ void D6Listener::start_receive()
                      }
                      d6s.use_rapid_commit = true;
                  } else if (ot == 39) { // Client FQDN
-                     fmt::print("\tFQDN Length: {}\n", l);
+                     fmt::print(stderr, "\tFQDN Length: {}\n", l);
                      if (l < 3) {
                          CONSUME_OPT("Client-sent option Client FQDN has a bad length.  Ignoring.\n");
                      }
@@ -716,14 +716,14 @@ void D6Listener::start_receive()
                      }
                      d6s.fqdn_.clear();
                      d6s.fqdn_.reserve(namelen);
-                     fmt::print("\tFQDN Flags='{}', NameLen='{}'\n", +flags, +namelen);
+                     fmt::print(stderr, "\tFQDN Flags='{}', NameLen='{}'\n", +flags, +namelen);
                      while (l--) {
                         char c;
                         c = is.get();
                         BYTES_LEFT_DEC(1);
                         d6s.fqdn_.push_back(c);
                      }
-                     fmt::print("\tClient FQDN: flags={} '{}'\n",
+                     fmt::print(stderr, "\tClient FQDN: flags={} '{}'\n",
                                 static_cast<uint8_t>(flags), d6s.fqdn_);
                  } else {
                      while (l--) {

@@ -99,7 +99,7 @@ static inline std::string lc_string(const char *s, size_t slen)
         try {
             cps.default_preference = nk::from_string<uint8_t>(cps.st, p - cps.st);
         } catch (...) {
-            fmt::print("default_preference on line {} out of range [0,255]: {}\n",
+            fmt::print(stderr, "default_preference on line {} out of range [0,255]: {}\n",
                        linenum, std::string(cps.st, p - cps.st));
             exit(EXIT_FAILURE);
         }

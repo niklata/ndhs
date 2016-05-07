@@ -201,14 +201,14 @@ static int enforce_seccomp(bool changed_uidgid)
         return -1;
     if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog))
         return -1;
-    fmt::print("seccomp filter installed.  Please disable seccomp if you encounter problems.\n");
+    fmt::print(stderr, "seccomp filter installed.  Please disable seccomp if you encounter problems.\n");
     std::fflush(stdout);
     return 0;
 }
 
 static void print_version(void)
 {
-    fmt::print("ndhs " NDHS_VERSION ", ipv6 router advertisment and dhcp server.\n"
+    fmt::print(stderr, "ndhs " NDHS_VERSION ", ipv6 router advertisment and dhcp server.\n"
                "Copyright (c) 2014-2016 Nicholas J. Kain\n"
                "All rights reserved.\n\n"
                "Redistribution and use in source and binary forms, with or without\n"

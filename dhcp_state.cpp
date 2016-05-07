@@ -184,7 +184,7 @@ bool emplace_dhcp_state(size_t linenum, const std::string &interface, std::strin
         fmt::print(stderr, "Bad IPv6 address at line {}: {}\n", linenum, v6_addr);
         return false;
     }
-    //fmt::print("STATEv6: {} {} {} {}\n", duid, iaid, v6_addr, default_lifetime);
+    //fmt::print(stderr, "STATEv6: {} {} {} {}\n", duid, iaid, v6_addr, default_lifetime);
     si->second.duid_mapping.emplace
         (std::make_pair(std::move(duid),
                         std::make_unique<dhcpv6_entry>(iaid, v6a, default_lifetime)));
@@ -205,7 +205,7 @@ bool emplace_dhcp_state(size_t linenum, const std::string &interface, const std:
         fmt::print(stderr, "Bad IPv4 address at line {}: {}\n", linenum, v4_addr);
         return false;
     }
-    //fmt::print("STATEv4: {} {} {}\n", macaddr, v4_addr, default_lifetime);
+    //fmt::print(stderr, "STATEv4: {} {} {}\n", macaddr, v4_addr, default_lifetime);
     uint8_t buf[7] = {0};
     for (unsigned i = 0; i < 6; ++i)
         buf[i] = strtol(macaddr.c_str() + 3*i, nullptr, 16);
