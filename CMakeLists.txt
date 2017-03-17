@@ -3,7 +3,7 @@ project (ndhs)
 cmake_minimum_required (VERSION 2.6)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -std=gnu99 -fno-strict-overflow -pedantic -Wall -Wextra -Wformat=2 -Wformat-nonliteral -Wformat-security -Wpointer-arith -Wno-unused-parameter -DNDHS_BUILD")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=gnu++14 -fno-strict-overflow -pedantic -Wall -Wextra -Wformat=2 -Wformat-nonliteral -Wformat-security -Wpointer-arith -Wno-unused-parameter -DNDHS_BUILD")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=gnu++14 -fno-strict-overflow -pedantic -Wall -Wextra -Wformat-security -Wpointer-arith -Wno-unused-parameter -DNDHS_BUILD")
 
 if (WIN32)
   set(OSNAME "Win32")
