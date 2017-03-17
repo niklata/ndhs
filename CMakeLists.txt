@@ -33,9 +33,9 @@ endif()
 include_directories("${PROJECT_SOURCE_DIR}"
                     "${PROJECT_SOURCE_DIR}/ncmlib"
                     "${PROJECT_SOURCE_DIR}/asio"
-                    "${PROJECT_SOURCE_DIR}/cppformat")
+                    "${PROJECT_SOURCE_DIR}/fmt")
 add_subdirectory(ncmlib)
-add_subdirectory(cppformat)
+add_subdirectory(fmt)
 
 find_package(Threads)
 
@@ -65,5 +65,5 @@ file(GLOB NDHS_SRCS_CPP "*.cpp")
 list(APPEND NDHS_SRCS ${NDHS_SRCS_C} ${NDHS_SRCS_CPP})
 
 add_executable(ndhs ${RAGEL_CFG} ${RAGEL_DYNLEASE} ${NDHS_SRCS})
-target_link_libraries(ndhs ${CMAKE_THREAD_LIBS_INIT} ncmlib cppformat)
+target_link_libraries(ndhs ${CMAKE_THREAD_LIBS_INIT} ncmlib fmt)
 

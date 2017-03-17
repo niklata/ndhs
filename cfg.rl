@@ -29,7 +29,7 @@
 #include <string>
 #include <cstdio>
 #include <nk/scopeguard.hpp>
-#include <format.hpp>
+#include <fmt/format.h>
 #include <nk/from_string.hpp>
 #include "dhcp_state.hpp"
 extern void set_user_runas(size_t linenum, std::string &&username);

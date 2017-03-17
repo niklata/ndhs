@@ -48,7 +48,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <asio.hpp>
-#include <format.hpp>
+#include <fmt/format.h>
 #include <nk/optionarg.hpp>
 #include <nk/from_string.hpp>
 #include <nk/xorshift.hpp>

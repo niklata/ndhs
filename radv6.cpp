@@ -37,7 +37,7 @@
 #include <net/if.h>
 #include <sys/socket.h>
 
-#include <format.hpp>
+#include <fmt/format.h>
 #include <nk/netbits.hpp>
 #include <nk/xorshift.hpp>
 #include "radv6.hpp"

@@ -34,6 +34,7 @@
 #include <unordered_map>
 #include <netdb.h>
 #include <asio.hpp>
+#include <fmt/printf.h>
 #include "dhcp.h"
 
 // There are two hashtables, a 'new' and a 'marked for death' table.  If these

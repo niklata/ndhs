@@ -1,4 +1,4 @@
-#include <format.hpp>
+#include <fmt/format.h>
 #include <nk/xorshift.hpp>
 #include "nlsocket.hpp"
 #include "multicast6.hpp"
@@ -750,7 +750,8 @@ void D6Listener::start_receive()
                  handle_request_msg(d6s, send_buffer); break;
              case dhcp6_msgtype::confirm:
                  if (!d6s.server_duid_blob.empty()) goto skip_send;
-                 if (!handle_confirm_msg(d6s, send_buffer)) goto skip_send; break;
+                 if (!handle_confirm_msg(d6s, send_buffer)) goto skip_send;
+                 break;
              case dhcp6_msgtype::renew:
                  if (serverid_incorrect(d6s)) goto skip_send;
                  handle_renew_msg(d6s, send_buffer); break;

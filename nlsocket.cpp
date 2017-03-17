@@ -26,7 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <format.hpp>
+#include <fmt/format.h>
 #include <nk/xorshift.hpp>
 #include "nlsocket.hpp"
 extern "C" {

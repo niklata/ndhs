@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <iterator>
 #include <asio.hpp>
+#include <fmt/printf.h>
 #include <nk/netbits.hpp>
 #include "dhcp_state.hpp"
 #include "radv6.hpp"
