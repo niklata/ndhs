@@ -1,6 +1,6 @@
 /* ndhs.c - DHCPv4/DHCPv6 and IPv6 router advertisement server
  *
- * (c) 2014-2016 Nicholas J. Kain <njkain at gmail dot com>
+ * (c) 2014-2017 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -209,7 +209,7 @@ static int enforce_seccomp(bool changed_uidgid)
 static void print_version(void)
 {
     fmt::print(stderr, "ndhs " NDHS_VERSION ", ipv6 router advertisment and dhcp server.\n"
-               "Copyright (c) 2014-2016 Nicholas J. Kain\n"
+               "Copyright (c) 2014-2017 Nicholas J. Kain\n"
                "All rights reserved.\n\n"
                "Redistribution and use in source and binary forms, with or without\n"
                "modification, are permitted provided that the following conditions are met:\n\n"
@@ -237,7 +237,7 @@ enum OpIdx {
 static const option::Descriptor usage[] = {
     { OPT_UNKNOWN,    0,  "",           "", Arg::Unknown,
         "ndhs " NDHS_VERSION ", DHCPv4/DHCPv6 and IPv6 Router Advertisement server.\n"
-        "Copyright (c) 2014-2016 Nicholas J. Kain\n"
+        "Copyright (c) 2014-2017 Nicholas J. Kain\n"
         "ndhs [options] [configfile]...\n\nOptions:" },
     { OPT_HELP,       0, "h",            "help",    Arg::None, "\t-h, \t--help  \tPrint usage and exit." },
     { OPT_VERSION,    0, "v",         "version",    Arg::None, "\t-v, \t--version  \tPrint version and exit." },

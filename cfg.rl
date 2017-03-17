@@ -1,6 +1,6 @@
 /* cfg.rl - configure file parser for ndhs
  *
- * (c) 2016 Nicholas J. Kain <njkain at gmail dot com>
+ * (c) 2016-2017 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
