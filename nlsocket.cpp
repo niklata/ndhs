@@ -52,7 +52,7 @@ NLSocket::NLSocket(asio::io_service &io_service)
 
 void NLSocket::request_links()
 {
-    int fd = socket_.native();
+    int fd = socket_.native_handle();
     auto link_seq = nlseq_++;
     if (nl_sendgetlinks(fd, link_seq) < 0) {
         fmt::print(stderr, "nlsocket: failed to get initial rtlink state\n");
@@ -66,7 +66,7 @@ void NLSocket::request_links()
 
 void NLSocket::request_addrs()
 {
-    int fd = socket_.native();
+    int fd = socket_.native_handle();
     auto addr_seq = nlseq_++;
     if (nl_sendgetaddrs(fd, addr_seq) < 0) {
         fmt::print(stderr, "nlsocket: failed to get initial rtaddr state\n");
@@ -80,7 +80,7 @@ void NLSocket::request_addrs()
 
 void NLSocket::request_addrs(int ifidx)
 {
-    int fd = socket_.native();
+    int fd = socket_.native_handle();
     auto addr_seq = nlseq_++;
     if (nl_sendgetaddr(fd, addr_seq, ifidx) < 0) {
         fmt::print(stderr, "nlsocket: failed to get initial rtaddr state\n");

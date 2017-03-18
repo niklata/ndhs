@@ -418,8 +418,8 @@ RA6Listener::RA6Listener(asio::io_service &io_service, const std::string &ifname
 {
     const asio::ip::icmp::endpoint global_ep(asio::ip::address_v6::any(), 0);
     socket_.open(asio::ip::icmp::v6());
-    attach_multicast(socket_.native(), ifname, mc6_allrouters);
-    attach_bpf(socket_.native());
+    attach_multicast(socket_.native_handle(), ifname, mc6_allrouters);
+    attach_bpf(socket_.native_handle());
     socket_.bind(global_ep);
 
     send_advert();

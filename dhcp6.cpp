@@ -62,8 +62,8 @@ D6Listener::D6Listener(asio::io_service &io_service,
         }
     }
     socket_.open(asio::ip::udp::v6());
-    attach_multicast(socket_.native(), ifname, mc6_alldhcp_ras);
-    attach_bpf(socket_.native());
+    attach_multicast(socket_.native_handle(), ifname, mc6_alldhcp_ras);
+    attach_bpf(socket_.native_handle());
     socket_.bind(asio::ip::udp::endpoint(asio::ip::address_v6::any(), 547));
 
     radv6_listener_ = std::make_unique<RA6Listener>(io_service, ifname);

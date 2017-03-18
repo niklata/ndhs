@@ -61,7 +61,7 @@ D4Listener::D4Listener(asio::io_service &io_service, const std::string &ifname)
     socket_.set_option(asio::ip::udp::socket::do_not_route(true));
     socket_.set_option(asio::ip::udp::socket::reuse_address(true));
     socket_.bind(endpoint);
-    int fd = socket_.native();
+    int fd = socket_.native_handle();
 
     struct ifreq ifr;
     memset(&ifr, 0, sizeof (struct ifreq));
