@@ -270,7 +270,8 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, std::ostream &os,
     bool ret{false};
     // Look through IAs and send IA with assigned address as an option.
     for (const auto &i: d6s.ias) {
-        printf("Querying duid='%s' iaid=%u...\n", d6s.client_duid.c_str(), i.iaid);
+        fmt::print(stderr, "{}: Querying duid='{}' iaid={}...\n", __func__,
+                   d6s.client_duid, i.iaid);
         auto x = query_dhcp_state(ifname_, d6s.client_duid, i.iaid);
         if (x) {
             ret = true;
@@ -375,7 +376,8 @@ bool D6Listener::confirm_match(const d6msg_state &d6s, std::ostream &os)
     bool had_address{false};
     for (const auto &i: d6s.ias) {
         bool bad_link{false};
-        fmt::print(stderr, "Querying duid='{}' iaid={}...\n", d6s.client_duid, i.iaid);
+        fmt::print(stderr, "{}: Querying duid='{}' iaid={}...\n", __func__,
+                   d6s.client_duid, i.iaid);
         for (const auto &j: i.ia_na_addrs) {
             had_address = true;
             if (!asio::compare_ipv6(j.addr.to_bytes(), local_ip_prefix_.to_bytes(), prefixlen_)) {
