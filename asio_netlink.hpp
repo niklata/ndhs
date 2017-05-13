@@ -42,19 +42,19 @@ public:
 
     friend bool operator==(const nl_endpoint<Proto> &self,
                            const nl_endpoint<Proto> &other) {
-        return self.sockaddr_ == other.sockaddr_;
+        return self.sockaddr_.nl_pid == other.sockaddr_.nl_pid;
     }
     friend bool operator!=(const nl_endpoint<Proto> &self,
                            const nl_endpoint<Proto> &other) {
-        return self.sockaddr_ != other.sockaddr_;
+        return self.sockaddr_.nl_pid != other.sockaddr_.nl_pid;
     }
     friend bool operator<(const nl_endpoint<Proto> &self,
                           const nl_endpoint<Proto> &other) {
-        return self.sockaddr_ < other.sockaddr_;
+        return self.sockaddr_.nl_pid < other.sockaddr_.nl_pid;
     }
     friend bool operator>(const nl_endpoint<Proto> &self,
                           const nl_endpoint<Proto> &other) {
-        return self.sockaddr_ > other.sockaddr_;
+        return self.sockaddr_.nl_pid > other.sockaddr_.nl_pid;
     }
     friend bool operator>=(const nl_endpoint<Proto> &self,
                            const nl_endpoint<Proto> &other) {
