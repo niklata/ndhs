@@ -5,7 +5,9 @@
 
 struct interface_data
 {
-    interface_data(bool use_v4, bool use_v6) : use_dhcpv4(use_v4), use_dhcpv6(use_v6) {}
+    interface_data(bool use_v4, bool use_v6)
+        : dynamic_lifetime(0), preference(0), use_dhcpv4(use_v4), use_dhcpv6(use_v6),
+          use_dynamic_v4(false), use_dynamic_v6(false) {}
     std::unordered_multimap<std::string, std::unique_ptr<dhcpv6_entry>> duid_mapping;
     std::unordered_map<std::string, std::unique_ptr<dhcpv4_entry>> macaddr_mapping;
     std::vector<asio::ip::address_v4> gateway;
