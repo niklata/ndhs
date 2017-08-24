@@ -7,14 +7,14 @@
 #include <arpa/inet.h>
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include <nk/xorshift.hpp>
+#include <nk/tyche.hpp>
 #include <nk/scopeguard.hpp>
 extern "C" {
 #include "nk/io.h"
 }
 #include "duid.hpp"
 
-extern nk::rng::xoroshiro128p g_random_prng;
+extern nk::rng::tyche g_random_prng;
 
 #define DUID_PATH "/store/duid.txt"
 char g_server_duid[g_server_duid_len];
