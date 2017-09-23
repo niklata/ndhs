@@ -3,16 +3,6 @@ Copyright (C) 2011-2017 Nicholas J. Kain.
 
 License: Two-clause BSD.
 
-## Requirements
-
-* Linux kernel
-* GCC or Clang
-* CMake
-* [Ragel 6](https://www.colm.net/open-source/ragel)
-* [ASIO 1.11](https://think-async.com)
-* [ncmlib](https://github.com/niklata/ncmlib)
-* [fmtlib](https://github.com/fmtlib/fmt)
-
 ## Introduction
 
 ndhs is a DHCPv4 and DHCPv6 server that also provides IPv6 router
@@ -24,6 +14,16 @@ ndhs has been designed to be secure and function with minimal privilege.
 Because the implementation is relatively clean and modular, it should
 also be easy to extend for custom applications, as well as easy to audit
 for correctness.
+
+## Requirements
+
+* Linux kernel
+* GCC or Clang
+* CMake
+* [Ragel 6](https://www.colm.net/open-source/ragel)
+* [ASIO 1.11](https://think-async.com)
+* [ncmlib](https://github.com/niklata/ncmlib)
+* [fmtlib](https://github.com/fmtlib/fmt)
 
 ## Standard Usage
 
