@@ -28,15 +28,15 @@ for correctness.
 ## Standard Usage
 
 Install dependencies.  In the ndhs directory, symlinks should be created.
-Assuming that asio, ncmlib, and cppformat live in the same directory as
+Assuming that asio, ncmlib, and fmtlib live in the same directory as
 the ndhs directory:
 ```
 $ ls
-asio cppformat ncmlib ndhs
+asio fmt ncmlib ndhs
 $ cd ndhs
 $ ln -s ../asio/include asio
 $ ln -s ../ncmlib .
-$ ln -s ../cppformat/format.[ch]pp cppformat/
+$ ln -s ../fmt/format.[ch]pp fmt/
 ```
 Compile and install ndhs.
 * Create a build directory: `mkdir build && cd build`
