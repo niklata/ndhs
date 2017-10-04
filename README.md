@@ -276,9 +276,9 @@ routing duties.
 
 ## Downloads
 
-* [GitLab](https://github.com/niklata/ndhs)
-* [BitBucket](https://gitlab.com/niklata/ndhs)
-* [GitHub](https://bitbucket.com/niklata/ndhs)
+* [GitLab](https://gitlab.com/niklata/ndhs)
+* [BitBucket](https://bitbucket.com/niklata/ndhs)
+* [GitHub](https://github.com/niklata/ndhs)
 
 ## Portability
 
