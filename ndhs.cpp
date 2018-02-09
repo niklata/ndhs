@@ -55,7 +55,6 @@
 extern "C" {
 #include "nk/log.h"
 #include "nk/privilege.h"
-#include "nk/seccomp-bpf.h"
 }
 #include "nlsocket.hpp"
 #include "dhcp6.hpp"
@@ -70,7 +69,6 @@ static std::string configfile{"/etc/ndhs.conf"};
 static std::string chroot_path;
 static uid_t ndhs_uid;
 static gid_t ndhs_gid;
-static bool use_seccomp(false);
 
 std::unique_ptr<NLSocket> nl_socket;
 
@@ -145,67 +143,6 @@ static void process_signals()
     asio_signal_set.async_wait([](const std::error_code &, int signum) { io_service.stop(); });
 }
 
-static int enforce_seccomp(bool changed_uidgid)
-{
-    if (!use_seccomp)
-        return 0;
-    struct sock_filter filter[] = {
-        VALIDATE_ARCHITECTURE,
-        EXAMINE_SYSCALL,
-        ALLOW_SYSCALL(epoll_wait),
-        ALLOW_SYSCALL(sendmsg),
-        ALLOW_SYSCALL(recvmsg),
-        ALLOW_SYSCALL(timerfd_settime),
-        ALLOW_SYSCALL(epoll_ctl),
-        ALLOW_SYSCALL(read),
-        ALLOW_SYSCALL(write),
-        ALLOW_SYSCALL(sendto), // used for glibc syslog routines
-        ALLOW_SYSCALL(close),
-        ALLOW_SYSCALL(socket),
-        ALLOW_SYSCALL(ioctl),
-        ALLOW_SYSCALL(rt_sigreturn),
-        ALLOW_SYSCALL(rt_sigaction),
-#ifdef __NR_sigreturn
-        ALLOW_SYSCALL(sigreturn),
-#endif
-#ifdef __NR_sigaction
-        ALLOW_SYSCALL(sigaction),
-#endif
-        // operator new
-        ALLOW_SYSCALL(brk),
-        ALLOW_SYSCALL(mmap),
-        ALLOW_SYSCALL(munmap),
-
-        ALLOW_SYSCALL(open),
-        ALLOW_SYSCALL(access),
-        ALLOW_SYSCALL(fstat),
-        ALLOW_SYSCALL(rename),
-        ALLOW_SYSCALL(fdatasync),
-        ALLOW_SYSCALL(unlink),
-
-        // Allowed by vDSO
-        ALLOW_SYSCALL(getcpu),
-        ALLOW_SYSCALL(time),
-        ALLOW_SYSCALL(gettimeofday),
-        ALLOW_SYSCALL(clock_gettime),
-
-        ALLOW_SYSCALL(exit_group),
-        ALLOW_SYSCALL(exit),
-        KILL_PROCESS,
-    };
-    struct sock_fprog prog;
-    memset(&prog, 0, sizeof prog);
-    prog.len = (unsigned short)(sizeof filter / sizeof filter[0]);
-    prog.filter = filter;
-    if (!changed_uidgid && prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0))
-        return -1;
-    if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog))
-        return -1;
-    fmt::print(stderr, "seccomp filter installed.  Please disable seccomp if you encounter problems.\n");
-    std::fflush(stdout);
-    return 0;
-}
-
 static void print_version(void)
 {
     fmt::print(stderr, "ndhs " NDHS_VERSION ", ipv6 router advertisment and dhcp server.\n"
@@ -232,7 +169,7 @@ static void print_version(void)
 }
 
 enum OpIdx {
-    OPT_UNKNOWN, OPT_HELP, OPT_VERSION, OPT_CONFIG, OPT_SECCOMP, OPT_QUIET
+    OPT_UNKNOWN, OPT_HELP, OPT_VERSION, OPT_CONFIG, OPT_QUIET
 };
 static const option::Descriptor usage[] = {
     { OPT_UNKNOWN,    0,  "",           "", Arg::Unknown,
@@ -242,7 +179,6 @@ static const option::Descriptor usage[] = {
     { OPT_HELP,       0, "h",            "help",    Arg::None, "\t-h, \t--help  \tPrint usage and exit." },
     { OPT_VERSION,    0, "v",         "version",    Arg::None, "\t-v, \t--version  \tPrint version and exit." },
     { OPT_CONFIG,     0, "c",          "config",  Arg::String, "\t-c, \t--config  \tPath to configuration file (default: /etc/ndhs.conf)."},
-    { OPT_SECCOMP,    0, "S", "seccomp-enforce",    Arg::None, "\t    \t--seccomp-enforce  \tEnforce seccomp syscall restrictions." },
     { OPT_QUIET,      0, "q",           "quiet",    Arg::None, "\t-q, \t--quiet  \tDon't log to std(out|err) or syslog." },
     {0,0,0,0,0,0}
 };
@@ -281,7 +217,6 @@ static void process_options(int ac, char *av[])
         option::Option &opt = buffer[i];
         switch (opt.index()) {
             case OPT_CONFIG: configfile = std::string(opt.arg); break;
-            case OPT_SECCOMP: use_seccomp = true; break;
             case OPT_QUIET: gflags_quiet = 1; break;
         }
     }
@@ -315,11 +250,6 @@ static void process_options(int ac, char *av[])
     duid_load_from_file();
     dynlease_deserialize(LEASEFILE_PATH);
     nk_set_uidgid(ndhs_uid, ndhs_gid, NULL, 0);
-
-    if (enforce_seccomp(ndhs_uid || ndhs_gid)) {
-        fmt::print(stderr, "seccomp filter cannot be installed\n");
-        std::exit(EXIT_FAILURE);
-    }
 }
 
 int main(int ac, char *av[])

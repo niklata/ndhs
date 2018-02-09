@@ -284,6 +284,5 @@ routing duties.
 
 ndhs could be ported to non-Linux systems, but will require new code to
 replace the netlink mechanism used in Linux.  Some security hardening
-features (seccomp-bpf syscall filtering, `SO_LOCK_FILTER`) would need
-to be disabled, too.
+features (`SO_LOCK_FILTER`) would need to be disabled, too.
 
