@@ -35,12 +35,6 @@ static void attach_multicast(int fd, const std::string &ifname, asio::ip::addres
     if (setsockopt(fd, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP,
                    &mr, sizeof mr) < 0)
         suicide("failed to join router multicast group for socket: %s", strerror(errno));
-
-#if 0
-    asio::ip::multicast::join_group mc_routers_group(mc6_allrouters);
-    socket_.set_option(mc_routers_group);
-#endif
-
 }
 
 #endif
