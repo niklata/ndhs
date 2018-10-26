@@ -36,7 +36,7 @@ public:
     const data_type *data() const {
         return reinterpret_cast<const struct sockaddr *>(&sockaddr_);
     }
-    void resize(std::size_t size) {}
+    void resize(std::size_t) {}
     std::size_t size() const { return sizeof sockaddr_; }
     std::size_t capacity() const { return sizeof sockaddr_; }
 

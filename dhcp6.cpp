@@ -178,7 +178,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint
 
 #define OPT_STATUSCODE_SIZE (4)
 
-void D6Listener::attach_status_code(const d6msg_state &d6s, std::ostream &os,
+void D6Listener::attach_status_code(const d6msg_state &, std::ostream &os,
                                     d6_statuscode::code scode)
 {
     static char ok_str[] = "OK";
@@ -227,7 +227,7 @@ void D6Listener::write_response_header(const d6msg_state &d6s, std::ostream &os,
 
 // We control what IAs are valid, and we never assign multiple address to a single
 // IA.  Thus there's no reason to care about that case.
-void D6Listener::emit_IA_addr(const d6msg_state &d6s, std::ostream &os, const dhcpv6_entry *v)
+void D6Listener::emit_IA_addr(const d6msg_state &, std::ostream &os, const dhcpv6_entry *v)
 {
     dhcp6_opt header;
     header.type(3);

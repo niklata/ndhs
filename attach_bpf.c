@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <linux/if_ether.h>
 #include "nk/log.h"
+#include "attach_bpf.h"
 
 /*
 ldb [0]

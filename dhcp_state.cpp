@@ -144,7 +144,7 @@ void create_blobs()
     }
 }
 
-bool emplace_bind(size_t linenum, std::string &&interface, bool is_v4)
+bool emplace_bind(size_t /* linenum */, std::string &&interface, bool is_v4)
 {
     if (interface.empty())
         return false;

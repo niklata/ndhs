@@ -279,7 +279,7 @@ void D4Listener::reply_discover()
         send_reply(reply);
 }
 
-void D4Listener::reply_request(bool is_direct)
+void D4Listener::reply_request(bool /* is_direct */)
 {
     fmt::print(stderr, "Got DHCP4 request message\n");
     dhcpmsg reply;

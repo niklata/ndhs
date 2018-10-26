@@ -111,14 +111,14 @@ int64_t get_current_ts()
     return ts.tv_sec;
 }
 
-void set_user_runas(size_t linenum, std::string &&username)
+void set_user_runas(size_t /* linenum */, std::string &&username)
 {
     if (nk_uidgidbyname(username.c_str(), &ndhs_uid, &ndhs_gid)) {
         fmt::print(stderr, "invalid user '{}' specified\n", username);
         std::exit(EXIT_FAILURE);
     }
 }
-void set_chroot_path(size_t linenum, std::string &&path)
+void set_chroot_path(size_t /* linenum */, std::string &&path)
 {
     chroot_path = std::move(path);
 }
@@ -140,7 +140,7 @@ static void process_signals()
     }
     asio_signal_set.add(SIGINT);
     asio_signal_set.add(SIGTERM);
-    asio_signal_set.async_wait([](const std::error_code &, int signum) { io_service.stop(); });
+    asio_signal_set.async_wait([](const std::error_code &, int) { io_service.stop(); });
 }
 
 static void print_version(void)

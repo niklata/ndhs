@@ -27,6 +27,7 @@
  */
 
 #include <fmt/format.h>
+#include <fmt/ostream.h>
 #include <nk/prng.hpp>
 #include "nlsocket.hpp"
 extern "C" {
