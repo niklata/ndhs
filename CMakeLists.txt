@@ -1,9 +1,14 @@
-project (ndhs)
+cmake_minimum_required(VERSION 3.3)
+if(${CMAKE_VERSION} VERSION_LESS 3.12)
+  cmake_policy(VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION})
+else()
+  cmake_policy(VERSION 3.12)
+endif()
 
-cmake_minimum_required (VERSION 2.6)
+project (ndhs DESCRIPTION "dhcp[46] and ipv6 router advertisement server" LANGUAGES CXX C)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -std=gnu99 -fno-strict-overflow -pedantic -Wall -Wextra -Wimplicit-fallthrough=0 -Wformat=2 -Wformat-nonliteral -Wformat-security -Wpointer-arith -Wno-unused-parameter -DNDHS_BUILD")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=gnu++1z -fno-strict-overflow -pedantic -Wall -Wextra -Wimplicit-fallthrough=0 -Wformat-security -Wpointer-arith -Wno-unused-parameter -DNDHS_BUILD")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -fno-strict-overflow -pedantic -Wall -Wextra -Wimplicit-fallthrough=0 -Wformat=2 -Wformat-nonliteral -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -Wcast-qual -Wsign-conversion -DNDHS_BUILD")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++17 -fno-strict-overflow -fno-rtti -pedantic -Wall -Wextra -Wimplicit-fallthrough=0 -Wformat-security -Wpointer-arith  -DNDHS_BUILD")
 
 if (WIN32)
   set(OSNAME "Win32")
@@ -30,10 +35,6 @@ else()
   return()
 endif()
 
-include_directories("${PROJECT_SOURCE_DIR}"
-                    "${PROJECT_SOURCE_DIR}/ncmlib"
-                    "${PROJECT_SOURCE_DIR}/asio"
-                    "${PROJECT_SOURCE_DIR}/fmt")
 add_subdirectory(ncmlib)
 add_subdirectory(fmt)
 
@@ -60,10 +61,24 @@ add_custom_command(
   VERBATIM
   )
 
-file(GLOB NDHS_SRCS_C "*.c")
-file(GLOB NDHS_SRCS_CPP "*.cpp")
-list(APPEND NDHS_SRCS ${NDHS_SRCS_C} ${NDHS_SRCS_CPP})
-
-add_executable(ndhs ${RAGEL_CFG} ${RAGEL_DYNLEASE} ${NDHS_SRCS})
-target_link_libraries(ndhs ${CMAKE_THREAD_LIBS_INIT} ncmlib fmt)
+add_executable(ndhs ${RAGEL_CFG} ${RAGEL_DYNLEASE})
+target_sources(ndhs PRIVATE
+  "attach_bpf.c"
+  "dhcp6.cpp"
+  "duid.cpp"
+  "nl.c"
+  "options.c"
+  "dhcp4.cpp"
+  "dhcp_state.cpp"
+  "ndhs.cpp"
+  "nlsocket.cpp"
+  "radv6.cpp"
+)
+target_include_directories(ndhs PRIVATE
+  "${PROJECT_SOURCE_DIR}"
+  "${PROJECT_SOURCE_DIR}/ncmlib"
+  "${PROJECT_SOURCE_DIR}/asio"
+  "${PROJECT_SOURCE_DIR}/fmt"
+)
+target_link_libraries(ndhs PUBLIC ${CMAKE_THREAD_LIBS_INIT} ncmlib fmt)
 
