@@ -134,7 +134,7 @@ static void process_signals()
     sigaddset(&mask, SIGTSTP);
     sigaddset(&mask, SIGTTIN);
     sigaddset(&mask, SIGHUP);
-    if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0) {
+    if (sigprocmask(SIG_BLOCK, &mask, nullptr) < 0) {
         fmt::print(stderr, "sigprocmask failed\n");
         std::exit(EXIT_FAILURE);
     }
@@ -249,7 +249,7 @@ static void process_options(int ac, char *av[])
     nk_set_chroot(chroot_path.c_str());
     duid_load_from_file();
     dynlease_deserialize(LEASEFILE_PATH);
-    nk_set_uidgid(ndhs_uid, ndhs_gid, NULL, 0);
+    nk_set_uidgid(ndhs_uid, ndhs_gid, nullptr, 0);
 }
 
 int main(int ac, char *av[])
