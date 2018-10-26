@@ -51,7 +51,7 @@
 #include <fmt/format.h>
 #include <nk/optionarg.hpp>
 #include <nk/from_string.hpp>
-#include <nk/tyche.hpp>
+#include <nk/prng.hpp>
 extern "C" {
 #include "nk/log.h"
 #include "nk/privilege.h"
@@ -75,7 +75,7 @@ std::unique_ptr<NLSocket> nl_socket;
 static std::vector<std::unique_ptr<D6Listener>> v6_listeners;
 static std::vector<std::unique_ptr<D4Listener>> v4_listeners;
 
-nk::rng::tyche g_random_prng;
+nk::rng::prng g_random_prng;
 
 extern void parse_config(const std::string &path);
 

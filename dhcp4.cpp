@@ -30,7 +30,7 @@
 #include <sys/types.h>
 #include <pwd.h>
 #include <fmt/format.h>
-#include <nk/tyche.hpp>
+#include <nk/prng.hpp>
 #include "dhcp4.hpp"
 #include "dhcp_state.hpp"
 #include "nlsocket.hpp"
@@ -40,7 +40,7 @@ extern "C" {
 }
 
 extern std::unique_ptr<NLSocket> nl_socket;
-extern nk::rng::tyche g_random_prng;
+extern nk::rng::prng g_random_prng;
 extern int64_t get_current_ts();
 
 static std::unique_ptr<ClientStates> client_states_v4;

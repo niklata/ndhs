@@ -1,5 +1,5 @@
 #include <fmt/format.h>
-#include <nk/tyche.hpp>
+#include <nk/prng.hpp>
 #include "nlsocket.hpp"
 #include "multicast6.hpp"
 #include "dhcp6.hpp"
@@ -12,7 +12,7 @@
 #define MAX_DYN_ATTEMPTS 100u
 
 extern std::unique_ptr<NLSocket> nl_socket;
-extern nk::rng::tyche g_random_prng;
+extern nk::rng::prng g_random_prng;
 static auto mc6_alldhcp_ras = asio::ip::address_v6::from_string("ff02::1:2");
 extern int64_t get_current_ts();
 

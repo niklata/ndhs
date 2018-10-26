@@ -27,12 +27,12 @@
  */
 
 #include <fmt/format.h>
-#include <nk/tyche.hpp>
+#include <nk/prng.hpp>
 #include "nlsocket.hpp"
 extern "C" {
 #include "nl.h"
 }
-extern nk::rng::tyche g_random_prng;
+extern nk::rng::prng g_random_prng;
 
 NLSocket::NLSocket(asio::io_service &io_service)
 : socket_(io_service), nlseq_(g_random_prng())
