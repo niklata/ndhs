@@ -120,6 +120,11 @@ private:
         swapTimer_.async_wait
             ([this](const std::error_code& error)
              {
+                 if (error) {
+                     fmt::print(stderr, "dhcp4: Error during swap timer: {}\n", error);
+                     exit(EXIT_FAILURE);
+                     return;
+                 }
                  doSwap();
                  if (map_[0].size() || map_[1].size())
                      setTimer();

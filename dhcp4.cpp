@@ -354,6 +354,12 @@ void D4Listener::start_receive()
         (asio::buffer(recv_buffer_), remote_endpoint_,
          [this](const std::error_code &error, std::size_t bytes_xferred)
          {
+             if (error) {
+                 fmt::print(stderr, "dhcp4: Error during receive: {}\n", error);
+                 exit(EXIT_FAILURE);
+                 return;
+             }
+
              bool direct_request = false;
              size_t msglen = std::min(bytes_xferred, sizeof dhcpmsg_);
              memset(&dhcpmsg_, 0, sizeof dhcpmsg_);

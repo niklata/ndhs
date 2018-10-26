@@ -308,6 +308,11 @@ void NLSocket::start_receive()
         (asio::buffer(recv_buffer_), remote_endpoint_,
          [this](const std::error_code &error, std::size_t bytes_xferred)
          {
+             if (error) {
+                 fmt::print(stderr, "nlsocket: Error during receive: {}\n", error);
+                 exit(EXIT_FAILURE);
+                 return;
+             }
              process_receive(bytes_xferred, 0, 0);
              start_receive();
          });

@@ -544,6 +544,13 @@ void D6Listener::start_receive()
          {
              recv_buffer_.commit(bytes_xferred);
 
+             if (error) {
+                 fmt::print(stderr, "DHCP6 receive socket on {} had an error: {}\n",
+                            sender_endpoint_, error);
+                 exit(EXIT_FAILURE);
+                 return;
+             }
+
              std::size_t bytes_left = bytes_xferred;
              if (!using_bpf_) {
                  // Discard if the DHCP6 length < the size of a DHCP6 header.

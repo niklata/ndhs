@@ -594,6 +594,12 @@ void RA6Listener::start_receive()
          {
              recv_buffer_.commit(bytes_xferred);
 
+             if (error) {
+                 fmt::print(stderr, "ra6: Error during receive: {}\n", error);
+                 exit(EXIT_FAILURE);
+                 return;
+             }
+
              // Discard if the ICMP length < 8 octets.
              std::size_t bytes_left = bytes_xferred;
              if (bytes_xferred < icmp_header::size
