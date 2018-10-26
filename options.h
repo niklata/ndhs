@@ -1,6 +1,6 @@
 /* options.h - DHCP options handling
  *
- * Copyright 2004-2017 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2004-2018 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -56,8 +56,8 @@
 
 #define MAX_DOPT_SIZE 500
 
-ssize_t get_dhcp_opt(const struct dhcpmsg * const packet, uint8_t code,
-                     uint8_t *dbuf, ssize_t dlen);
+size_t get_dhcp_opt(const struct dhcpmsg * const packet, uint8_t code,
+                    uint8_t *dbuf, size_t dlen);
 ssize_t get_end_option_idx(const struct dhcpmsg * const packet);
 
 size_t add_option_string(struct dhcpmsg *packet, uint8_t code,
