@@ -2,7 +2,7 @@
 #define NRAD6_NLSOCKET_HPP_
 /* nlsocket.hpp - ipv6 netlink ifinfo gathering
  *
- * (c) 2014-2017 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2014-2017 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

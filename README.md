@@ -1,5 +1,5 @@
 # ndhs
-Copyright (C) 2011-2017 Nicholas J. Kain.
+Copyright 2011-2017 Nicholas J. Kain.
 
 License: Two-clause BSD.
 
