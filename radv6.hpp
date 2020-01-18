@@ -15,7 +15,7 @@ private:
     void send_advert();
     void start_receive();
     void attach_bpf(int fd);
-    asio::deadline_timer timer_;
+    asio::steady_timer timer_;
     asio::ip::icmp::socket socket_;
     asio::ip::icmp::endpoint remote_endpoint_;
     std::string ifname_;

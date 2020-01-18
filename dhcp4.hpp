@@ -76,8 +76,7 @@ public:
             return;
         stateKill(xid, hwaddr);
         map_[currentMap_][key_] = state;
-        if (swapTimer_.expires_from_now() <=
-            boost::posix_time::time_duration(0,0,0,0))
+        if (swapTimer_.expiry() <= std::chrono::steady_clock::now())
             setTimer();
     }
     uint8_t stateGet(uint32_t xid, uint8_t *hwaddr) {
@@ -116,7 +115,7 @@ private:
         currentMap_ = killMap;
     }
     void setTimer(void) {
-        swapTimer_.expires_from_now(boost::posix_time::seconds(swapInterval_));
+        swapTimer_.expires_after(std::chrono::seconds(swapInterval_));
         swapTimer_.async_wait
             ([this](const std::error_code& error)
              {
@@ -132,7 +131,7 @@ private:
     }
     // key_ is concatenation of xid|hwaddr.  Neither of these need to be
     // stored in explicit fields in the state structure.
-    asio::deadline_timer swapTimer_;
+    asio::steady_timer swapTimer_;
     std::unordered_map<std::string, uint8_t> map_[2];
     std::string key_; // Stored here to reduce number of allocations.
     int currentMap_; // Either 0 or 1.

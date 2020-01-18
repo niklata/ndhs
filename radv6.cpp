@@ -444,7 +444,7 @@ void RA6Listener::start_periodic_announce()
     unsigned int advi_s_min = std::max(advi_s_max_ / 3, 3U);
     std::uniform_int_distribution<> dist(advi_s_min, advi_s_max_);
     auto advi_s = dist(g_random_prng);
-    timer_.expires_from_now(boost::posix_time::seconds(advi_s));
+    timer_.expires_after(std::chrono::seconds(advi_s));
     timer_.async_wait
         ([this](const std::error_code &ec)
          {
