@@ -15,6 +15,8 @@
 using aia6 = asio::ip::address_v6;
 using aia4 = asio::ip::address_v4;
 
+extern int64_t get_current_ts();
+
 struct lease_state_v4
 {
     lease_state_v4(aia4 &&addr_, const std::string &ma, int64_t et)
@@ -209,10 +211,7 @@ bool dynlease_exists(const std::string &interface, const aia4 &v4_addr, const ui
 
     for (auto &i: si->second) {
         if (i.addr == v4_addr && memcmp(&i.macaddr, macaddr, 6) == 0) {
-            struct timespec ts;
-            if (clock_gettime(CLOCK_MONOTONIC, &ts))
-                throw std::runtime_error("clock_gettime failed");
-            return ts.tv_sec < i.expire_time;
+            return get_current_ts() < i.expire_time;
         }
     }
     return false;
@@ -226,10 +225,7 @@ bool dynlease_exists(const std::string &interface, const aia6 &v6_addr,
 
     for (auto &i: si->second) {
         if (i.addr == v6_addr && i.duid == duid && i.iaid == iaid) {
-            struct timespec ts;
-            if (clock_gettime(CLOCK_MONOTONIC, &ts))
-                throw std::runtime_error("clock_gettime failed");
-            return ts.tv_sec < i.expire_time;
+            return get_current_ts() < i.expire_time;
         }
     }
     return false;
@@ -298,10 +294,7 @@ bool dynlease_serialize(const std::string &path)
         const auto &ls = i.second;
         for (const auto &j: ls) {
             // Don't write out dynamic leases that have expired.
-            struct timespec ts;
-            if (clock_gettime(CLOCK_MONOTONIC, &ts))
-                throw std::runtime_error("clock_gettime failed");
-            if (ts.tv_sec >= j.expire_time)
+            if (get_current_ts() >= j.expire_time)
                 continue;
 
             wbuf = fmt::format("v4 {} {} {:02x}{:02x}{:02x}{:02x}{:02x}{:02x} {}\n",
@@ -320,10 +313,7 @@ bool dynlease_serialize(const std::string &path)
         const auto &ls = i.second;
         for (const auto &j: ls) {
             // Don't write out dynamic leases that have expired.
-            struct timespec ts;
-            if (clock_gettime(CLOCK_MONOTONIC, &ts))
-                throw std::runtime_error("clock_gettime failed");
-            if (ts.tv_sec >= j.expire_time)
+            if (get_current_ts() >= j.expire_time)
                 continue;
 
             wbuf = fmt::format("v6 {} {} ", iface, j.addr.to_string());

@@ -107,7 +107,7 @@ int64_t get_current_ts()
 {
     struct timespec ts;
     if (clock_gettime(CLOCK_MONOTONIC, &ts))
-        throw std::runtime_error("clock_gettime failed");
+        suicide("clock_gettime failed");
     return ts.tv_sec;
 }
 

@@ -33,6 +33,7 @@
 #include <string>
 #include <array>
 #include <map>
+#include <optional>
 #include <asio.hpp>
 #include "asio_netlink.hpp"
 extern "C" {
@@ -85,10 +86,9 @@ public:
     NLSocket(asio::io_service &io_service);
     NLSocket(const NLSocket &) = delete;
     NLSocket &operator=(const NLSocket &) = delete;
-    int get_ifindex(const std::string &name) const {
+    [[nodiscard]] std::optional<int> get_ifindex(const std::string &name) const {
         auto elt = name_to_ifindex_.find(name);
-        if (elt == name_to_ifindex_.end())
-            throw std::out_of_range("No such interface");
+        if (elt == name_to_ifindex_.end()) return {};
         return elt->second;
     }
     std::map<int, netif_info> interfaces;

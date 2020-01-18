@@ -11,6 +11,7 @@
 #include <nk/scopeguard.hpp>
 extern "C" {
 #include "nk/io.h"
+#include "nk/log.h"
 }
 #include "duid.hpp"
 
@@ -43,13 +44,11 @@ static void generate_duid()
     off += sizeof r1;
 
     const auto fd = open(DUID_PATH, O_WRONLY|O_TRUNC|O_CREAT, 0644);
-    if (fd < 0) throw std::runtime_error(fmt::format("{}: failed to open {} for write\n",
-                                                     __func__, DUID_PATH));
+    if (fd < 0) suicide("%s: failed to open %s for write", __func__, DUID_PATH);
     SCOPE_EXIT { close(fd); };
     const auto r = safe_write(fd, g_server_duid, g_server_duid_len);
     if (r < 0 || r != g_server_duid_len)
-        throw std::runtime_error(fmt::format("{}: failed to write duid to {}\n",
-                                             __func__, DUID_PATH));
+        suicide("%s: failed to write duid to %s", __func__, DUID_PATH);
     print_duid();
 }
 
@@ -63,8 +62,7 @@ void duid_load_from_file()
     }
     SCOPE_EXIT { close(fd); };
     const auto r = safe_read(fd, g_server_duid, g_server_duid_len);
-    if (r < 0) throw std::runtime_error(fmt::format("{}: failed to read duid from {}\n",
-                                                    __func__, DUID_PATH));
+    if (r < 0) suicide("%s: failed to read duid from %s", __func__, DUID_PATH);
     if (r != g_server_duid_len) {
         fmt::print(stderr, "DUID is too short to be valid.  Generating a new DUID.\n");
         generate_duid();

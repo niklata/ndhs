@@ -43,7 +43,9 @@ D6Listener::D6Listener(asio::io_service &io_service,
                        const std::string &ifname, uint8_t preference)
   : socket_(io_service), ifname_(ifname), using_bpf_(false), preference_(preference)
 {
-    int ifidx = nl_socket->get_ifindex(ifname_);
+    int ifidx;
+    if (auto t = nl_socket->get_ifindex(ifname_)) ifidx = *t;
+    else suicide("failed to get interface index for %s", ifname_.c_str());
     const auto &ifinfo = nl_socket->interfaces.at(ifidx);
 
     fmt::print(stderr, "DHCPv6 Preference for interface {} is {}.\n", ifname_, preference_);
@@ -496,7 +498,13 @@ void D6Listener::handle_decline_msg(const d6msg_state &d6s, asio::streambuf &sen
     attach_dns_ntp_info(d6s, os);
 }
 
-#define BYTES_LEFT_DEC(BLD_VAL) bytes_left_dec(d6s, bytes_left, (BLD_VAL))
+#define BYTES_LEFT_DEC(BLD_VAL) do { \
+    if (!bytes_left_dec(d6s, bytes_left, (BLD_VAL))) { \
+        fmt::print("DHCP6 received malformed message\n"); \
+        start_receive(); \
+        return; \
+    } \
+} while (0)
 
 #define CONSUME_OPT(CO_MSG) \
          fmt::print(stderr, (CO_MSG)); \
@@ -506,15 +514,13 @@ void D6Listener::handle_decline_msg(const d6msg_state &d6s, asio::streambuf &sen
          } \
          continue
 
-size_t D6Listener::bytes_left_dec(d6msg_state &d6s, std::size_t &bytes_left, size_t v) {
-    if (bytes_left < v)
-        throw std::out_of_range("bytes_left would underflow\n");
+bool D6Listener::bytes_left_dec(d6msg_state &d6s, std::size_t &bytes_left, size_t v) {
+    if (bytes_left < v) return false; // bytes_left would underflow
     bytes_left -= v;
     size_t option_depth{0};
     for (auto &i: d6s.prev_opt) {
         ++option_depth;
-        if (i.second < v)
-            throw std::out_of_range(fmt::format("{} depth would underflow\n", option_depth));
+        if (i.second < v) return false; // option_depth would underflow
         i.second -= v;
     }
     while (!d6s.prev_opt.empty() && d6s.prev_opt.back().second == 0)
@@ -523,10 +529,9 @@ size_t D6Listener::bytes_left_dec(d6msg_state &d6s, std::size_t &bytes_left, siz
     for (const auto &i: d6s.prev_opt) {
         ++option_depth;
         // Tricky: Guard against client sending invalid suboption lengths.
-        if (i.second <= 0)
-            throw std::out_of_range(fmt::format("{} depth ran out of length but has suboption size left\n"));
+        if (i.second <= 0) return false; // depth ran out of length but has suboption size left
     }
-    return bytes_left;
+    return true;
 }
 
 bool D6Listener::serverid_incorrect(const d6msg_state &d6s) const
@@ -650,10 +655,10 @@ void D6Listener::start_receive()
                          CONSUME_OPT("Client-sent option IAADDR must follow IA_NA.  Ignoring.\n");
                      }
                      if (d6s.ias.empty())
-                         throw std::logic_error("d6.ias is empty");
+                         suicide("d6.ias is empty");
                      d6s.ias.back().ia_na_addrs.emplace_back();
                      if (d6s.ias.back().ia_na_addrs.empty())
-                         throw std::logic_error("d6.ias.back().ia_na_addrs is empty");
+                         suicide("d6.ias.back().ia_na_addrs is empty");
                      is >> d6s.ias.back().ia_na_addrs.back();
                      BYTES_LEFT_DEC(d6_ia_addr::size);
 

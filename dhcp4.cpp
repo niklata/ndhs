@@ -36,6 +36,7 @@
 #include "nlsocket.hpp"
 #include "dynlease.hpp"
 extern "C" {
+#include "nk/log.h"
 #include "options.h"
 }
 
@@ -71,7 +72,9 @@ D4Listener::D4Listener(asio::io_service &io_service, const std::string &ifname)
         exit(EXIT_FAILURE);
     }
 
-    int ifidx = nl_socket->get_ifindex(ifname_);
+    int ifidx;
+    if (auto t = nl_socket->get_ifindex(ifname)) ifidx = *t;
+    else suicide("failed to get interface index for %s", ifname.c_str());
     const auto &ifinfo = nl_socket->interfaces.at(ifidx);
     for (const auto &i: ifinfo.addrs) {
         if (i.address.is_v4()) {
@@ -79,10 +82,8 @@ D4Listener::D4Listener(asio::io_service &io_service, const std::string &ifname)
             fmt::print(stderr, "IP address for {} is {}.\n", ifname, local_ip_);
         }
     }
-    if (!local_ip_.is_v4()) {
-        fmt::print(stderr, "interface ({}) has no IP address\n", ifname);
-        exit(EXIT_FAILURE);
-    }
+    if (!local_ip_.is_v4())
+        suicide("interface (%s) has no IP address", ifname.c_str());
 
     start_receive();
 }

@@ -238,7 +238,7 @@ private:
     char prefixlen_;
     uint8_t preference_;
 
-    size_t bytes_left_dec(d6msg_state &d6s, std::size_t &bytes_left, size_t v);
+    [[nodiscard]] bool bytes_left_dec(d6msg_state &d6s, std::size_t &bytes_left, size_t v);
 };
 
 #endif

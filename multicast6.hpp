@@ -11,7 +11,9 @@ extern "C" {
 extern std::unique_ptr<NLSocket> nl_socket;
 static void attach_multicast(int fd, const std::string &ifname, asio::ip::address_v6 &mc6addr)
 {
-    auto ifidx = nl_socket->get_ifindex(ifname);
+    int ifidx;
+    if (auto t = nl_socket->get_ifindex(ifname)) ifidx = *t;
+    else suicide("failed to get interface index for %s", ifname.c_str());
     struct ifreq ifr;
     memset(&ifr, 0, sizeof (struct ifreq));
     memcpy(ifr.ifr_name, ifname.c_str(), ifname.size());

@@ -48,6 +48,7 @@
 
 extern "C" {
 #include "nk/net_checksum.h"
+#include "nk/log.h"
 }
 
 /* XXX: Configuration options:
@@ -240,8 +241,7 @@ public:
     uint8_t length() const { return data_[1] * 8; }
     const uint8_t *macaddr() const { return data_ + 2; }
     void macaddr(char *mac, std::size_t maclen) {
-        if (maclen != 6)
-            throw std::logic_error("wrong maclen");
+        if (maclen != 6) suicide("wrong maclen");
         memcpy(data_ + 2, mac, 6);
     }
     static const std::size_t size = 8;
@@ -485,7 +485,9 @@ void RA6Listener::send_advert()
     csum = net_checksum161c_add
         (csum, net_checksum161c(&ra6adv_hdr, sizeof ra6adv_hdr));
 
-    auto ifidx = nl_socket->get_ifindex(ifname_);
+    int ifidx;
+    if (auto t = nl_socket->get_ifindex(ifname_)) ifidx = *t;
+    else suicide("failed to get interface index for %s", ifname_.c_str());
     auto &ifinfo = nl_socket->interfaces.at(ifidx);
 
     ra6_slla.macaddr(ifinfo.macaddr, sizeof ifinfo.macaddr);
