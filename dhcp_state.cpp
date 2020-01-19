@@ -1,4 +1,5 @@
 #include <unordered_map>
+#include <optional>
 #include <fmt/format.h>
 #include <asio.hpp>
 #include "dhcp_state.hpp"
@@ -37,7 +38,7 @@ static std::unordered_map<std::string, interface_data> interface_state;
 // Allocates memory frequently in order to make correctness easier to
 // verify, but at least in this program, it will called only at
 // reconfiguration.
-static std::vector<uint8_t> dns_label(const std::string &ds)
+static std::optional<std::vector<uint8_t>> dns_label(const std::string &ds)
 {
     std::vector<uint8_t> ret;
     std::vector<std::pair<size_t, size_t>> locs;
@@ -54,7 +55,7 @@ static std::vector<uint8_t> dns_label(const std::string &ds)
                 locs.emplace_back(std::make_pair(s, idx));
                 in_label = false;
             } else {
-                throw std::runtime_error("malformed input");
+                return {}; // malformed input
             }
         } else {
             if (!in_label) {
@@ -75,7 +76,7 @@ static std::vector<uint8_t> dns_label(const std::string &ds)
     for (const auto &i: locs) {
         auto len = i.second - i.first;
         if (len > 63)
-            throw std::runtime_error("label too long");
+            return {}; // label too long
         ret.push_back(len);
         for (size_t j = i.first; j < i.second; ++j)
             ret.push_back(ds[j]);
@@ -84,7 +85,7 @@ static std::vector<uint8_t> dns_label(const std::string &ds)
     if (ret.size())
         ret.push_back(0);
     if (ret.size() > 255)
-        throw std::runtime_error("domain name too long");
+        return {}; // domain name too long
     return ret;
 }
 
@@ -93,21 +94,22 @@ static void create_dns_search_blob(std::vector<std::string> &dns_search,
 {
     dns_search_blob.clear();
     for (const auto &dnsname: dns_search) {
-        std::vector<uint8_t> lbl;
-        try {
-            lbl = dns_label(dnsname);
-        } catch (const std::runtime_error &e) {
-            fmt::print(stderr, "labelizing {} failed: {}\n", dnsname, e.what());
+        auto lbl = dns_label(dnsname);
+        if (!lbl) {
+            fmt::print(stderr, "labelizing {} failed\n", dnsname);
             continue;
         }
+        // See if the search blob size is too large to encode in a RA
+        // dns search option.
+        if (dns_search_blob.size() + lbl->size() > 8 * 254) {
+            fmt::print(stderr, "dns search list is too long, truncating\n");
+            break;
+        }
         dns_search_blob.insert(dns_search_blob.end(),
-                               std::make_move_iterator(lbl.begin()),
-                               std::make_move_iterator(lbl.end()));
+                               std::make_move_iterator(lbl->begin()),
+                               std::make_move_iterator(lbl->end()));
     }
-    // See if the search blob size is too large to encode in a RA
-    // dns search option.
-    if (dns_search_blob.size() > 8 * 254)
-        throw std::runtime_error("dns search list is too long");
+    assert(dns_search_blob.size() <= 8 * 254);
     dns_search.clear();
 }
 
@@ -118,21 +120,19 @@ static void create_ntp6_fqdns_blob(std::vector<std::string> &ntp_fqdns,
 {
     ntp6_fqdns_blob.clear();
     for (const auto &ntpname: ntp_fqdns) {
-        std::vector<uint8_t> lbl;
-        try {
-            lbl = dns_label(ntpname);
-        } catch (const std::runtime_error &e) {
-            fmt::print(stderr, "labelizing {} failed: {}\n", ntpname, e.what());
+        auto lbl = dns_label(ntpname);
+        if (!lbl) {
+            fmt::print(stderr, "labelizing {} failed\n", ntpname);
             continue;
         }
         ntp6_fqdns_blob.push_back(0);
         ntp6_fqdns_blob.push_back(3);
-        uint16_t lblsize = lbl.size();
+        uint16_t lblsize = lbl->size();
         ntp6_fqdns_blob.push_back(lblsize >> 8);
         ntp6_fqdns_blob.push_back(lblsize & 0xff);
         ntp6_fqdns_blob.insert(ntp6_fqdns_blob.end(),
-                               std::make_move_iterator(lbl.begin()),
-                               std::make_move_iterator(lbl.end()));
+                               std::make_move_iterator(lbl->begin()),
+                               std::make_move_iterator(lbl->end()));
     }
 }
 
