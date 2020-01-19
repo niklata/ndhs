@@ -411,7 +411,6 @@ static auto mc6_allrouters = asio::ip::address_v6::from_string("ff02::2");
 static const uint8_t icmp_nexthdr(58); // Assigned value
 extern nk::rng::prng g_random_prng;
 
-// Can throw std::out_of_range
 bool RA6Listener::init(const std::string &ifname)
 {
     std::error_code ec;
@@ -434,7 +433,8 @@ bool RA6Listener::init(const std::string &ifname)
         return false;
     }
 
-    send_advert();
+    if (!send_advert())
+        fmt::print(stderr, "Failed to send initial router advertisement on {}\n", ifname);
     start_periodic_announce();
     start_receive();
     return true;
@@ -461,17 +461,14 @@ void RA6Listener::start_periodic_announce()
     timer_.async_wait
         ([this](const std::error_code &ec)
          {
-             if (ec)
-                return;
-             try {
-                send_advert();
-             } catch (const std::out_of_range &) {}
+             if (ec) return;
+             if (!send_advert())
+                 fmt::print(stderr, "Failed to send router advertisement on {}\n", ifname_);
              start_periodic_announce();
          });
 }
 
-// Can throw std::out_of_range
-void RA6Listener::send_advert()
+bool RA6Listener::send_advert()
 {
     icmp_header icmp_hdr;
     ra6_advert_header ra6adv_hdr;
@@ -500,7 +497,10 @@ void RA6Listener::send_advert()
 
     int ifidx;
     if (auto t = nl_socket->get_ifindex(ifname_)) ifidx = *t;
-    else suicide("failed to get interface index for %s", ifname_.c_str());
+    else {
+        fmt::print(stderr, "send_advert: failed to get interface index for {}\n", ifname_);
+        return false;
+    }
     auto &ifinfo = nl_socket->interfaces.at(ifidx);
 
     ra6_slla.macaddr(ifinfo.macaddr, sizeof ifinfo.macaddr);
@@ -592,6 +592,7 @@ void RA6Listener::send_advert()
     asio::ip::icmp::endpoint dst(mc6_allhosts, 0);
     std::error_code ec;
     socket_.send_to(send_buffer.data(), dst, 0, ec);
+    return !ec;
 }
 
 void RA6Listener::start_receive()
@@ -690,12 +691,10 @@ void RA6Listener::start_receive()
              }
 
              // Send a router advertisement in reply.
-             try {
-                 timer_.cancel();
-                 send_advert();
-                 start_periodic_announce();
-             } catch (const std::out_of_range &) {}
-
+             timer_.cancel();
+             if (!send_advert())
+                 fmt::print(stderr, "Failed to send router advertisement on {}\n", ifname_);
+             start_periodic_announce();
              start_receive();
          });
 }

@@ -16,7 +16,7 @@ public:
     void set_advi_s_max(unsigned int v);
 private:
     void start_periodic_announce();
-    void send_advert();
+    [[nodiscard]] bool send_advert();
     void start_receive();
     void attach_bpf(int fd);
     asio::steady_timer timer_;
