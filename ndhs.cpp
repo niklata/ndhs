@@ -87,16 +87,16 @@ static void init_listeners()
     bound_interfaces_foreach([ios, v6l, v4l](const std::string &i, bool use_v4, bool use_v6,
                                              uint8_t preference) {
         if (use_v6) {
-            try {
-                v6l->emplace_back(std::make_unique<D6Listener>(*ios, i, preference));
-            } catch (const std::out_of_range &exn) {
+            v6l->emplace_back(std::make_unique<D6Listener>(*ios));
+            if (!v6l->back()->init(i, preference)) {
+                v6l->pop_back();
                 fmt::print(stderr, "Can't bind to v6 interface: {}\n", i);
             }
         }
         if (use_v4) {
-            try {
-                v4l->emplace_back(std::make_unique<D4Listener>(*ios, i));
-            } catch (const std::error_code &) {
+            v4l->emplace_back(std::make_unique<D4Listener>(*ios));
+            if (!v4l->back()->init(i)) {
+                v4l->pop_back();
                 fmt::print(stderr, "Can't bind to v4 interface: {}\n", i);
             }
         }

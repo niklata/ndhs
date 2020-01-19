@@ -8,7 +8,11 @@
 class RA6Listener
 {
 public:
-    RA6Listener(asio::io_service &io_service, const std::string &ifname);
+    RA6Listener(asio::io_service &io_service) : timer_(io_service), socket_(io_service) {}
+    RA6Listener(const RA6Listener &) = delete;
+    RA6Listener &operator=(const RA6Listener &) = delete;
+
+    [[nodiscard]] bool init(const std::string &ifname);
     void set_advi_s_max(unsigned int v);
 private:
     void start_periodic_announce();

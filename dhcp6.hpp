@@ -176,7 +176,11 @@ struct d6_statuscode
 class D6Listener
 {
 public:
-    D6Listener(asio::io_service &io_service, const std::string &ifname, uint8_t preference);
+    D6Listener(asio::io_service &io_service) : socket_(io_service) {}
+    D6Listener(const D6Listener &) = delete;
+    D6Listener &operator=(const D6Listener &) = delete;
+
+    [[nodiscard]] bool init(const std::string &ifname, uint8_t preference);
 private:
     using prev_opt_state = std::pair<int8_t, uint16_t>; // Type of parent opt and length left
     struct d6msg_state

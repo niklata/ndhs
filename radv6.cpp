@@ -412,19 +412,32 @@ static const uint8_t icmp_nexthdr(58); // Assigned value
 extern nk::rng::prng g_random_prng;
 
 // Can throw std::out_of_range
-RA6Listener::RA6Listener(asio::io_service &io_service, const std::string &ifname)
-    : timer_(io_service), socket_(io_service), ifname_(ifname),
-      advi_s_max_(600), using_bpf_(false)
+bool RA6Listener::init(const std::string &ifname)
 {
+    std::error_code ec;
+    ifname_ = ifname;
+    advi_s_max_ = 600;
+    using_bpf_ = false;
+
     const asio::ip::icmp::endpoint global_ep(asio::ip::address_v6::any(), 0);
-    socket_.open(asio::ip::icmp::v6());
-    attach_multicast(socket_.native_handle(), ifname, mc6_allrouters);
+    socket_.open(asio::ip::icmp::v6(), ec);
+    if (ec) {
+        fmt::print(stderr, "Failed to open v6 ICMP socket on {}.\n", ifname);
+        return false;
+    }
+    if (!attach_multicast(socket_.native_handle(), ifname, mc6_allrouters))
+        return false;
     attach_bpf(socket_.native_handle());
-    socket_.bind(global_ep);
+    socket_.bind(global_ep, ec);
+    if (ec) {
+        fmt::print(stderr, "Failed to bind ICMP route advertisement listener on {}.\n", ifname);
+        return false;
+    }
 
     send_advert();
     start_periodic_announce();
     start_receive();
+    return true;
 }
 
 void RA6Listener::attach_bpf(int fd)

@@ -52,16 +52,37 @@ static void init_client_states_v4(asio::io_service &io_service)
     client_states_v4 = std::make_unique<ClientStates>(io_service);
 }
 
-D4Listener::D4Listener(asio::io_service &io_service, const std::string &ifname)
- : socket_(io_service), ifname_(ifname)
+bool D4Listener::init(const std::string &ifname)
 {
-    init_client_states_v4(io_service);
+    std::error_code ec;
+    ifname_ = ifname;
+    init_client_states_v4(socket_.get_io_service());
     const auto endpoint = asio::ip::udp::endpoint(asio::ip::address_v4::any(), 67);
-    socket_.open(endpoint.protocol());
-    socket_.set_option(asio::ip::udp::socket::broadcast(true));
-    socket_.set_option(asio::ip::udp::socket::do_not_route(true));
-    socket_.set_option(asio::ip::udp::socket::reuse_address(true));
-    socket_.bind(endpoint);
+    socket_.open(endpoint.protocol(), ec);
+    if (ec) {
+        fmt::print(stderr, "Failed to open v4 UDP socket on {}\n", ifname_);
+        return false;
+    }
+    socket_.set_option(asio::ip::udp::socket::broadcast(true), ec);
+    if (ec) {
+        fmt::print(stderr, "Failed to set broadcast flag on {}\n", ifname_);
+        return false;
+    }
+    socket_.set_option(asio::ip::udp::socket::do_not_route(true), ec);
+    if (ec) {
+        fmt::print(stderr, "Failed to set do not route flag on {}\n", ifname_);
+        return false;
+    }
+    socket_.set_option(asio::ip::udp::socket::reuse_address(true), ec);
+    if (ec) {
+        fmt::print(stderr, "Failed to set reuse address flag on {}\n", ifname_);
+        return false;
+    }
+    socket_.bind(endpoint, ec);
+    if (ec) {
+        fmt::print(stderr, "Failed to bind to UDP 67 on {}\n", ifname_);
+        return false;
+    }
     int fd = socket_.native_handle();
 
     struct ifreq ifr;
@@ -69,12 +90,15 @@ D4Listener::D4Listener(asio::io_service &io_service, const std::string &ifname)
     memcpy(ifr.ifr_name, ifname.c_str(), ifname.size());
     if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
         fmt::print(stderr, "failed to bind socket to device: {}\n", strerror(errno));
-        exit(EXIT_FAILURE);
+        return false;
     }
 
     int ifidx;
     if (auto t = nl_socket->get_ifindex(ifname)) ifidx = *t;
-    else suicide("failed to get interface index for %s", ifname.c_str());
+    else {
+        fmt::print(stderr, "failed to get interface index for {}\n", ifname);
+        return false;
+    }
     const auto &ifinfo = nl_socket->interfaces.at(ifidx);
     for (const auto &i: ifinfo.addrs) {
         if (i.address.is_v4()) {
@@ -82,10 +106,13 @@ D4Listener::D4Listener(asio::io_service &io_service, const std::string &ifname)
             fmt::print(stderr, "IP address for {} is {}.\n", ifname, local_ip_);
         }
     }
-    if (!local_ip_.is_v4())
-        suicide("interface (%s) has no IP address", ifname.c_str());
+    if (!local_ip_.is_v4()) {
+        fmt::print(stderr, "Interface ({}) has no IP address\n", ifname);
+        return false;
+    }
 
     start_receive();
+    return true;
 }
 
 void D4Listener::dhcpmsg_init(dhcpmsg &dm, char type, uint32_t xid) const

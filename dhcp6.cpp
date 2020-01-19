@@ -39,13 +39,19 @@ static asio::ip::address_v6 v6_addr_random(const asio::ip::address_v6 &prefix, u
     return asio::ip::address_v6(b, prefix.scope_id());
 }
 
-D6Listener::D6Listener(asio::io_service &io_service,
-                       const std::string &ifname, uint8_t preference)
-  : socket_(io_service), ifname_(ifname), using_bpf_(false), preference_(preference)
+bool D6Listener::init(const std::string &ifname, uint8_t preference)
 {
+    std::error_code ec;
+    ifname_ = ifname;
+    using_bpf_ = false;
+    preference_ = preference;
+
     int ifidx;
     if (auto t = nl_socket->get_ifindex(ifname_)) ifidx = *t;
-    else suicide("failed to get interface index for %s", ifname_.c_str());
+    else {
+        fmt::print(stderr, "Failed to get interface index for {}\n", ifname_);
+        return false;
+    }
     const auto &ifinfo = nl_socket->interfaces.at(ifidx);
 
     fmt::print(stderr, "DHCPv6 Preference for interface {} is {}.\n", ifname_, preference_);
@@ -63,14 +69,26 @@ D6Listener::D6Listener(asio::io_service &io_service,
                        ifname, link_local_ip_);
         }
     }
-    socket_.open(asio::ip::udp::v6());
-    attach_multicast(socket_.native_handle(), ifname, mc6_alldhcp_ras);
+    socket_.open(asio::ip::udp::v6(), ec);
+    if (ec) {
+        fmt::print(stderr, "Failed to open to v6 UDP socket on {}\n", ifname_);
+        return false;
+    }
+    if (!attach_multicast(socket_.native_handle(), ifname, mc6_alldhcp_ras))
+        return false;
     attach_bpf(socket_.native_handle());
-    socket_.bind(asio::ip::udp::endpoint(asio::ip::address_v6::any(), 547));
+    socket_.bind(asio::ip::udp::endpoint(asio::ip::address_v6::any(), 547), ec);
+    if (ec) {
+        fmt::print(stderr, "Failed to bind to UDP 547 on {}\n", ifname_);
+        return false;
+    }
 
-    radv6_listener_ = std::make_unique<RA6Listener>(io_service, ifname);
+    radv6_listener_ = std::make_unique<RA6Listener>(socket_.get_io_service());
+    if (!radv6_listener_->init(ifname))
+        return false;
 
     start_receive();
+    return true;
 }
 
 void D6Listener::attach_bpf(int fd)

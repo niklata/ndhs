@@ -141,9 +141,11 @@ private:
 class D4Listener
 {
 public:
-    D4Listener(asio::io_service &io_service, const std::string &ifname);
+    D4Listener(asio::io_service &io_service) : socket_(io_service) {}
     D4Listener(const D4Listener &) = delete;
     D4Listener &operator=(const D4Listener &) = delete;
+
+    [[nodiscard]] bool init(const std::string &ifname);
 private:
     void start_receive();
     void dhcpmsg_init(dhcpmsg &dm, char type, uint32_t xid) const;
