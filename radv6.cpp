@@ -530,14 +530,8 @@ void RA6Listener::send_advert()
 
     const std::vector<asio::ip::address_v6> *dns6_servers{nullptr};
     const std::vector<uint8_t> *dns_search_blob{nullptr};
-    try {
-        const auto tt = query_dns6_servers(ifname_);
-        dns6_servers = &tt;
-    } catch (const std::runtime_error &) { }
-    try {
-        const auto tt = query_dns6_search_blob(ifname_);
-        dns_search_blob = &tt;
-    } catch (const std::runtime_error &) { }
+    dns6_servers = query_dns6_servers(ifname_);
+    dns_search_blob = query_dns6_search_blob(ifname_);
 
     if (dns6_servers && dns6_servers->size()) {
         ra6_dns.length(dns6_servers->size());

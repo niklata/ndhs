@@ -316,12 +316,13 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, std::ostream &os,
 void D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, std::ostream &os)
 {
     const auto dns6_servers = query_dns6_servers(ifname_);
-    if ((!d6s.optreq_exists || d6s.optreq_dns) && dns6_servers.size()) {
+    if (!dns6_servers) return;
+    if ((!d6s.optreq_exists || d6s.optreq_dns) && dns6_servers->size()) {
         dhcp6_opt send_dns;
         send_dns.type(23);
-        send_dns.length(dns6_servers.size() * 16);
+        send_dns.length(dns6_servers->size() * 16);
         os << send_dns;
-        for (const auto &i: dns6_servers) {
+        for (const auto &i: *dns6_servers) {
             const auto d6b = i.to_bytes();
             for (const auto &j: d6b)
                 os << j;
@@ -329,35 +330,34 @@ void D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, std::ostream &os)
     }
     const auto dns6_search_blob = query_dns6_search_blob(ifname_);
     if ((!d6s.optreq_exists || d6s.optreq_dns_search)
-        && dns6_search_blob.size()) {
+        && (dns6_search_blob && dns6_search_blob->size())) {
         dhcp6_opt send_dns_search;
         send_dns_search.type(24);
-        send_dns_search.length(dns6_search_blob.size());
+        send_dns_search.length(dns6_search_blob->size());
         os << send_dns_search;
-        for (const auto &i: dns6_search_blob)
+        for (const auto &i: *dns6_search_blob)
             os << i;
     }
     const auto ntp6_servers = query_ntp6_servers(ifname_);
     const auto ntp6_multicasts = query_ntp6_multicasts(ifname_);
     const auto ntp6_fqdns_blob = query_ntp6_fqdns_blob(ifname_);
-    const auto n6s_size = ntp6_servers.size();
-    const auto n6m_size = ntp6_multicasts.size();
-    const auto n6d_size = ntp6_fqdns_blob.size();
     if ((!d6s.optreq_exists || d6s.optreq_ntp)
-        && (n6s_size || n6m_size || n6d_size)) {
+        && ((ntp6_servers && ntp6_servers->size())
+            || (ntp6_multicasts && ntp6_multicasts->size())
+            || (ntp6_fqdns_blob && ntp6_fqdns_blob->size()))) {
         uint16_t len(0);
         dhcp6_opt send_ntp;
         send_ntp.type(56);
-        if (n6s_size)
-            len += 4 + n6s_size * 16;
-        if (n6m_size)
-            len += 4 + n6m_size * 16;
-        if (n6d_size)
-            len += n6d_size;
+        if (ntp6_servers)
+            len += 4 + ntp6_servers->size() * 16;
+        if (ntp6_multicasts)
+            len += 4 + ntp6_multicasts->size() * 16;
+        if (ntp6_fqdns_blob)
+            len += ntp6_fqdns_blob->size();
         send_ntp.length(len);
         os << send_ntp;
 
-        for (const auto &i: ntp6_servers) {
+        for (const auto &i: *ntp6_servers) {
             uint16_t soc(1);
             uint16_t sol(16);
             os << soc << sol;
@@ -365,7 +365,7 @@ void D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, std::ostream &os)
             for (const auto &j: n6b)
                 os << j;
         }
-        for (const auto &i: ntp6_multicasts) {
+        for (const auto &i: *ntp6_multicasts) {
             uint16_t soc(2);
             uint16_t sol(16);
             os << soc << sol;
@@ -373,17 +373,17 @@ void D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, std::ostream &os)
             for (const auto &j: n6b)
                 os << j;
         }
-        for (const auto &i: ntp6_fqdns_blob)
+        for (const auto &i: *ntp6_fqdns_blob)
             os << i;
     }
     if (d6s.optreq_sntp) {
         uint16_t len(0);
         dhcp6_opt send_sntp;
         send_sntp.type(31);
-        if (n6s_size)
-            len += n6s_size * 16;
+        if (ntp6_servers)
+            len += ntp6_servers->size() * 16;
         send_sntp.length(len);
-        for (const auto &i: ntp6_servers) {
+        for (const auto &i: *ntp6_servers) {
             const auto n6b = i.to_bytes();
             for (const auto &j: n6b)
                 os << j;

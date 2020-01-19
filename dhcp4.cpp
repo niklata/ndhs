@@ -201,17 +201,17 @@ void D4Listener::send_reply(const dhcpmsg &reply)
 bool D4Listener::iplist_option(dhcpmsg &reply, std::string &iplist, uint8_t code,
                                const std::vector<asio::ip::address_v4> &addrs)
 {
-        iplist.clear();
-        iplist.reserve(addrs.size() * 4);
-        for (const auto &i: addrs) {
-            const auto ip32 = htonl(i.to_ulong());
-            char ip8[4];
-            memcpy(ip8, &ip32, sizeof ip8);
-            iplist.append(ip8, 4);
-        }
-        if (!iplist.size()) return false;
-        add_option_string(&reply, code, iplist.c_str(), iplist.size());
-        return true;
+    iplist.clear();
+    iplist.reserve(addrs.size() * 4);
+    for (const auto &i: addrs) {
+        const auto ip32 = htonl(i.to_ulong());
+        char ip8[4];
+        memcpy(ip8, &ip32, sizeof ip8);
+        iplist.append(ip8, 4);
+    }
+    if (!iplist.size()) return false;
+    add_option_string(&reply, code, iplist.c_str(), iplist.size());
+    return true;
 }
 
 bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do_assign)
@@ -224,6 +224,10 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     fmt::print(stderr, "Checking dynamic IP.\n");
 
     const auto dr = query_dynamic_range(ifname_);
+    if (!dr) {
+        fmt::print(stderr, "No dynamic range is associated.  Can't assign an IP.\n");
+        return false;
+    }
     const auto expire_time = get_current_ts() + dynamic_lifetime;
 
     auto v4a = dynlease_query_refresh(ifname_, hwaddr, expire_time);
@@ -236,8 +240,8 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     fmt::print(stderr, "Selecting an unused dynamic IP.\n");
 
     // IP is randomly selected from the dynamic range.
-    const auto al = dr.first.to_ulong();
-    const auto ah = dr.second.to_ulong();
+    const auto al = dr->first.to_ulong();
+    const auto ah = dr->second.to_ulong();
     const auto ar = ah - al;
     std::uniform_int_distribution<> dist(0, ar);
     unsigned long rqs = dist(g_random_prng);
@@ -278,23 +282,25 @@ bool D4Listener::create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_ass
         reply.yiaddr = htonl(dv4s->address.to_ulong());
         add_u32_option(&reply, DCODE_LEASET, htonl(dv4s->lifetime));
     }
-    try {
-        add_option_subnet_mask(&reply, htonl(query_subnet(ifname_).to_ulong()));
-        add_option_broadcast(&reply, htonl(query_broadcast(ifname_).to_ulong()));
+    const auto subnet = query_subnet(ifname_);
+    if (!subnet) return false;
+    add_option_subnet_mask(&reply, htonl(subnet->to_ulong()));
+    const auto broadcast = query_broadcast(ifname_);
+    if (!broadcast) return false;
+    add_option_broadcast(&reply, htonl(broadcast->to_ulong()));
 
-        std::string iplist;
-        const auto routers = query_gateway(ifname_);
-        const auto dns4 = query_dns4_servers(ifname_);
-        const auto ntp4 = query_ntp4_servers(ifname_);
-        iplist_option(reply, iplist, DCODE_ROUTER, routers);
-        iplist_option(reply, iplist, DCODE_DNS, dns4);
-        iplist_option(reply, iplist, DCODE_NTPSVR, ntp4);
-        const auto dns_search = query_dns_search(ifname_);
-        if (dns_search.size()) {
-            const auto &dn = dns_search.front();
-            add_option_domain_name(&reply, dn.c_str(), dn.size());
-        }
-    } catch (const std::runtime_error &) { return false; }
+    std::string iplist;
+    const auto routers = query_gateway(ifname_);
+    const auto dns4 = query_dns4_servers(ifname_);
+    const auto ntp4 = query_ntp4_servers(ifname_);
+    if (routers) iplist_option(reply, iplist, DCODE_ROUTER, *routers);
+    if (dns4) iplist_option(reply, iplist, DCODE_DNS, *dns4);
+    if (ntp4) iplist_option(reply, iplist, DCODE_NTPSVR, *ntp4);
+    const auto dns_search = query_dns_search(ifname_);
+    if (dns_search && dns_search->size()) {
+        const auto &dn = dns_search->front();
+        add_option_domain_name(&reply, dn.c_str(), dn.size());
+    }
     return true;
 }
 

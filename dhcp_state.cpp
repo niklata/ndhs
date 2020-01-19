@@ -409,95 +409,95 @@ const dhcpv4_entry* query_dhcp_state(const std::string &interface, const uint8_t
     return f != si->second.macaddr_mapping.end() ? f->second.get() : nullptr;
 }
 
-const std::vector<asio::ip::address_v6> &query_dns6_servers(const std::string &interface)
+const std::vector<asio::ip::address_v6> *query_dns6_servers(const std::string &interface)
 {
     auto si = interface_state.find(interface);
-    if (si == interface_state.end()) throw std::runtime_error("no such interface");
-    return si->second.dns6_servers;
+    if (si == interface_state.end()) return nullptr;
+    return &si->second.dns6_servers;
 }
 
-const std::vector<asio::ip::address_v4> &query_dns4_servers(const std::string &interface)
+const std::vector<asio::ip::address_v4> *query_dns4_servers(const std::string &interface)
 {
     auto si = interface_state.find(interface);
-    if (si == interface_state.end()) throw std::runtime_error("no such interface");
-    return si->second.dns4_servers;
+    if (si == interface_state.end()) return nullptr;
+    return &si->second.dns4_servers;
 }
 
-const std::vector<uint8_t> &query_dns6_search_blob(const std::string &interface)
+const std::vector<uint8_t> *query_dns6_search_blob(const std::string &interface)
 {
     auto si = interface_state.find(interface);
-    if (si == interface_state.end()) throw std::runtime_error("no such interface");
-    return si->second.dns_search_blob;
+    if (si == interface_state.end()) return nullptr;
+    return &si->second.dns_search_blob;
 }
 
-const std::vector<asio::ip::address_v6> &query_ntp6_servers(const std::string &interface)
+const std::vector<asio::ip::address_v6> *query_ntp6_servers(const std::string &interface)
 {
     auto si = interface_state.find(interface);
-    if (si == interface_state.end()) throw std::runtime_error("no such interface");
-    return si->second.ntp6_servers;
+    if (si == interface_state.end()) return nullptr;
+    return &si->second.ntp6_servers;
 }
 
-const std::vector<asio::ip::address_v4> &query_ntp4_servers(const std::string &interface)
+const std::vector<asio::ip::address_v4> *query_ntp4_servers(const std::string &interface)
 {
     auto si = interface_state.find(interface);
-    if (si == interface_state.end()) throw std::runtime_error("no such interface");
-    return si->second.ntp4_servers;
+    if (si == interface_state.end()) return nullptr;
+    return &si->second.ntp4_servers;
 }
 
-const std::vector<uint8_t> &query_ntp6_fqdns_blob(const std::string &interface)
+const std::vector<uint8_t> *query_ntp6_fqdns_blob(const std::string &interface)
 {
     auto si = interface_state.find(interface);
-    if (si == interface_state.end()) throw std::runtime_error("no such interface");
-    return si->second.ntp6_fqdns_blob;
+    if (si == interface_state.end()) return nullptr;
+    return &si->second.ntp6_fqdns_blob;
 }
 
-const std::vector<asio::ip::address_v6> &query_ntp6_multicasts(const std::string &interface)
+const std::vector<asio::ip::address_v6> *query_ntp6_multicasts(const std::string &interface)
 {
     auto si = interface_state.find(interface);
-    if (si == interface_state.end()) throw std::runtime_error("no such interface");
-    return si->second.ntp6_multicasts;
+    if (si == interface_state.end()) return nullptr;
+    return &si->second.ntp6_multicasts;
 }
 
-const std::vector<asio::ip::address_v4> &query_gateway(const std::string &interface)
+const std::vector<asio::ip::address_v4> *query_gateway(const std::string &interface)
 {
     auto si = interface_state.find(interface);
-    if (si == interface_state.end()) throw std::runtime_error("no such interface");
-    return si->second.gateway;
+    if (si == interface_state.end()) return nullptr;
+    return &si->second.gateway;
 }
 
-const asio::ip::address_v4 &query_subnet(const std::string &interface)
+const asio::ip::address_v4 *query_subnet(const std::string &interface)
 {
     auto si = interface_state.find(interface);
-    if (si == interface_state.end()) throw std::runtime_error("no such interface");
-    return si->second.subnet;
+    if (si == interface_state.end()) return nullptr;
+    return &si->second.subnet;
 }
 
-const asio::ip::address_v4 &query_broadcast(const std::string &interface)
+const asio::ip::address_v4 *query_broadcast(const std::string &interface)
 {
     auto si = interface_state.find(interface);
-    if (si == interface_state.end()) throw std::runtime_error("no such interface");
-    return si->second.broadcast;
+    if (si == interface_state.end()) return nullptr;
+    return &si->second.broadcast;
 }
 
-const std::pair<asio::ip::address_v4, asio::ip::address_v4> &
+const std::pair<asio::ip::address_v4, asio::ip::address_v4> *
 query_dynamic_range(const std::string &interface)
 {
     auto si = interface_state.find(interface);
-    if (si == interface_state.end()) throw std::runtime_error("no such interface");
-    return si->second.dynamic_range;
+    if (si == interface_state.end()) return nullptr;
+    return &si->second.dynamic_range;
 }
 
-const std::vector<std::string> &query_dns_search(const std::string &interface)
+const std::vector<std::string> *query_dns_search(const std::string &interface)
 {
     auto si = interface_state.find(interface);
-    if (si == interface_state.end()) throw std::runtime_error("no such interface");
-    return si->second.dns_search;
+    if (si == interface_state.end()) return nullptr;
+    return &si->second.dns_search;
 }
 
 bool query_use_dynamic_v4(const std::string &interface, uint32_t &dynamic_lifetime)
 {
     auto si = interface_state.find(interface);
-    if (si == interface_state.end()) throw std::runtime_error("no such interface");
+    if (si == interface_state.end()) return false;
     dynamic_lifetime = si->second.dynamic_lifetime;
     return si->second.use_dynamic_v4;
 }
@@ -505,7 +505,7 @@ bool query_use_dynamic_v4(const std::string &interface, uint32_t &dynamic_lifeti
 bool query_use_dynamic_v6(const std::string &interface, uint32_t &dynamic_lifetime)
 {
     auto si = interface_state.find(interface);
-    if (si == interface_state.end()) throw std::runtime_error("no such interface");
+    if (si == interface_state.end()) return false;
     dynamic_lifetime = si->second.dynamic_lifetime;
     return si->second.use_dynamic_v6;
 }
