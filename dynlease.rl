@@ -347,7 +347,7 @@ bool dynlease_serialize(const std::string &path)
 // v6 <interface> <ip> <duid> <iaid> <expire_time>
 
 struct cfg_parse_state {
-    cfg_parse_state() : st(nullptr), cs(0) {}
+    cfg_parse_state() : st(nullptr), cs(0), parse_error(false) {}
     void newline() {
         duid.clear();
         macaddr.clear();
@@ -356,6 +356,7 @@ struct cfg_parse_state {
         interface.clear();
         iaid = 0;
         expire_time = 0;
+        parse_error = false;
     }
     const char *st;
     int cs;
@@ -367,6 +368,7 @@ struct cfg_parse_state {
     std::string interface;
     int64_t expire_time;
     uint32_t iaid;
+    bool parse_error;
 };
 
 static inline std::string lc_string(const char *s, size_t slen)
@@ -384,12 +386,20 @@ static inline std::string lc_string(const char *s, size_t slen)
 
     action InterfaceEn { cps.interface = std::string(cps.st, p - cps.st); }
     action DuidEn { cps.duid = lc_string(cps.st, p - cps.st); }
-    action IaidEn { cps.iaid = nk::from_string<uint32_t>(lc_string(cps.st, p - cps.st)); }
+    action IaidEn {
+        if (auto t = nk::from_string<uint32_t>(lc_string(cps.st, p - cps.st))) cps.iaid = *t; else {
+            cps.parse_error = true;
+            fbreak;
+        }
+    }
     action MacAddrEn { cps.macaddr = lc_string(cps.st, p - cps.st); }
     action V4AddrEn { cps.v4_addr = lc_string(cps.st, p - cps.st); }
     action V6AddrEn { cps.v6_addr = lc_string(cps.st, p - cps.st); }
     action ExpireTimeEn {
-        cps.expire_time = nk::from_string<int64_t>(std::string(cps.st, p - cps.st));
+        if (auto t = nk::from_string<int64_t>(std::string(cps.st, p - cps.st))) cps.expire_time = *t; else {
+            cps.parse_error = true;
+            fbreak;
+        }
     }
 
     action V4EntryEn {
@@ -426,6 +436,7 @@ static int do_parse_dynlease_line(cfg_parse_state &cps, const char *p, size_t pl
     %% write init;
     %% write exec;
 
+    if (cps.parse_error) return -1;
     if (cps.cs >= dynlease_line_m_first_final)
         return 1;
     if (cps.cs == dynlease_line_m_error)

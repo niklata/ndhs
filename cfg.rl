@@ -41,7 +41,7 @@ extern void create_dns_search_blob();
 
 struct cfg_parse_state {
     cfg_parse_state() : st(nullptr), cs(0), last_addr(addr_type::null), default_lifetime(7200),
-                        default_preference(0) {}
+                        default_preference(0), parse_error(false) {}
     void newline() {
         duid.clear();
         iaid.clear();
@@ -49,6 +49,7 @@ struct cfg_parse_state {
         ipaddr.clear();
         ipaddr2.clear();
         last_addr = addr_type::null;
+        parse_error = false;
     }
     const char *st;
     int cs;
@@ -62,6 +63,7 @@ struct cfg_parse_state {
     std::string interface;
     uint32_t default_lifetime;
     uint8_t default_preference;
+    bool parse_error;
 };
 
 static inline std::string lc_string(const char *s, size_t slen)
@@ -93,15 +95,17 @@ static inline std::string lc_string(const char *s, size_t slen)
     action UserEn { set_user_runas(linenum, std::string(cps.st, p - cps.st)); }
     action ChrootEn { set_chroot_path(linenum, std::string(cps.st, p - cps.st)); }
     action DefLifeEn {
-        cps.default_lifetime = nk::from_string<uint32_t>(cps.st, p - cps.st);
+        if (auto t = nk::from_string<uint32_t>(cps.st, p - cps.st)) cps.default_lifetime = *t; else {
+            cps.parse_error = true;
+            fbreak;
+        }
     }
     action DefPrefEn {
-        try {
-            cps.default_preference = nk::from_string<uint8_t>(cps.st, p - cps.st);
-        } catch (...) {
+        if (auto t = nk::from_string<uint8_t>(cps.st, p - cps.st)) cps.default_preference = *t; else {
             fmt::print(stderr, "default_preference on line {} out of range [0,255]: {}\n",
                        linenum, std::string(cps.st, p - cps.st));
-            exit(EXIT_FAILURE);
+            cps.parse_error = true;
+            fbreak;
         }
     }
     action InterfaceEn {
@@ -141,9 +145,13 @@ static inline std::string lc_string(const char *s, size_t slen)
                            cps.default_lifetime);
     }
     action V6EntryEn {
-        emplace_dhcp_state(linenum, cps.interface, std::move(cps.duid),
-                           nk::from_string<uint32_t>(cps.iaid),
-                           cps.ipaddr, cps.default_lifetime);
+        if (auto iaid = nk::from_string<uint32_t>(cps.iaid)) {
+            emplace_dhcp_state(linenum, cps.interface, std::move(cps.duid),
+                               *iaid, cps.ipaddr, cps.default_lifetime);
+        } else {
+            cps.parse_error = true;
+            fbreak;
+        }
     }
 
     duid = (xdigit+ | (xdigit{2} ('-' xdigit{2})*)+) >St %DuidEn;
@@ -188,6 +196,7 @@ static int do_parse_cfg_line(cfg_parse_state &cps, const char *p, size_t plen,
     %% write init;
     %% write exec;
 
+    if (cps.parse_error) return -1;
     if (cps.cs >= cfg_line_m_first_final)
         return 1;
     if (cps.cs == cfg_line_m_error)

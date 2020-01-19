@@ -201,8 +201,9 @@ static void process_options(int ac, char *av[])
         std::exit(EXIT_FAILURE);
     if (options[OPT_HELP]) {
         uint16_t col{80};
-        const auto cols = getenv("COLUMNS");
-        if (cols) col = nk::from_string<uint16_t>(cols);
+        if (const auto cols = getenv("COLUMNS")) {
+            if (auto t = nk::from_string<uint16_t>(cols)) col = *t;
+        }
         option::printUsage(fwrite, stdout, usage, col);
         std::exit(EXIT_FAILURE);
     }
