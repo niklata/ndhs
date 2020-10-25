@@ -54,7 +54,7 @@
 #include <nk/prng.hpp>
 extern "C" {
 #include "nk/log.h"
-#include "nk/privilege.h"
+#include "nk/privs.h"
 }
 #include "nlsocket.hpp"
 #include "dhcp6.hpp"
