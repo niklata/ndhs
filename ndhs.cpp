@@ -63,7 +63,7 @@ extern "C" {
 #include "dynlease.hpp"
 #include "duid.hpp"
 
-asio::io_service io_service;
+static asio::io_service io_service;
 static asio::signal_set asio_signal_set(io_service);
 static std::string configfile{"/etc/ndhs.conf"};
 static std::string chroot_path;
@@ -79,11 +79,10 @@ extern void parse_config(const std::string &path);
 
 static void init_listeners()
 {
-    auto ios = &io_service;
     auto v6l = &v6_listeners;
     auto v4l = &v4_listeners;
-    bound_interfaces_foreach([ios, v6l, v4l](const std::string &i, bool use_v4, bool use_v6,
-                                             uint8_t preference) {
+    bound_interfaces_foreach([v6l, v4l](const std::string &i, bool use_v4, bool use_v6,
+                                        uint8_t preference) {
         if (use_v6) {
             v6l->emplace_back(std::make_unique<D6Listener>());
             if (!v6l->back()->init(i, preference)) {
