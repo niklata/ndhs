@@ -9,6 +9,7 @@
 #include <nk/netbits.hpp>
 #include "dhcp_state.hpp"
 #include "radv6.hpp"
+#include "sbufs.h"
 
 enum class dhcp6_msgtype {
     unknown = 0,
@@ -41,20 +42,22 @@ public:
     };
     void msg_type(dhcp6_msgtype v) { type_ = static_cast<uint8_t>(v); }
     static const std::size_t size = 4;
-    friend std::istream& operator>>(std::istream &is, dhcp6_header &header)
+
+    int read(const void *buf, size_t len)
     {
-        is.read(reinterpret_cast<char *>(&header.type_), 1);
-        char tt[4] = {0};
-        is.read(tt, 3);
-        memcpy(&header.xid_, tt, 4);
-        return is;
+        if (len < size) return -1;
+        auto b = static_cast<const char *>(buf);
+        memcpy(&type_, b, sizeof type_);
+        memcpy(&xid_, b + 1, sizeof xid_);
+        return size;
     }
-    friend std::ostream& operator<<(std::ostream &os, const dhcp6_header &header)
+    int write(void *buf, size_t len) const
     {
-        os.write(reinterpret_cast<const char *>(&header.type_), 1);
-        char tt[4] = {0};
-        memcpy(tt, &header.xid_, 4);
-        return os.write(tt, 3);
+        if (len < size) return -1;
+        auto b = static_cast<char *>(buf);
+        memcpy(b, &type_, sizeof type_);
+        memcpy(b + 1, &xid_, sizeof xid_);
+        return size;
     }
 private:
     uint8_t type_;
@@ -71,14 +74,20 @@ public:
     void type(uint16_t v) { encode16be(v, data_); }
     void length(uint16_t v) { encode16be(v, data_ + 2); }
     static const std::size_t size = 4;
-    friend std::istream& operator>>(std::istream &is, dhcp6_opt &header)
+
+    int read(const void *buf, size_t len)
     {
-        is.read(reinterpret_cast<char *>(header.data_), size);
-        return is;
+        if (len < size) return -1;
+        auto b = static_cast<const char *>(buf);
+        memcpy(&data_, b, sizeof data_);
+        return size;
     }
-    friend std::ostream& operator<<(std::ostream &os, const dhcp6_opt &header)
+    int write(void *buf, size_t len) const
     {
-        return os.write(reinterpret_cast<const char *>(header.data_), size);
+        if (len < size) return -1;
+        auto b = static_cast<char *>(buf);
+        memcpy(b, &data_, sizeof data_);
+        return size;
     }
 private:
     uint8_t data_[4];
@@ -90,13 +99,18 @@ struct dhcp6_opt_serverid
     dhcp6_opt_serverid(const char *s, size_t slen) : duid_string_(s), duid_len_(slen) {}
     const char *duid_string_;
     size_t duid_len_;
-    friend std::ostream& operator<<(std::ostream &os, const dhcp6_opt_serverid &opt)
+
+    int write(void *buf, size_t len) const
     {
+        const auto size = dhcp6_opt::size + duid_len_;
+        if (len < size) return -1;
+        auto b = static_cast<char *>(buf);
         dhcp6_opt header;
         header.type(2);
-        header.length(opt.duid_len_);
-        os << header;
-        return os.write(opt.duid_string_, opt.duid_len_);
+        header.length(duid_len_);
+        int r = header.write(b, len);
+        memcpy(b + r, duid_string_, duid_len_);
+        return size;
     }
 };
 
@@ -105,25 +119,29 @@ struct d6_ia_addr {
     uint32_t prefer_lifetime;
     uint32_t valid_lifetime;
     static const std::size_t size = 24;
-    friend std::istream& operator>>(std::istream &is, d6_ia_addr &ia)
+
+    int read(const void *buf, size_t len)
     {
+        if (len < size) return -1;
+        auto b = static_cast<const char *>(buf);
         asio::ip::address_v6::bytes_type addrbytes;
-        char data[24];
-        is.read(data, sizeof data);
-        memcpy(&addrbytes, data, 16);
-        ia.addr = asio::ip::address_v6(addrbytes);
-        ia.prefer_lifetime = decode32be(data + 16);
-        ia.valid_lifetime = decode32be(data + 20);
-        return is;
+        memcpy(&addrbytes, b, 16);
+        char data[8];
+        memcpy(&data, b + 16, sizeof data);
+        addr = asio::ip::address_v6(addrbytes);
+        prefer_lifetime = decode32be(data);
+        valid_lifetime = decode32be(data + 4);
+        return size;
     }
-    friend std::ostream& operator<<(std::ostream &os, const d6_ia_addr &ia)
+    int write(void *buf, size_t len) const
     {
-        char data[24];
-        const auto bytes = ia.addr.to_bytes();
-        memcpy(data, bytes.data(), 16);
-        encode32be(ia.prefer_lifetime, data + 16);
-        encode32be(ia.valid_lifetime, data + 20);
-        return os.write(data, sizeof data);
+        if (len < size) return -1;
+        auto b = static_cast<char *>(buf);
+        const auto bytes = addr.to_bytes();
+        memcpy(b, bytes.data(), 16);
+        encode32be(prefer_lifetime, b + 16);
+        encode32be(valid_lifetime, b + 20);
+        return size;
     }
 };
 struct d6_ia {
@@ -132,22 +150,26 @@ struct d6_ia {
     uint32_t t2_seconds;
     std::vector<d6_ia_addr> ia_na_addrs;
     static const std::size_t size = 12;
-    friend std::istream& operator>>(std::istream &is, d6_ia &ia)
+
+    int read(const void *buf, size_t len)
     {
+        if (len < size) return -1;
+        auto b = static_cast<const char *>(buf);
         char data[12];
-        is.read(data, size);
-        ia.iaid = decode32be(data);
-        ia.t1_seconds = decode32be(data + 4);
-        ia.t2_seconds = decode32be(data + 8);
-        return is;
+        memcpy(data, b, sizeof data);
+        iaid = decode32be(data);
+        t1_seconds = decode32be(data + 4);
+        t2_seconds = decode32be(data + 8);
+        return size;
     }
-    friend std::ostream& operator<<(std::ostream &os, const d6_ia &ia)
+    int write(void *buf, size_t len) const
     {
-        char data[12];
-        encode32be(ia.iaid, data);
-        encode32be(ia.t1_seconds, data + 4);
-        encode32be(ia.t2_seconds, data + 8);
-        return os.write(data, sizeof data);
+        if (len < size) return -1;
+        auto b = static_cast<char *>(buf);
+        encode32be(iaid, b);
+        encode32be(t1_seconds, b + 4);
+        encode32be(t2_seconds, b + 8);
+        return size;
     }
 };
 struct d6_statuscode
@@ -164,12 +186,13 @@ struct d6_statuscode
     explicit d6_statuscode(code c) : status_code(c) {}
     code status_code;
     static const std::size_t size = 2;
-    friend std::ostream& operator<<(std::ostream &os, const d6_statuscode &statuscode)
+
+    int write(void *buf, size_t len) const
     {
-        auto ct = static_cast<uint16_t>(statuscode.status_code);
-        char data[2];
-        encode16be(ct, data);
-        return os.write(data, sizeof data);
+        if (len < size) return -1;
+        auto b = static_cast<char *>(buf);
+        encode16be(static_cast<uint16_t>(status_code), b);
+        return size;
     }
 };
 
@@ -207,30 +230,31 @@ private:
         bool use_rapid_commit:1;
     };
 
-    bool allot_dynamic_ip(const d6msg_state &d6s, std::ostream &os, uint32_t iaid,
-                          d6_statuscode::code failcode);
-    void emit_IA_addr(const d6msg_state &d6s, std::ostream &os, const dhcpv6_entry *v);
-    void emit_IA_code(const d6msg_state &d6s, std::ostream &os, uint32_t iaid,
-                      d6_statuscode::code scode);
-    bool attach_address_info(const d6msg_state &d6s, std::ostream &os,
-                             d6_statuscode::code failcode);
-    void attach_dns_ntp_info(const d6msg_state &d6s, std::ostream &os);
-    void attach_status_code(const d6msg_state &d6s, std::ostream &os, d6_statuscode::code scode);
-    void write_response_header(const d6msg_state &d6s, std::ostream &os, dhcp6_msgtype mtype);
-    void handle_solicit_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
-    void handle_request_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
-    bool confirm_match(const d6msg_state &d6s, std::ostream &os);
-    bool mark_addr_unused(const d6msg_state &d6s, std::ostream &os);
-    bool handle_confirm_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
-    void handle_renew_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
-    void handle_rebind_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
-    void handle_information_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
-    void handle_release_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
-    void handle_decline_msg(const d6msg_state &d6s, asio::streambuf &send_buffer);
+    bool create_dhcp6_socket();
+    [[nodiscard]] bool allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t iaid,
+                                        d6_statuscode::code failcode, bool &use_dynamic);
+    [[nodiscard]] bool emit_IA_addr(const d6msg_state &d6s, sbufs &ss, const dhcpv6_entry *v);
+    [[nodiscard]] bool emit_IA_code(const d6msg_state &d6s, sbufs &ss, uint32_t iaid,
+                                    d6_statuscode::code scode);
+    [[nodiscard]] bool attach_address_info(const d6msg_state &d6s, sbufs &ss,
+                                           d6_statuscode::code failcode, bool *has_addrs = nullptr);
+    [[nodiscard]] bool attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss);
+    [[nodiscard]] bool attach_status_code(const d6msg_state &d6s, sbufs &ss, d6_statuscode::code scode);
+    [[nodiscard]] bool write_response_header(const d6msg_state &d6s, sbufs &ss, dhcp6_msgtype mtype);
+    [[nodiscard]] bool handle_solicit_msg(const d6msg_state &d6s, sbufs &ss);
+    [[nodiscard]] bool handle_request_msg(const d6msg_state &d6s, sbufs &ss);
+    [[nodiscard]] bool confirm_match(const d6msg_state &d6s, bool &confirmed);
+    [[nodiscard]] bool mark_addr_unused(const d6msg_state &d6s, sbufs &ss);
+    [[nodiscard]] bool handle_confirm_msg(const d6msg_state &d6s, sbufs &ss);
+    [[nodiscard]] bool handle_renew_msg(const d6msg_state &d6s, sbufs &ss);
+    [[nodiscard]] bool handle_rebind_msg(const d6msg_state &d6s, sbufs &ss);
+    [[nodiscard]] bool handle_information_msg(const d6msg_state &d6s, sbufs &ss);
+    [[nodiscard]] bool handle_release_msg(const d6msg_state &d6s, sbufs &ss);
+    [[nodiscard]] bool handle_decline_msg(const d6msg_state &d6s, sbufs &ss);
     bool serverid_incorrect(const d6msg_state &d6s) const;
     void start_receive();
     void attach_bpf(int fd);
-    asio::streambuf recv_buffer_;
+    std::array<char, 8192> r_buffer_;
     asio::ip::udp::endpoint sender_endpoint_;
     asio::ip::address_v6 local_ip_;
     asio::ip::address_v6 local_ip_prefix_;
@@ -242,7 +266,7 @@ private:
     char prefixlen_;
     uint8_t preference_;
 
-    [[nodiscard]] bool bytes_left_dec(d6msg_state &d6s, std::size_t &bytes_left, size_t v);
+    [[nodiscard]] bool options_consume(d6msg_state &d6s, size_t v);
 };
 
 #endif
