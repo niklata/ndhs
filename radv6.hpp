@@ -4,6 +4,7 @@
 #include <string>
 #include <memory>
 #include <asio.hpp>
+#include "sbufs.h"
 
 class RA6Listener
 {
@@ -25,7 +26,7 @@ private:
     std::string ifname_;
     unsigned int advi_s_max_;
     bool using_bpf_:1;
-    asio::streambuf recv_buffer_;
+    std::array<char, 8192> r_buffer_;
 };
 
 #endif

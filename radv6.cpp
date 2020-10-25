@@ -1,6 +1,6 @@
 /* radv6.cpp - ipv6 router advertisement handling
  *
- * Copyright 2014-2017 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2014-2020 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,7 +26,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <sstream>
 #include <algorithm>
 #include <random>
 
@@ -120,20 +119,41 @@ public:
         return asio::ip::address_v6(bytes);
     }
     static const std::size_t size = 40;
-    friend std::istream& operator>>(std::istream &is, ipv6_header &header)
+
+    int read(const void *buf, size_t len)
     {
-        is.read(reinterpret_cast<char *>(header.data_), size);
-        if (header.version() != 6)
-            is.setstate(std::ios::failbit);
-        return is;
+        if (len < size) return -1;
+        auto b = static_cast<const char *>(buf);
+        memcpy(&data_, b, sizeof data_);
+        if (version() != 6) return -1; // XXX: Existing code was doing this check here.
+        return size;
     }
-    friend std::ostream& operator<<(std::ostream &os, const ipv6_header &header)
+    int write(void *buf, size_t len) const
     {
-        return os.write(reinterpret_cast<const char *>(header.data_), size);
+        if (len < size) return -1;
+        auto b = static_cast<char *>(buf);
+        memcpy(b, &data_, sizeof data_);
+        return size;
     }
 private:
     uint8_t data_[40];
 };
+
+#define DEF_RW_MEMBERS() \
+    int read(const void *buf, size_t len) \
+    { \
+        if (len < size) return -1; \
+        auto b = static_cast<const char *>(buf); \
+        memcpy(&data_, b, sizeof data_); \
+        return size; \
+    } \
+    int write(void *buf, size_t len) const \
+    { \
+        if (len < size) return -1; \
+        auto b = static_cast<char *>(buf); \
+        memcpy(b, &data_, sizeof data_); \
+        return size; \
+    }
 
 class icmp_header
 {
@@ -146,15 +166,7 @@ public:
     void code(uint8_t v) { data_[1] = v; }
     void checksum(uint16_t v) { encode16be(v, data_ + 2); }
     static const std::size_t size = 4;
-    friend std::istream& operator>>(std::istream &is, icmp_header &header)
-    {
-        is.read(reinterpret_cast<char *>(header.data_), size);
-        return is;
-    }
-    friend std::ostream& operator<<(std::ostream &os, const icmp_header &header)
-    {
-        return os.write(reinterpret_cast<const char *>(header.data_), size);
-    }
+    DEF_RW_MEMBERS()
 private:
     uint8_t data_[4];
 };
@@ -166,15 +178,7 @@ public:
     // Just a reserved 32-bit field.
     // Follow with MTU and Prefix Information options.
     static const std::size_t size = 4;
-    friend std::istream& operator>>(std::istream &is, ra6_solicit_header &header)
-    {
-        is.read(reinterpret_cast<char *>(header.data_), size);
-        return is;
-    }
-    friend std::ostream& operator<<(std::ostream &os, const ra6_solicit_header &header)
-    {
-        return os.write(reinterpret_cast<const char *>(header.data_), size);
-    }
+    DEF_RW_MEMBERS()
 private:
     uint8_t data_[4];
 };
@@ -216,15 +220,7 @@ public:
     void retransmit_timer(uint32_t v) { encode32be(v, data_ + 8); }
     // Follow with MTU and Prefix Information options.
     static const std::size_t size = 12;
-    friend std::istream& operator>>(std::istream &is, ra6_advert_header &header)
-    {
-        is.read(reinterpret_cast<char *>(header.data_), size);
-        return is;
-    }
-    friend std::ostream& operator<<(std::ostream &os, const ra6_advert_header &header)
-    {
-        return os.write(reinterpret_cast<const char *>(header.data_), size);
-    }
+    DEF_RW_MEMBERS()
 private:
     uint8_t data_[12];
 };
@@ -245,15 +241,7 @@ public:
         memcpy(data_ + 2, mac, 6);
     }
     static const std::size_t size = 8;
-    friend std::istream& operator>>(std::istream &is, ra6_source_lla_opt &opt)
-    {
-        is.read(reinterpret_cast<char *>(opt.data_), size);
-        return is;
-    }
-    friend std::ostream& operator<<(std::ostream &os, const ra6_source_lla_opt &header)
-    {
-        return os.write(reinterpret_cast<const char *>(header.data_), size);
-    }
+    DEF_RW_MEMBERS()
 private:
     uint8_t data_[8];
 };
@@ -271,15 +259,7 @@ public:
     uint32_t mtu() const { return decode32be(data_ + 4); }
     void mtu(uint32_t v) { encode32be(v, data_ + 4); }
     static const std::size_t size = 8;
-    friend std::istream& operator>>(std::istream &is, ra6_mtu_opt &opt)
-    {
-        is.read(reinterpret_cast<char *>(opt.data_), size);
-        return is;
-    }
-    friend std::ostream& operator<<(std::ostream &os, const ra6_mtu_opt &header)
-    {
-        return os.write(reinterpret_cast<const char *>(header.data_), size);
-    }
+    DEF_RW_MEMBERS()
 private:
     uint8_t data_[8];
 };
@@ -330,15 +310,7 @@ public:
         memcpy(data_ + 16, a6, sizeof a6);
     }
     static const std::size_t size = 32;
-    friend std::istream& operator>>(std::istream &is, ra6_prefix_info_opt &opt)
-    {
-        is.read(reinterpret_cast<char *>(opt.data_), size);
-        return is;
-    }
-    friend std::ostream& operator<<(std::ostream &os, const ra6_prefix_info_opt &header)
-    {
-        return os.write(reinterpret_cast<const char *>(header.data_), size);
-    }
+    DEF_RW_MEMBERS()
 private:
     uint8_t data_[32];
 };
@@ -356,15 +328,7 @@ public:
     void length(uint8_t numdns) { data_[1] = 1 + 2 * numdns; }
     void lifetime(uint32_t v) { encode32be(v, data_ + 4); }
     static const std::size_t size = 8;
-    friend std::istream& operator>>(std::istream &is, ra6_rdns_opt &opt)
-    {
-        is.read(reinterpret_cast<char *>(opt.data_), size);
-        return is;
-    }
-    friend std::ostream& operator<<(std::ostream &os, const ra6_rdns_opt &header)
-    {
-        return os.write(reinterpret_cast<const char *>(header.data_), size);
-    }
+    DEF_RW_MEMBERS()
 private:
     uint8_t data_[8];
 };
@@ -387,18 +351,11 @@ public:
     }
     void lifetime(uint32_t v) { encode32be(v, data_ + 4); }
     static const std::size_t size = 8;
-    friend std::istream& operator>>(std::istream &is, ra6_dns_search_opt &opt)
-    {
-        is.read(reinterpret_cast<char *>(opt.data_), size);
-        return is;
-    }
-    friend std::ostream& operator<<(std::ostream &os, const ra6_dns_search_opt &header)
-    {
-        return os.write(reinterpret_cast<const char *>(header.data_), size);
-    }
+    DEF_RW_MEMBERS()
 private:
     uint8_t data_[8];
 };
+#undef DEF_RW_MEMBERS
 
 /*
  * We will need to minimally support DHCPv6 for providing
@@ -567,62 +524,69 @@ bool RA6Listener::send_advert()
     }
     icmp_hdr.checksum(csum);
 
-    asio::streambuf send_buffer;
-    std::ostream os(&send_buffer);
-    os << icmp_hdr << ra6adv_hdr << ra6_slla << ra6_mtu;
-    for (const auto &i: ra6_pfxs)
-        os << i;
+    char sbuf[4096];
+    char *si = &sbuf[0], *se = &sbuf[4096];
+    if (auto t = icmp_hdr.write(si, se - si); t >=0) si += t; else return false;
+    if (auto t = ra6adv_hdr.write(si, se - si); t >=0) si += t; else return false;
+    if (auto t = ra6_slla.write(si, se - si); t >=0) si += t; else return false;
+    if (auto t = ra6_mtu.write(si, se - si); t >=0) si += t; else return false;
+    for (const auto &i: ra6_pfxs) {
+        if (auto t = i.write(si, se - si); t >=0) si += t; else return false;
+    }
     if (dns6_servers && dns6_servers->size()) {
-        os << ra6_dns;
+        if (auto t = ra6_dns.write(si, se - si); t >=0) si += t; else return false;
         for (const auto &i: *dns6_servers) {
             auto b6 = i.to_bytes();
-            for (const auto &j: b6)
-                os << j;
+            for (const auto &j: b6) {
+                if (si == se) return false;
+                *si++ = j;
+            }
         }
     }
     if (dns_search_blob && dns_search_blob->size()) {
-        os << ra6_dsrch;
-        for (const auto &i: *dns_search_blob)
-            os << i;
-        uint8_t zerob(0);
-        for (size_t i = 0; i < dns_search_slack; ++i)
-            os << zerob;
+        if (auto t = ra6_dsrch.write(si, se - si); t >=0) si += t; else return false;
+        for (const auto &i: *dns_search_blob) {
+            if (si == se) return false;
+            *si++ = i;
+        }
+        for (size_t i = 0; i < dns_search_slack; ++i) {
+            if (si == se) return false;
+            *si++ = 0;
+        }
     }
+    const size_t slen = si - sbuf;
 
     asio::ip::icmp::endpoint dst(mc6_allhosts, 0);
     std::error_code ec;
-    socket_.send_to(send_buffer.data(), dst, 0, ec);
+    socket_.send_to(asio::buffer(sbuf, slen), dst, 0, ec);
     return !ec;
 }
 
 void RA6Listener::start_receive()
 {
-    recv_buffer_.consume(recv_buffer_.size());
-    socket_.async_receive_from
-        (recv_buffer_.prepare(8192), remote_endpoint_,
-         [this](const std::error_code &error, std::size_t bytes_xferred)
+    socket_.async_receive_from(asio::mutable_buffer(r_buffer_.data(), r_buffer_.size()), remote_endpoint_,
+         [this](const std::error_code &error, std::size_t buflen)
          {
-             recv_buffer_.commit(bytes_xferred);
-
              if (error) {
                  fmt::print(stderr, "ra6: Error during receive: {}\n", error);
                  exit(EXIT_FAILURE);
-                 return;
              }
 
+             sbufs rs{ &r_buffer_[0], &r_buffer_[buflen] };
              // Discard if the ICMP length < 8 octets.
-             std::size_t bytes_left = bytes_xferred;
-             if (bytes_xferred < icmp_header::size
-                                 + ra6_solicit_header::size) {
-                fmt::print(stderr, "ICMP from {} is too short: {}\n", remote_endpoint_, bytes_xferred);
+             if (buflen < icmp_header::size + ra6_solicit_header::size) {
+                fmt::print(stderr, "ICMP from {} is too short: {}\n", remote_endpoint_, buflen);
                 start_receive();
                 return;
              }
 
-             std::istream is(&recv_buffer_);
              icmp_header icmp_hdr;
-             is >> icmp_hdr;
-             bytes_left -= icmp_header::size;
+             if (auto t = icmp_hdr.read(rs.si, rs.se - rs.si); t >= 0) {
+                 rs.si += t;
+             } else {
+                 start_receive();
+                 return;
+             }
 
              // XXX: Discard if the ip header hop limit field != 255
 #if 0
@@ -649,37 +613,56 @@ void RA6Listener::start_receive()
              }
 
              ra6_solicit_header ra6_solicit_hdr;
-             is >> ra6_solicit_hdr;
-             bytes_left -= ra6_solicit_header::size;
+             if (auto t = ra6_solicit_hdr.read(rs.si, rs.se - rs.si); t >= 0) {
+                 rs.si += t;
+             } else {
+                 start_receive();
+                 return;
+             }
 
              uint8_t macaddr[6];
              bool got_macaddr(false);
 
              // Only the source link-layer address option is defined.
-             while (bytes_left > 1) {
-                 uint8_t opt_type(is.get());
-                 std::size_t opt_length(8 * is.get());
+             while (rs.se - rs.si >= 2) {
+                 uint8_t opt_type = *(rs.si)++;
+                 size_t opt_length = 8 * (*(rs.si)++);
                  // Discard if any included option has a length <= 0.
                  if (opt_length <= 0) {
                      fmt::print(stderr, "Solicitation option length == 0\n");
                      start_receive();
                      return;
                  }
-                 if (opt_type == 1 && opt_length == 8 && !got_macaddr) {
-                     got_macaddr = true;
-                     for (size_t i = 0; i < sizeof macaddr; ++i)
-                         macaddr[i] = is.get();
-                 } else {
-                     if (opt_type == 1) {
-                         if (opt_length != 8)
-                             fmt::print(stderr, "Source Link-Layer Address is wrong size for ethernet.\n");
-                         else
-                             fmt::print(stderr, "Solicitation has more than one Source Link-Layer Address option.  Using the first.\n");
+                 if (opt_type == 1) {
+                     if (got_macaddr) {
+                         fmt::print(stderr, "More than one Source Link-Layer Address option; dropping.\n");
+                         start_receive();
+                         return;
                      }
-                     for (size_t i = 0; i < opt_length - 2; ++i)
-                         is.get();
+                     if (opt_length == 8) {
+                         if (rs.se - rs.si < static_cast<ptrdiff_t>(sizeof macaddr)) {
+                             fmt::print(stderr, "Source Link-Layer Address is wrong size for ethernet.\n");
+                             start_receive();
+                             return;
+                         }
+                         got_macaddr = true;
+                         for (size_t i = 0; i < sizeof macaddr; ++i) {
+                             macaddr[i] = *(rs.si)++;
+                         }
+                     } else {
+                         fmt::print(stderr, "Source Link-Layer Address is wrong size for ethernet.\n");
+                         start_receive();
+                         return;
+                     }
+                 } else {
+                     if (rs.se - rs.si < static_cast<ptrdiff_t>(opt_length) - 2) {
+                         fmt::print(stderr, "Invalid length({}) for option type({})\n", +opt_type, opt_length);
+                         start_receive();
+                         return;
+                     }
+                     fmt::print(stderr, "Ignoring unknown option type({})\n", +opt_type);
+                     for (size_t i = 0; i < opt_length - 2; ++i) (rs.si)++;
                  }
-                 bytes_left -= opt_length;
              }
 
              // Discard if the source address is unspecified and
@@ -698,5 +681,4 @@ void RA6Listener::start_receive()
              start_receive();
          });
 }
-
 
