@@ -1,6 +1,6 @@
 /* dhcpclient.cpp - dhcp client request handling
  *
- * Copyright 2011-2017 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2011-2020 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -111,7 +111,11 @@ bool D4Listener::init(const std::string &ifname)
         return false;
     }
 
-    start_receive();
+    thd_ = std::thread([this]() {
+        start_receive();
+        io_service_.run();
+    });
+    thd_.detach();
     return true;
 }
 

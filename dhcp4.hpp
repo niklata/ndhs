@@ -1,6 +1,6 @@
 /* dhcp4.hpp - dhcpv4 client request handling
  *
- * Copyright 2011-2017 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2011-2020 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -141,7 +141,7 @@ private:
 class D4Listener
 {
 public:
-    D4Listener(asio::io_service &io_service) : socket_(io_service) {}
+    D4Listener() : socket_(io_service_) {}
     D4Listener(const D4Listener &) = delete;
     D4Listener &operator=(const D4Listener &) = delete;
 
@@ -166,6 +166,8 @@ private:
     std::string getChaddr(const struct dhcpmsg &dm) const;
     uint8_t validate_dhcp(size_t len) const;
 
+    std::thread thd_;
+    asio::io_service io_service_;
     asio::ip::udp::socket socket_;
     //asio::ip::udp::socket broadcast_socket_;
     asio::ip::udp::endpoint remote_endpoint_;

@@ -92,7 +92,7 @@ static void init_listeners()
             }
         }
         if (use_v4) {
-            v4l->emplace_back(std::make_unique<D4Listener>(*ios));
+            v4l->emplace_back(std::make_unique<D4Listener>());
             if (!v4l->back()->init(i)) {
                 v4l->pop_back();
                 fmt::print(stderr, "Can't bind to v4 interface: {}\n", i);
