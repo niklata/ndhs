@@ -1,6 +1,6 @@
 /* nlsocket.cpp - ipv6 netlink ifinfo gathering
  *
- * Copyright 2014-2017 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2014-2020 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,8 +34,8 @@ extern "C" {
 #include "nl.h"
 }
 
-NLSocket::NLSocket(asio::io_service &io_service)
-: socket_(io_service), nlseq_(random_u64())
+NLSocket::NLSocket()
+: socket_(io_service_), nlseq_(random_u64())
 {
     initialized_ = false;
     socket_.open(nl_protocol(NETLINK_ROUTE));
@@ -46,8 +46,12 @@ NLSocket::NLSocket(asio::io_service &io_service)
     request_addrs();
     initialized_ = true;
 
-    // Begin the main asynchronous receive loop.
-    start_receive();
+    thd_ = std::thread([this]() {
+        // Begin the main asynchronous receive loop.
+        start_receive();
+        io_service_.run();
+    });
+    thd_.detach();
 }
 
 void NLSocket::request_links()

@@ -2,7 +2,7 @@
 #define NRAD6_NLSOCKET_HPP_
 /* nlsocket.hpp - ipv6 netlink ifinfo gathering
  *
- * Copyright 2014-2017 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2014-2020 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,6 +35,7 @@
 #include <map>
 #include <optional>
 #include <mutex>
+#include <thread>
 #include <asio.hpp>
 #include "asio_netlink.hpp"
 extern "C" {
@@ -84,7 +85,7 @@ struct netif_info
 class NLSocket
 {
 public:
-    NLSocket(asio::io_service &io_service);
+    NLSocket();
     NLSocket(const NLSocket &) = delete;
     NLSocket &operator=(const NLSocket &) = delete;
     [[nodiscard]] std::optional<int> get_ifindex(const std::string &name) {
@@ -132,6 +133,8 @@ private:
     void request_addrs();
     void request_addrs(int ifidx);
     std::mutex mtx_; // guards interfaces_ and name_to_ifindex_
+    std::thread thd_;
+    asio::io_service io_service_;
     asio::basic_raw_socket<nl_protocol> socket_;
     nl_endpoint<nl_protocol> remote_endpoint_;
     std::array<uint8_t, 8192> recv_buffer_;

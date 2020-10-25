@@ -239,7 +239,7 @@ static void process_options(int ac, char *av[])
         std::exit(EXIT_FAILURE);
     }
 
-    nl_socket = std::make_unique<NLSocket>(io_service);
+    nl_socket = std::make_unique<NLSocket>();
     init_listeners();
 
     umask(077);
