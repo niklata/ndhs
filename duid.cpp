@@ -7,15 +7,13 @@
 #include <arpa/inet.h>
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include <nk/prng.hpp>
 #include <nk/scopeguard.hpp>
 extern "C" {
 #include "nk/io.h"
 #include "nk/log.h"
 }
 #include "duid.hpp"
-
-extern nk::rng::prng g_random_prng;
+#include "rng.hpp"
 
 #define DUID_PATH "/store/duid.txt"
 char g_server_duid[g_server_duid_len];
@@ -36,8 +34,8 @@ static void generate_duid()
     const uint16_t typefield = htons(4);
     memcpy(g_server_duid + off, &typefield, sizeof typefield);
     off += sizeof typefield;
-    const uint64_t r0 = g_random_prng();
-    const uint64_t r1 = g_random_prng();
+    const auto r0 = random_u64();
+    const auto r1 = random_u64();
     memcpy(g_server_duid + off, &r0, sizeof r0);
     off += sizeof r0;
     memcpy(g_server_duid + off, &r1, sizeof r1);

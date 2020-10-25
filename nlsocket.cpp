@@ -28,15 +28,14 @@
 
 #include <fmt/format.h>
 #include <fmt/ostream.h>
-#include <nk/prng.hpp>
+#include "rng.hpp"
 #include "nlsocket.hpp"
 extern "C" {
 #include "nl.h"
 }
-extern nk::rng::prng g_random_prng;
 
 NLSocket::NLSocket(asio::io_service &io_service)
-: socket_(io_service), nlseq_(g_random_prng())
+: socket_(io_service), nlseq_(random_u64())
 {
     initialized_ = false;
     socket_.open(nl_protocol(NETLINK_ROUTE));

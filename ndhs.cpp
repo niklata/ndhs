@@ -75,8 +75,6 @@ std::unique_ptr<NLSocket> nl_socket;
 static std::vector<std::unique_ptr<D6Listener>> v6_listeners;
 static std::vector<std::unique_ptr<D4Listener>> v4_listeners;
 
-nk::rng::prng g_random_prng;
-
 extern void parse_config(const std::string &path);
 
 static void init_listeners()

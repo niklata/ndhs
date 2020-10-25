@@ -30,7 +30,7 @@
 #include <sys/types.h>
 #include <pwd.h>
 #include <fmt/format.h>
-#include <nk/prng.hpp>
+#include "rng.hpp"
 #include "dhcp4.hpp"
 #include "dhcp_state.hpp"
 #include "nlsocket.hpp"
@@ -41,7 +41,6 @@ extern "C" {
 }
 
 extern std::unique_ptr<NLSocket> nl_socket;
-extern nk::rng::prng g_random_prng;
 extern int64_t get_current_ts();
 
 static std::unique_ptr<ClientStates> client_states_v4;
@@ -243,8 +242,9 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     const auto al = dr->first.to_ulong();
     const auto ah = dr->second.to_ulong();
     const auto ar = ah - al;
-    std::uniform_int_distribution<> dist(0, ar);
-    unsigned long rqs = dist(g_random_prng);
+    std::uniform_int_distribution<uint64_t> dist(0, ar);
+    random_u64_wrapper r64w;
+    const auto rqs = dist(r64w);
 
     // OK, here we have bisected our range using rqs.
     // [al .. ah] => [al .. rqs .. ah]

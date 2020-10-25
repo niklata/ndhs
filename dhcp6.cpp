@@ -1,5 +1,5 @@
 #include <fmt/format.h>
-#include <nk/prng.hpp>
+#include "rng.hpp"
 #include "nlsocket.hpp"
 #include "multicast6.hpp"
 #include "dhcp6.hpp"
@@ -12,7 +12,6 @@
 #define MAX_DYN_ATTEMPTS 100u
 
 extern std::unique_ptr<NLSocket> nl_socket;
-extern nk::rng::prng g_random_prng;
 static auto mc6_alldhcp_ras = asio::ip::address_v6::from_string("ff02::1:2");
 extern int64_t get_current_ts();
 
@@ -33,8 +32,8 @@ static asio::ip::address_v6 v6_addr_random(const asio::ip::address_v6 &prefix, u
     auto b = prefix.to_bytes();
     unsigned i = 15;
     for (; i > keep_bytes; --i)
-        b[i] = g_random_prng();
-    uint8_t c = g_random_prng();
+        b[i] = random_u64();
+    uint8_t c = random_u64();
     b[i] |= c & (0xff >> keep_r_bits);
     return asio::ip::address_v6(b, prefix.scope_id());
 }

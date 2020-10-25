@@ -38,12 +38,12 @@
 
 #include <fmt/format.h>
 #include <nk/netbits.hpp>
-#include <nk/prng.hpp>
 #include "radv6.hpp"
 #include "nlsocket.hpp"
 #include "dhcp6.hpp"
 #include "multicast6.hpp"
 #include "attach_bpf.h"
+#include "rng.hpp"
 
 extern "C" {
 #include "nk/net_checksum.h"
@@ -366,7 +366,6 @@ extern std::unique_ptr<NLSocket> nl_socket;
 static auto mc6_allhosts = asio::ip::address_v6::from_string("ff02::1");
 static auto mc6_allrouters = asio::ip::address_v6::from_string("ff02::2");
 static const uint8_t icmp_nexthdr(58); // Assigned value
-extern nk::rng::prng g_random_prng;
 
 bool RA6Listener::init(const std::string &ifname)
 {
@@ -413,7 +412,8 @@ void RA6Listener::start_periodic_announce()
 {
     unsigned int advi_s_min = std::max(advi_s_max_ / 3, 3U);
     std::uniform_int_distribution<> dist(advi_s_min, advi_s_max_);
-    auto advi_s = dist(g_random_prng);
+    random_u64_wrapper r64w;
+    auto advi_s = dist(r64w);
     timer_.expires_after(std::chrono::seconds(advi_s));
     timer_.async_wait
         ([this](const std::error_code &ec)
