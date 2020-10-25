@@ -199,7 +199,7 @@ struct d6_statuscode
 class D6Listener
 {
 public:
-    D6Listener(asio::io_service &io_service) : socket_(io_service) {}
+    D6Listener() : socket_(io_service_) {}
     D6Listener(const D6Listener &) = delete;
     D6Listener &operator=(const D6Listener &) = delete;
 
@@ -254,6 +254,9 @@ private:
     bool serverid_incorrect(const d6msg_state &d6s) const;
     void start_receive();
     void attach_bpf(int fd);
+
+    std::thread thd_;
+    asio::io_service io_service_;
     std::array<char, 8192> r_buffer_;
     asio::ip::udp::endpoint sender_endpoint_;
     asio::ip::address_v6 local_ip_;

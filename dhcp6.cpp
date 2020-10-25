@@ -86,7 +86,11 @@ bool D6Listener::init(const std::string &ifname, uint8_t preference)
     if (!radv6_listener_->init(ifname))
         return false;
 
-    start_receive();
+    thd_ = std::thread([this]() {
+        start_receive();
+        io_service_.run();
+    });
+    thd_.detach();
     return true;
 }
 

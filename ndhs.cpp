@@ -85,7 +85,7 @@ static void init_listeners()
     bound_interfaces_foreach([ios, v6l, v4l](const std::string &i, bool use_v4, bool use_v6,
                                              uint8_t preference) {
         if (use_v6) {
-            v6l->emplace_back(std::make_unique<D6Listener>(*ios));
+            v6l->emplace_back(std::make_unique<D6Listener>());
             if (!v6l->back()->init(i, preference)) {
                 v6l->pop_back();
                 fmt::print(stderr, "Can't bind to v6 interface: {}\n", i);
