@@ -34,6 +34,7 @@
 #include <array>
 #include <map>
 #include <optional>
+#include <mutex>
 #include <asio.hpp>
 #include "asio_netlink.hpp"
 extern "C" {
@@ -86,12 +87,40 @@ public:
     NLSocket(asio::io_service &io_service);
     NLSocket(const NLSocket &) = delete;
     NLSocket &operator=(const NLSocket &) = delete;
-    [[nodiscard]] std::optional<int> get_ifindex(const std::string &name) const {
+    [[nodiscard]] std::optional<int> get_ifindex(const std::string &name) {
+        std::lock_guard<std::mutex> m(mtx_);
         auto elt = name_to_ifindex_.find(name);
         if (elt == name_to_ifindex_.end()) return {};
         return elt->second;
     }
-    std::map<int, netif_info> interfaces;
+
+    struct ifinfo_ret
+    {
+        ifinfo_ret(netif_info *v, std::unique_lock<std::mutex> &&ml) : ml_(std::move(ml)), v_(v) {}
+        netif_info *value() const { return v_; }
+    private:
+        std::unique_lock<std::mutex> ml_;
+        netif_info *v_;
+    };
+    [[nodiscard]] ifinfo_ret get_ifinfo(int ifindex)
+    {
+        std::unique_lock<std::mutex> ml(mtx_);
+        if (auto elt = interfaces_.find(ifindex); elt != interfaces_.end()) {
+            return ifinfo_ret(&elt->second, std::move(ml));
+        }
+        return ifinfo_ret(nullptr, std::move(ml));
+    }
+    [[nodiscard]] ifinfo_ret get_ifinfo(const std::string &name)
+    {
+        std::unique_lock<std::mutex> ml(mtx_);
+        auto alt = name_to_ifindex_.find(name);
+        if (alt != name_to_ifindex_.end()) {
+            if (auto elt = interfaces_.find(alt->second); elt != interfaces_.end()) {
+                return ifinfo_ret(&elt->second, std::move(ml));
+            }
+        }
+        return ifinfo_ret(nullptr, std::move(ml));
+    }
 private:
     void start_receive();
     void process_receive(std::size_t bytes_xferred,
@@ -102,10 +131,12 @@ private:
     void request_links();
     void request_addrs();
     void request_addrs(int ifidx);
+    std::mutex mtx_; // guards interfaces_ and name_to_ifindex_
     asio::basic_raw_socket<nl_protocol> socket_;
     nl_endpoint<nl_protocol> remote_endpoint_;
     std::array<uint8_t, 8192> recv_buffer_;
     std::map<std::string, int> name_to_ifindex_;
+    std::map<int, netif_info> interfaces_;
     int nlseq_;
     bool initialized_:1;
 };

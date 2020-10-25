@@ -92,17 +92,18 @@ bool D4Listener::init(const std::string &ifname)
         return false;
     }
 
-    int ifidx;
-    if (auto t = nl_socket->get_ifindex(ifname)) ifidx = *t;
-    else {
-        fmt::print(stderr, "failed to get interface index for {}\n", ifname);
-        return false;
-    }
-    const auto &ifinfo = nl_socket->interfaces.at(ifidx);
-    for (const auto &i: ifinfo.addrs) {
-        if (i.address.is_v4()) {
-            local_ip_ = i.address.to_v4();
-            fmt::print(stderr, "IP address for {} is {}.\n", ifname, local_ip_);
+    {
+        auto ifinfo = nl_socket->get_ifinfo(ifname);
+        if (!ifinfo.value()) {
+            fmt::print(stderr, "Failed to get interface index for {}\n", ifname);
+            return false;
+        }
+
+        for (const auto &i: ifinfo.value()->addrs) {
+            if (i.address.is_v4()) {
+                local_ip_ = i.address.to_v4();
+                fmt::print(stderr, "IP address for {} is {}.\n", ifname, local_ip_);
+            }
         }
     }
     if (!local_ip_.is_v4()) {

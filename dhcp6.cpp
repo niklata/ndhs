@@ -45,27 +45,27 @@ bool D6Listener::init(const std::string &ifname, uint8_t preference)
     using_bpf_ = false;
     preference_ = preference;
 
-    int ifidx;
-    if (auto t = nl_socket->get_ifindex(ifname_)) ifidx = *t;
-    else {
-        fmt::print(stderr, "Failed to get interface index for {}\n", ifname_);
-        return false;
-    }
-    const auto &ifinfo = nl_socket->interfaces.at(ifidx);
+    {
+        auto ifinfo = nl_socket->get_ifinfo(ifname_);
+        if (!ifinfo.value()) {
+            fmt::print(stderr, "Failed to get interface index for {}\n", ifname_);
+            return false;
+        }
 
-    fmt::print(stderr, "DHCPv6 Preference for interface {} is {}.\n", ifname_, preference_);
+        fmt::print(stderr, "DHCPv6 Preference for interface {} is {}.\n", ifname_, preference_);
 
-    for (const auto &i: ifinfo.addrs) {
-        if (i.scope == netif_addr::Scope::Global && i.address.is_v6()) {
-            local_ip_ = i.address.to_v6();
-            prefixlen_ = i.prefixlen;
-            local_ip_prefix_ = mask_v6_addr(local_ip_, prefixlen_);
-            fmt::print(stderr, "IP address for {} is {}/{}.  Prefix is {}.\n",
-                       ifname, local_ip_, +prefixlen_, local_ip_prefix_);
-        } else if (i.scope == netif_addr::Scope::Link && i.address.is_v6()) {
-            link_local_ip_ = i.address.to_v6();
-            fmt::print(stderr, "Link-local IP address for {} is {}.\n",
-                       ifname, link_local_ip_);
+        for (const auto &i: ifinfo.value()->addrs) {
+            if (i.scope == netif_addr::Scope::Global && i.address.is_v6()) {
+                local_ip_ = i.address.to_v6();
+                prefixlen_ = i.prefixlen;
+                local_ip_prefix_ = mask_v6_addr(local_ip_, prefixlen_);
+                fmt::print(stderr, "IP address for {} is {}/{}.  Prefix is {}.\n",
+                           ifname, local_ip_, +prefixlen_, local_ip_prefix_);
+            } else if (i.scope == netif_addr::Scope::Link && i.address.is_v6()) {
+                link_local_ip_ = i.address.to_v6();
+                fmt::print(stderr, "Link-local IP address for {} is {}.\n",
+                           ifname, link_local_ip_);
+            }
         }
     }
     socket_.open(asio::ip::udp::v6(), ec);

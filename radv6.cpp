@@ -452,36 +452,36 @@ bool RA6Listener::send_advert()
     csum = net_checksum161c_add
         (csum, net_checksum161c(&ra6adv_hdr, sizeof ra6adv_hdr));
 
-    int ifidx;
-    if (auto t = nl_socket->get_ifindex(ifname_)) ifidx = *t;
-    else {
-        fmt::print(stderr, "send_advert: failed to get interface index for {}\n", ifname_);
-        return false;
-    }
-    auto &ifinfo = nl_socket->interfaces.at(ifidx);
+    {
+        auto ifinfo = nl_socket->get_ifinfo(ifname_);
+        if (!ifinfo.value()) {
+            fmt::print(stderr, "send_advert: failed to get interface index for {}\n", ifname_);
+            return false;
+        }
 
-    ra6_slla.macaddr(ifinfo.macaddr, sizeof ifinfo.macaddr);
-    csum = net_checksum161c_add
-        (csum, net_checksum161c(&ra6_slla, sizeof ra6_slla));
-    ra6_mtu.mtu(ifinfo.mtu);
-    csum = net_checksum161c_add
-        (csum, net_checksum161c(&ra6_mtu, sizeof ra6_mtu));
+        ra6_slla.macaddr(ifinfo.value()->macaddr, sizeof ifinfo.value()->macaddr);
+        csum = net_checksum161c_add
+            (csum, net_checksum161c(&ra6_slla, sizeof ra6_slla));
+        ra6_mtu.mtu(ifinfo.value()->mtu);
+        csum = net_checksum161c_add
+            (csum, net_checksum161c(&ra6_mtu, sizeof ra6_mtu));
 
-    // Prefix Information
-    for (const auto &i: ifinfo.addrs) {
-        if (i.scope == netif_addr::Scope::Global && i.address.is_v6()) {
-            ra6_prefix_info_opt ra6_pfxi;
-            ra6_pfxi.prefix(i.address.to_v6(), i.prefixlen);
-            ra6_pfxi.on_link(true);
-            ra6_pfxi.auto_addr_cfg(false);
-            ra6_pfxi.router_addr_flag(true);
-            ra6_pfxi.valid_lifetime(2592000);
-            ra6_pfxi.preferred_lifetime(604800);
-            ra6_pfxs.push_back(ra6_pfxi);
-            csum = net_checksum161c_add
-                (csum, net_checksum161c(&ra6_pfxi, sizeof ra6_pfxi));
-            pktl += sizeof ra6_pfxi;
-            break;
+        // Prefix Information
+        for (const auto &i: ifinfo.value()->addrs) {
+            if (i.scope == netif_addr::Scope::Global && i.address.is_v6()) {
+                ra6_prefix_info_opt ra6_pfxi;
+                ra6_pfxi.prefix(i.address.to_v6(), i.prefixlen);
+                ra6_pfxi.on_link(true);
+                ra6_pfxi.auto_addr_cfg(false);
+                ra6_pfxi.router_addr_flag(true);
+                ra6_pfxi.valid_lifetime(2592000);
+                ra6_pfxi.preferred_lifetime(604800);
+                ra6_pfxs.push_back(ra6_pfxi);
+                csum = net_checksum161c_add
+                    (csum, net_checksum161c(&ra6_pfxi, sizeof ra6_pfxi));
+                pktl += sizeof ra6_pfxi;
+                break;
+            }
         }
     }
 

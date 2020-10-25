@@ -154,8 +154,9 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
 
     switch (nlh->nlmsg_type) {
     case RTM_NEWADDR: {
-        auto ifelt = interfaces.find(nia.if_index);
-        if (ifelt == interfaces.end()) {
+        std::lock_guard<std::mutex> ml(mtx_);
+        auto ifelt = interfaces_.find(nia.if_index);
+        if (ifelt == interfaces_.end()) {
             fmt::print(stderr, "nlsocket: Address for unknown interface {}\n",
                        nia.if_name.c_str());
             return;
@@ -171,8 +172,9 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
         return;
     }
     case RTM_DELADDR: {
-        auto ifelt = interfaces.find(nia.if_index);
-        if (ifelt == interfaces.end())
+        std::lock_guard<std::mutex> ml(mtx_);
+        auto ifelt = interfaces_.find(nia.if_index);
+        if (ifelt == interfaces_.end())
             return;
         const auto iend = ifelt->second.addrs.end();
         for (auto i = ifelt->second.addrs.begin(); i != iend; ++i) {
@@ -228,21 +230,24 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
 
     switch (nlh->nlmsg_type) {
     case RTM_NEWLINK: {
+        std::lock_guard<std::mutex> ml(mtx_);
         name_to_ifindex_.emplace(std::make_pair(nii.name, nii.index));
-        auto elt = interfaces.find(nii.index);
+        auto elt = interfaces_.find(nii.index);
         // Preserve the addresses if we're just modifying fields.
-        if (elt != interfaces.end())
+        if (elt != interfaces_.end())
             std::swap(nii.addrs, elt->second.addrs);
         fmt::print(stderr, "nlsocket: Adding link info: {}\n", nii.name);
-        interfaces.emplace(std::make_pair(nii.index, nii));
+        interfaces_.emplace(std::make_pair(nii.index, nii));
         if (initialized_)
             request_addrs(nii.index);
         break;
     }
-    case RTM_DELLINK:
+    case RTM_DELLINK: {
+        std::lock_guard<std::mutex> ml(mtx_);
         name_to_ifindex_.erase(nii.name);
-        interfaces.erase(nii.index);
+        interfaces_.erase(nii.index);
         break;
+    }
     default:
         fmt::print(stderr, "nlsocket: Unhandled link message type: {}\n", nlh->nlmsg_type);
         break;
