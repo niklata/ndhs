@@ -1,6 +1,6 @@
 /* ndhs.c - DHCPv4/DHCPv6 and IPv6 router advertisement server
  *
- * Copyright 2014-2017 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2014-2020 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,17 +41,18 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 #include <ctype.h>
 #include <pwd.h>
 #include <grp.h>
 #include <signal.h>
+#include <poll.h>
 #include <errno.h>
-#include <asio.hpp>
 #include <fmt/format.h>
 #include <nk/optionarg.hpp>
 #include <nk/from_string.hpp>
-#include <nk/prng.hpp>
 extern "C" {
 #include "nk/log.h"
 #include "nk/privs.h"
@@ -63,8 +64,6 @@ extern "C" {
 #include "dynlease.hpp"
 #include "duid.hpp"
 
-static asio::io_service io_service;
-static asio::signal_set asio_signal_set(io_service);
 static std::string configfile{"/etc/ndhs.conf"};
 static std::string chroot_path;
 static uid_t ndhs_uid;
@@ -120,24 +119,45 @@ void set_chroot_path(size_t /* linenum */, std::string &&path)
     chroot_path = std::move(path);
 }
 
-static void process_signals()
+static volatile sig_atomic_t l_signal_exit;
+static void signal_handler(int signo)
 {
-    sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGCHLD);
-    sigaddset(&mask, SIGPIPE);
-    sigaddset(&mask, SIGUSR1);
-    sigaddset(&mask, SIGUSR2);
-    sigaddset(&mask, SIGTSTP);
-    sigaddset(&mask, SIGTTIN);
-    sigaddset(&mask, SIGHUP);
-    if (sigprocmask(SIG_BLOCK, &mask, nullptr) < 0) {
-        fmt::print(stderr, "sigprocmask failed\n");
-        std::exit(EXIT_FAILURE);
+    switch (signo) {
+    case SIGCHLD: {
+        while (waitpid(-1, nullptr, WNOHANG) > -1);
+        break;
     }
-    asio_signal_set.add(SIGINT);
-    asio_signal_set.add(SIGTERM);
-    asio_signal_set.async_wait([](const std::error_code &, int) { io_service.stop(); });
+    case SIGINT:
+    case SIGTERM: l_signal_exit = 1; break;
+    default: break;
+    }
+}
+
+static void setup_signals_ndhs()
+{
+    static const int ss[] = {
+        SIGCHLD, SIGINT, SIGTERM, SIGKILL
+    };
+    sigset_t mask;
+    if (sigprocmask(0, 0, &mask) < 0)
+        suicide("sigprocmask failed");
+    for (int i = 0; ss[i] != SIGKILL; ++i)
+        if (sigdelset(&mask, ss[i]))
+            suicide("sigdelset failed");
+    if (sigaddset(&mask, SIGPIPE))
+        suicide("sigaddset failed");
+    if (sigprocmask(SIG_SETMASK, &mask, static_cast<sigset_t *>(nullptr)) < 0)
+        suicide("sigprocmask failed");
+
+    struct sigaction sa;
+    memset(&sa, 0, sizeof sa);
+    sa.sa_handler = signal_handler;
+    sa.sa_flags = SA_RESTART;
+    if (sigemptyset(&sa.sa_mask))
+        suicide("sigemptyset failed");
+    for (int i = 0; ss[i] != SIGKILL; ++i)
+        if (sigaction(ss[i], &sa, NULL))
+            suicide("sigaction failed");
 }
 
 static void print_version(void)
@@ -242,7 +262,7 @@ static void process_options(int ac, char *av[])
     init_listeners();
 
     umask(077);
-    process_signals();
+    setup_signals_ndhs();
 
     nk_set_chroot(chroot_path.c_str());
     duid_load_from_file();
@@ -256,7 +276,18 @@ int main(int ac, char *av[])
 
     process_options(ac, av);
 
-    io_service.run();
+    struct pollfd pfds[1];
+    memset(pfds, 0, sizeof pfds);
+    pfds[0].fd = -1;
+    pfds[0].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+
+    for (;;) {
+        if (poll(pfds, 1, -1) < 0) {
+            if (errno != EINTR)
+                suicide("poll failed");
+        }
+        if (l_signal_exit) break;
+    }
 
     dynlease_serialize(LEASEFILE_PATH);
 
