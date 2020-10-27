@@ -46,7 +46,7 @@
 #include "rng.hpp"
 
 extern "C" {
-#include "nk/net_checksum.h"
+#include "nk/net_checksum16.h"
 #include "nk/log.h"
 }
 
@@ -441,7 +441,7 @@ bool RA6Listener::send_advert()
     icmp_hdr.type(134);
     icmp_hdr.code(0);
     icmp_hdr.checksum(0);
-    csum = net_checksum161c(&icmp_hdr, sizeof icmp_hdr);
+    csum = net_checksum16(&icmp_hdr, sizeof icmp_hdr);
 
     ra6adv_hdr.hoplimit(0);
     ra6adv_hdr.managed_addresses(true);
@@ -449,8 +449,8 @@ bool RA6Listener::send_advert()
     ra6adv_hdr.router_lifetime(3 * advi_s_max_);
     ra6adv_hdr.reachable_time(0);
     ra6adv_hdr.retransmit_timer(0);
-    csum = net_checksum161c_add
-        (csum, net_checksum161c(&ra6adv_hdr, sizeof ra6adv_hdr));
+    csum = net_checksum16_add
+        (csum, net_checksum16(&ra6adv_hdr, sizeof ra6adv_hdr));
 
     {
         auto ifinfo = nl_socket->get_ifinfo(ifname_);
@@ -460,11 +460,11 @@ bool RA6Listener::send_advert()
         }
 
         ra6_slla.macaddr(ifinfo.value()->macaddr, sizeof ifinfo.value()->macaddr);
-        csum = net_checksum161c_add
-            (csum, net_checksum161c(&ra6_slla, sizeof ra6_slla));
+        csum = net_checksum16_add
+            (csum, net_checksum16(&ra6_slla, sizeof ra6_slla));
         ra6_mtu.mtu(ifinfo.value()->mtu);
-        csum = net_checksum161c_add
-            (csum, net_checksum161c(&ra6_mtu, sizeof ra6_mtu));
+        csum = net_checksum16_add
+            (csum, net_checksum16(&ra6_mtu, sizeof ra6_mtu));
 
         // Prefix Information
         for (const auto &i: ifinfo.value()->addrs) {
@@ -477,8 +477,8 @@ bool RA6Listener::send_advert()
                 ra6_pfxi.valid_lifetime(2592000);
                 ra6_pfxi.preferred_lifetime(604800);
                 ra6_pfxs.push_back(ra6_pfxi);
-                csum = net_checksum161c_add
-                    (csum, net_checksum161c(&ra6_pfxi, sizeof ra6_pfxi));
+                csum = net_checksum16_add
+                    (csum, net_checksum16(&ra6_pfxi, sizeof ra6_pfxi));
                 pktl += sizeof ra6_pfxi;
                 break;
             }
@@ -493,7 +493,7 @@ bool RA6Listener::send_advert()
     if (dns6_servers && dns6_servers->size()) {
         ra6_dns.length(dns6_servers->size());
         ra6_dns.lifetime(advi_s_max_ * 2);
-        csum = net_checksum161c_add(csum, net_checksum161c(&ra6_dns,
+        csum = net_checksum16_add(csum, net_checksum16(&ra6_dns,
                                                            sizeof ra6_dns));
         pktl += sizeof ra6_dns + 16 * dns6_servers->size();
     }
@@ -502,24 +502,24 @@ bool RA6Listener::send_advert()
     if (dns_search_blob && dns_search_blob->size()) {
         dns_search_slack = ra6_dsrch.length(dns_search_blob->size());
         ra6_dsrch.lifetime(advi_s_max_ * 2);
-        csum = net_checksum161c_add
-            (csum, net_checksum161c(&ra6_dsrch, sizeof ra6_dsrch));
-        csum = net_checksum161c_add
-            (csum, net_checksum161c(dns_search_blob->data(),
+        csum = net_checksum16_add
+            (csum, net_checksum16(&ra6_dsrch, sizeof ra6_dsrch));
+        csum = net_checksum16_add
+            (csum, net_checksum16(dns_search_blob->data(),
                                     dns_search_blob->size()));
         pktl += sizeof ra6_dsrch + dns_search_blob->size() + dns_search_slack;
     }
 
     auto llab = asio::ip::address_v6::any().to_bytes();
     auto dstb = mc6_allhosts.to_bytes();
-    csum = net_checksum161c_add(csum, net_checksum161c(&llab, sizeof llab));
-    csum = net_checksum161c_add(csum, net_checksum161c(&dstb, sizeof dstb));
-    csum = net_checksum161c_add(csum, net_checksum161c(&pktl, sizeof pktl));
-    csum = net_checksum161c_add(csum, net_checksum161c(&icmp_nexthdr, 1));
+    csum = net_checksum16_add(csum, net_checksum16(&llab, sizeof llab));
+    csum = net_checksum16_add(csum, net_checksum16(&dstb, sizeof dstb));
+    csum = net_checksum16_add(csum, net_checksum16(&pktl, sizeof pktl));
+    csum = net_checksum16_add(csum, net_checksum16(&icmp_nexthdr, 1));
     if (dns6_servers) {
         for (const auto &i: *dns6_servers) {
             auto db = i.to_bytes();
-            csum = net_checksum161c_add(csum, net_checksum161c(&db, sizeof db));
+            csum = net_checksum16_add(csum, net_checksum16(&db, sizeof db));
         }
     }
     icmp_hdr.checksum(csum);
