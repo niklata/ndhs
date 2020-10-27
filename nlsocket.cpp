@@ -28,65 +28,83 @@
 
 #include <fmt/format.h>
 #include <fmt/ostream.h>
+#include <poll.h>
 #include "rng.hpp"
 #include "nlsocket.hpp"
 extern "C" {
+#include "nk/log.h"
 #include "nl.h"
 }
 
-NLSocket::NLSocket()
-: socket_(io_service_), nlseq_(random_u64())
+bool NLSocket::init()
 {
     initialized_ = false;
-    socket_.open(nl_protocol(NETLINK_ROUTE));
-    socket_.bind(nl_endpoint<nl_protocol>(RTMGRP_LINK));
-    socket_.non_blocking(true);
+    nlseq_ = random_u64();
+
+    auto tfd = nk::sys::handle{ nl_open(NETLINK_ROUTE, RTMGRP_LINK, 0) };
+    if (!tfd) return false;
+    swap(fd_, tfd);
 
     request_links();
     request_addrs();
     initialized_ = true;
 
     thd_ = std::thread([this]() {
-        // Begin the main asynchronous receive loop.
-        start_receive();
-        io_service_.run();
+        struct pollfd pfds[1];
+        memset(pfds, 0, sizeof pfds);
+        pfds[0].fd = fd_();
+        pfds[0].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+        for (;;) {
+            if (poll(pfds, 1, -1) < 0) {
+                if (errno != EINTR)
+                    suicide("poll failed");
+            }
+            if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+                pfds[0].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
+                suicide("nlfd closed unexpectedly");
+            }
+            if (pfds[0].revents & POLLIN) {
+                pfds[0].revents &= ~POLLIN;
+                char buf[8192];
+                for (;;) {
+                    auto buflen = recv(fd_(), buf, sizeof buf, MSG_DONTWAIT);
+                    if (buflen == -1) {
+                        int err = errno;
+                        if (err == EINTR) continue;
+                        if (err == EAGAIN || err == EWOULDBLOCK) break;
+                        fmt::print(stderr, "nlsocket: recv failed: {}\n", strerror(err));
+                        std::exit(EXIT_FAILURE);
+                    }
+                    process_receive(buf, buflen, 0, 0);
+                }
+            }
+        }
     });
     thd_.detach();
+
+    return true;
 }
 
 void NLSocket::request_links()
 {
-    int fd = socket_.native_handle();
     auto link_seq = nlseq_++;
-    if (nl_sendgetlinks(fd, link_seq) < 0) {
+    if (nl_sendgetlinks(fd_(), link_seq) < 0) {
         fmt::print(stderr, "nlsocket: failed to get initial rtlink state\n");
         std::exit(EXIT_FAILURE);
     }
-    std::size_t bytes_xferred;
-    std::error_code ec;
-    while ((bytes_xferred = socket_.receive(asio::buffer(recv_buffer_), 0, ec)))
-        process_receive(bytes_xferred, link_seq, 0);
 }
 
+// Must be called after request_links() completes
 void NLSocket::request_addrs()
 {
-    int fd = socket_.native_handle();
-    auto addr_seq = nlseq_++;
-    if (nl_sendgetaddrs(fd, addr_seq) < 0) {
-        fmt::print(stderr, "nlsocket: failed to get initial rtaddr state\n");
-        std::exit(EXIT_FAILURE);
-    }
-    std::size_t bytes_xferred;
-    std::error_code ec;
-    while ((bytes_xferred = socket_.receive(asio::buffer(recv_buffer_), 0, ec)))
-        process_receive(bytes_xferred, addr_seq, 0);
+    for (auto &i: name_to_ifindex_)
+        request_addrs(i.second);
 }
 
 void NLSocket::request_addrs(int ifidx)
 {
-    int fd = socket_.native_handle();
     auto addr_seq = nlseq_++;
-    if (nl_sendgetaddr(fd, addr_seq, ifidx) < 0) {
+    if (nl_sendgetaddr(fd_(), addr_seq, ifidx) < 0) {
         fmt::print(stderr, "nlsocket: failed to get initial rtaddr state\n");
         std::exit(EXIT_FAILURE);
     }
@@ -242,8 +260,6 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
             std::swap(nii.addrs, elt->second.addrs);
         fmt::print(stderr, "nlsocket: Adding link info: {}\n", nii.name);
         interfaces_.emplace(std::make_pair(nii.index, nii));
-        if (initialized_)
-            request_addrs(nii.index);
         break;
     }
     case RTM_DELLINK: {
@@ -275,10 +291,10 @@ void NLSocket::process_nlmsg(const struct nlmsghdr *nlh)
     }
 }
 
-void NLSocket::process_receive(std::size_t bytes_xferred,
-                               unsigned int seq, unsigned int portid)
+void NLSocket::process_receive(const char *buf, std::size_t bytes_xferred,
+                               unsigned seq, unsigned portid)
 {
-    const struct nlmsghdr *nlh = (const struct nlmsghdr *)recv_buffer_.data();
+    const struct nlmsghdr *nlh = (const struct nlmsghdr *)buf;
     for (;NLMSG_OK(nlh, bytes_xferred); nlh = NLMSG_NEXT(nlh, bytes_xferred)) {
         // Should be 0 for messages from the kernel.
         if (nlh->nlmsg_pid && portid && nlh->nlmsg_pid != portid)
@@ -310,21 +326,4 @@ void NLSocket::process_receive(std::size_t bytes_xferred,
         }
     }
 }
-
-void NLSocket::start_receive()
-{
-    socket_.async_receive_from
-        (asio::buffer(recv_buffer_), remote_endpoint_,
-         [this](const std::error_code &error, std::size_t bytes_xferred)
-         {
-             if (error) {
-                 fmt::print(stderr, "nlsocket: Error during receive: {}\n", error);
-                 exit(EXIT_FAILURE);
-                 return;
-             }
-             process_receive(bytes_xferred, 0, 0);
-             start_receive();
-         });
-}
-
 

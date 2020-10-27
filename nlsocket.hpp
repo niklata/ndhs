@@ -34,10 +34,10 @@
 #include <array>
 #include <map>
 #include <optional>
+#include <nk/sys/posix/handle.hpp>
 #include <mutex>
 #include <thread>
 #include <asio.hpp>
-#include "asio_netlink.hpp"
 extern "C" {
 #include "nl.h"
 }
@@ -85,9 +85,12 @@ struct netif_info
 class NLSocket
 {
 public:
-    NLSocket();
+    NLSocket() : initialized_(false) {}
     NLSocket(const NLSocket &) = delete;
     NLSocket &operator=(const NLSocket &) = delete;
+
+    [[nodiscard]] bool init();
+    auto fd() const { return fd_(); }
     [[nodiscard]] std::optional<int> get_ifindex(const std::string &name) {
         std::lock_guard<std::mutex> m(mtx_);
         auto elt = name_to_ifindex_.find(name);
@@ -123,9 +126,8 @@ public:
         return ifinfo_ret(nullptr, std::move(ml));
     }
 private:
-    void start_receive();
-    void process_receive(std::size_t bytes_xferred,
-                         unsigned int seq, unsigned int portid);
+    void process_receive(const char *buf, std::size_t bytes_xferred,
+                         unsigned seq, unsigned portid);
     void process_rt_link_msgs(const struct nlmsghdr *nlh);
     void process_rt_addr_msgs(const struct nlmsghdr *nlh);
     void process_nlmsg(const struct nlmsghdr *nlh);
@@ -134,12 +136,9 @@ private:
     void request_addrs(int ifidx);
     std::mutex mtx_; // guards interfaces_ and name_to_ifindex_
     std::thread thd_;
-    asio::io_service io_service_;
-    asio::basic_raw_socket<nl_protocol> socket_;
-    nl_endpoint<nl_protocol> remote_endpoint_;
-    std::array<uint8_t, 8192> recv_buffer_;
     std::map<std::string, int> name_to_ifindex_;
     std::map<int, netif_info> interfaces_;
+    nk::sys::handle fd_;
     int nlseq_;
     bool initialized_:1;
 };
