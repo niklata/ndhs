@@ -28,6 +28,7 @@
 
 #include <unistd.h>
 #include <sys/types.h>
+#include <poll.h>
 #include <pwd.h>
 #include <fmt/format.h>
 #include "rng.hpp"
@@ -40,57 +41,135 @@ extern "C" {
 #include "options.h"
 }
 
+// key is concatenation of xid|hwaddr.  Neither of these need to be
+// stored in explicit fields in the state structure.
+static std::string generateKey(uint32_t xid, uint8_t *hwaddr) {
+    return fmt::sprintf("{}%02.x%02.x%02.x%02.x%02.x%02.x", xid,
+                        hwaddr[0], hwaddr[1], hwaddr[2], hwaddr[3],
+                        hwaddr[4], hwaddr[5]);
+}
+
+ClientStates::ClientStates() : currentMap_(0), swapInterval_(60) /* 1m */
+{
+    expires_ = std::chrono::steady_clock::now() + std::chrono::seconds(swapInterval_);
+}
+bool ClientStates::stateExists(uint32_t xid, uint8_t *hwaddr) {
+    maybe_swap();
+    const auto key = generateKey(xid, hwaddr);
+    return (map_[0].find(key) != map_[0].end()) ||
+           (map_[1].find(key) != map_[1].end());
+}
+void ClientStates::stateAdd(uint32_t xid, uint8_t *hwaddr, uint8_t state)
+{
+    maybe_swap();
+    const auto key = generateKey(xid, hwaddr);
+    if (!state)
+        return;
+    stateKill(xid, hwaddr);
+    map_[currentMap_][key] = state;
+}
+uint8_t ClientStates::stateGet(uint32_t xid, uint8_t *hwaddr)
+{
+    maybe_swap();
+    const auto key = generateKey(xid, hwaddr);
+    auto r = map_[currentMap_].find(key);
+    if (r != map_[currentMap_].end())
+        return r->second;
+    r = map_[!currentMap_].find(key);
+    if (r != map_[!currentMap_].end()) {
+        map_[!currentMap_].erase(r);
+        map_[currentMap_][key] = r->second;
+        return r->second;
+    }
+    return DHCPNULL;
+}
+void ClientStates::stateKill(uint32_t xid, uint8_t *hwaddr)
+{
+    maybe_swap();
+    const auto key = generateKey(xid, hwaddr);
+    auto elt = map_[currentMap_].find(key);
+    if (elt != map_[currentMap_].end()) {
+        map_[currentMap_].erase(elt);
+        return;
+    }
+    elt = map_[!currentMap_].find(key);
+    if (elt != map_[!currentMap_].end())
+        map_[!currentMap_].erase(elt);
+}
+void ClientStates::maybe_swap(void)
+{
+    const auto now = std::chrono::steady_clock::now();
+    if (now < expires_) return;
+
+    expires_ = now + std::chrono::seconds(swapInterval_);
+    const int killMap = !currentMap_;
+    map_[killMap].clear();
+    currentMap_ = killMap;
+}
+
 extern std::unique_ptr<NLSocket> nl_socket;
 extern int64_t get_current_ts();
 
 static std::unique_ptr<ClientStates> client_states_v4;
-static void init_client_states_v4(asio::io_service &io_service)
+static void init_client_states_v4()
 {
     static bool was_initialized;
     if (was_initialized) return;
-    client_states_v4 = std::make_unique<ClientStates>(io_service);
+    client_states_v4 = std::make_unique<ClientStates>();
+}
+
+// Must be called after ifname_ is set.
+bool D4Listener::create_dhcp4_socket()
+{
+    auto tfd = nk::sys::handle{ socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, IPPROTO_UDP) };
+    if (!tfd) {
+        fmt::print(stderr, "Failed to create v4 UDP socket on {}: {}\n", ifname_, strerror(errno));
+        return false;
+    }
+    const int iv = 1;
+    if (setsockopt(tfd(), SOL_SOCKET, SO_BROADCAST, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
+        fmt::print(stderr, "Failed to set broadcast flag on {}: {}\n", ifname_, strerror(errno));
+        return false;
+    }
+    if (setsockopt(tfd(), SOL_SOCKET, SO_DONTROUTE, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
+        fmt::print(stderr, "Failed to set do not route flag on {}: {}\n", ifname_, strerror(errno));
+        return false;
+    }
+    if (setsockopt(tfd(), SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
+        fmt::print(stderr, "Failed to set reuse address flag on {}: {}\n", ifname_, strerror(errno));
+        return false;
+    }
+    sockaddr_in sai;
+    sai.sin_family = AF_INET;
+    sai.sin_port = htons(67);
+    sai.sin_addr.s_addr = 0; // any
+    if (bind(tfd(), reinterpret_cast<const sockaddr *>(&sai), sizeof sai)) {
+        fmt::print(stderr, "Failed to bind to UDP 67 on {}: {}\n", ifname_, strerror(errno));
+        return false;
+    }
+
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof ifr);
+    if (ifname_.size() >= sizeof ifr.ifr_name) {
+        fmt::print(stderr, "Interface name '{}' is too long: {} >= {}\n",
+                   ifname_, ifname_.size(), sizeof ifr.ifr_name);
+        return false;
+    }
+    memcpy(ifr.ifr_name, ifname_.c_str(), ifname_.size());
+    if (setsockopt(tfd(), SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
+        fmt::print(stderr, "failed to bind socket to device on {}: {}\n", ifname_, strerror(errno));
+        return false;
+    }
+
+    swap(fd_, tfd);
+    return true;
 }
 
 bool D4Listener::init(const std::string &ifname)
 {
-    std::error_code ec;
     ifname_ = ifname;
-    init_client_states_v4(socket_.get_io_service());
-    const auto endpoint = asio::ip::udp::endpoint(asio::ip::address_v4::any(), 67);
-    socket_.open(endpoint.protocol(), ec);
-    if (ec) {
-        fmt::print(stderr, "Failed to open v4 UDP socket on {}\n", ifname_);
-        return false;
-    }
-    socket_.set_option(asio::ip::udp::socket::broadcast(true), ec);
-    if (ec) {
-        fmt::print(stderr, "Failed to set broadcast flag on {}\n", ifname_);
-        return false;
-    }
-    socket_.set_option(asio::ip::udp::socket::do_not_route(true), ec);
-    if (ec) {
-        fmt::print(stderr, "Failed to set do not route flag on {}\n", ifname_);
-        return false;
-    }
-    socket_.set_option(asio::ip::udp::socket::reuse_address(true), ec);
-    if (ec) {
-        fmt::print(stderr, "Failed to set reuse address flag on {}\n", ifname_);
-        return false;
-    }
-    socket_.bind(endpoint, ec);
-    if (ec) {
-        fmt::print(stderr, "Failed to bind to UDP 67 on {}\n", ifname_);
-        return false;
-    }
-    int fd = socket_.native_handle();
-
-    struct ifreq ifr;
-    memset(&ifr, 0, sizeof (struct ifreq));
-    memcpy(ifr.ifr_name, ifname.c_str(), ifname.size());
-    if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
-        fmt::print(stderr, "failed to bind socket to device: {}\n", strerror(errno));
-        return false;
-    }
+    init_client_states_v4();
+    if (!create_dhcp4_socket()) return false;
 
     {
         auto ifinfo = nl_socket->get_ifinfo(ifname);
@@ -112,8 +191,38 @@ bool D4Listener::init(const std::string &ifname)
     }
 
     thd_ = std::thread([this]() {
-        start_receive();
-        io_service_.run();
+        struct pollfd pfds[1];
+        memset(pfds, 0, sizeof pfds);
+        pfds[0].fd = fd_();
+        pfds[0].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+        for (;;) {
+            if (poll(pfds, 1, -1) < 0) {
+                if (errno != EINTR)
+                    suicide("poll failed");
+            }
+            if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+                pfds[0].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
+                fmt::print(stderr, "{}: dhcp4 socket closed unexpectedly", ifname_.c_str());
+                std::exit(EXIT_FAILURE);
+            }
+            if (pfds[0].revents & POLLIN) {
+                pfds[0].revents &= ~POLLIN;
+                char buf[8192];
+                for (;;) {
+                    sockaddr_in sai;
+                    socklen_t sailen = sizeof sai;
+                    auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, reinterpret_cast<sockaddr *>(&sai), &sailen);
+                    if (buflen == -1) {
+                        int err = errno;
+                        if (err == EINTR) continue;
+                        if (err == EAGAIN || err == EWOULDBLOCK) break;
+                        fmt::print(stderr, "D4Listener: recvfrom failed: {}\n", strerror(err));
+                        std::exit(EXIT_FAILURE);
+                    }
+                    process_receive(buf, buflen, sai, sailen);
+                }
+            }
+        }
     });
     thd_.detach();
     return true;
@@ -143,39 +252,52 @@ uint32_t D4Listener::local_ip() const
     return ret;
 }
 
+bool D4Listener::send_to(const void *buf, size_t len, uint32_t addr, int port)
+{
+    sockaddr_in sai;
+    memset(&sai, 0, sizeof sai);
+    sai.sin_family = AF_INET;
+    sai.sin_port = htons(port);
+    sai.sin_addr.s_addr = addr;
+    for (;;) {
+        const auto r = sendto(fd_(), buf, len, 0, reinterpret_cast<const sockaddr *>(&sai), sizeof sai);
+        if (r == -1) {
+            if (errno == EINTR) continue;
+            fmt::print(stderr, "D4Listener sendto failed: {}\n", strerror(errno));
+            return false;
+        }
+        break;
+    }
+    return true;
+}
+
 void D4Listener::send_reply_do(const dhcpmsg &dm, SendReplyType srt)
 {
     ssize_t endloc = get_end_option_idx(&dm);
     if (endloc < 0)
         return;
 
-    std::error_code ignored_error;
-    auto buf = asio::buffer((const char *)&dm, sizeof dm -
-                            (sizeof dm.options - 1 - endloc));
+    const auto dmlen = sizeof dm - (sizeof dm.options - 1 - endloc);
 
     switch (srt) {
-    case SendReplyType::UnicastCi: {
-        auto uct = asio::ip::address_v4(ntohl(dhcpmsg_.ciaddr));
-        socket_.send_to(buf, asio::ip::udp::endpoint(uct, 68), 0, ignored_error);
+    case SendReplyType::UnicastCi:
+        send_to(&dm, dmlen, dhcpmsg_.ciaddr, 68);
         break;
-    }
     case SendReplyType::Broadcast: {
-        auto remotebcast = remote_endpoint_.address().to_v4().broadcast();
-        socket_.send_to(buf, asio::ip::udp::endpoint(remotebcast, 68),
-                        0, ignored_error);
+        uint32_t remotebcast;
+        {
+            auto t = remote_endpoint_.address().to_v4().broadcast().to_bytes();
+            memcpy(&remotebcast, t.data(), sizeof remotebcast);
+        }
+        send_to(&dm, dmlen, remotebcast, 68);
         break;
     }
-    case SendReplyType::Relay: {
-        auto relay = asio::ip::address_v4(ntohl(dhcpmsg_.giaddr));
-        socket_.send_to(buf, asio::ip::udp::endpoint(relay, 67),
-                        0, ignored_error);
+    case SendReplyType::Relay:
+        send_to(&dm, dmlen, dhcpmsg_.giaddr, 67);
         break;
-    }
-    case SendReplyType::UnicastYiCh: {
-        auto uct = asio::ip::address_v4(ntohl(dhcpmsg_.yiaddr));
-        socket_.send_to(buf, asio::ip::udp::endpoint(uct, 68), 0, ignored_error);
+    case SendReplyType::UnicastYiCh:
+        send_to(&dm, dmlen, dhcpmsg_.yiaddr, 68);
         break;
-    }
     }
 }
 
@@ -387,61 +509,49 @@ uint8_t D4Listener::validate_dhcp(size_t len) const
     return get_option_msgtype(&dhcpmsg_);
 }
 
-void D4Listener::start_receive()
+void D4Listener::process_receive(const char *buf, std::size_t buflen,
+                                 const sockaddr_in &sai, socklen_t sailen)
 {
-    socket_.async_receive_from
-        (asio::buffer(recv_buffer_), remote_endpoint_,
-         [this](const std::error_code &error, std::size_t bytes_xferred)
-         {
-             if (error) {
-                 fmt::print(stderr, "dhcp4: Error during receive: {}\n", error);
-                 exit(EXIT_FAILURE);
-                 return;
-             }
+    asio::ip::address_v4::bytes_type abt;
+    memcpy(&abt, &sai.sin_addr, sizeof abt);
+    remote_endpoint_ = asio::ip::udp::endpoint{ asio::ip::make_address_v4(abt), sai.sin_port };
 
-             bool direct_request = false;
-             size_t msglen = std::min(bytes_xferred, sizeof dhcpmsg_);
-             memset(&dhcpmsg_, 0, sizeof dhcpmsg_);
-             memcpy(&dhcpmsg_, recv_buffer_.data(), msglen);
-             uint8_t msgtype = validate_dhcp(msglen);
-             if (!msgtype) {
-                 start_receive();
-                 return;
-             }
+    bool direct_request = false;
+    auto msglen = std::min(static_cast<size_t>(buflen), sizeof dhcpmsg_);
+    memset(&dhcpmsg_, 0, sizeof dhcpmsg_);
+    memcpy(&dhcpmsg_, buf, msglen);
+    uint8_t msgtype = validate_dhcp(msglen);
+    if (!msgtype)
+        return;
 
-             auto cs = client_states_v4->stateGet(dhcpmsg_.xid, dhcpmsg_.chaddr);
-             if (cs == DHCPNULL) {
-                 switch (msgtype) {
-                 case DHCPREQUEST:
-                     direct_request = true;
-                 case DHCPDISCOVER:
-                     cs = msgtype;
-                     client_states_v4->stateAdd(dhcpmsg_.xid, dhcpmsg_.chaddr, cs);
-                     break;
-                 case DHCPINFORM:
-                     // No need to track state since we just INFORM => ACK
-                 case DHCPDECLINE:
-                 case DHCPRELEASE:
-                     cs = msgtype;
-                     break;
-                 default:
-                     start_receive();
-                     return;
-                 }
-             } else {
-                 if (cs == DHCPDISCOVER && msgtype == DHCPREQUEST)
-                     cs = DHCPREQUEST;
-             }
+    auto cs = client_states_v4->stateGet(dhcpmsg_.xid, dhcpmsg_.chaddr);
+    if (cs == DHCPNULL) {
+        switch (msgtype) {
+        case DHCPREQUEST:
+            direct_request = true;
+        case DHCPDISCOVER:
+            cs = msgtype;
+            client_states_v4->stateAdd(dhcpmsg_.xid, dhcpmsg_.chaddr, cs);
+            break;
+        case DHCPINFORM:
+            // No need to track state since we just INFORM => ACK
+        case DHCPDECLINE:
+        case DHCPRELEASE:
+            cs = msgtype;
+            break;
+        default: return;
+        }
+    } else {
+        if (cs == DHCPDISCOVER && msgtype == DHCPREQUEST)
+            cs = DHCPREQUEST;
+    }
 
-             switch (cs) {
-             case DHCPDISCOVER: reply_discover(); break;
-             case DHCPREQUEST:  reply_request(direct_request); break;
-             case DHCPINFORM:   reply_inform(); break;
-             case DHCPDECLINE:
-                                fmt::print(stderr, "Received a DHCPDECLINE.  Clients conflict?\n");
-             case DHCPRELEASE:  do_release(); break;
-             }
-             start_receive();
-         });
+    switch (cs) {
+    case DHCPDISCOVER: reply_discover(); break;
+    case DHCPREQUEST:  reply_request(direct_request); break;
+    case DHCPINFORM:   reply_inform(); break;
+    case DHCPDECLINE:  fmt::print(stderr, "Received a DHCPDECLINE.  Clients conflict?\n");
+    case DHCPRELEASE:  do_release(); break;
+    }
 }
 

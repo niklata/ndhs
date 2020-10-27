@@ -32,9 +32,11 @@
 #include <string>
 #include <memory>
 #include <unordered_map>
+#include <chrono>
 #include <netdb.h>
 #include <asio.hpp>
 #include <fmt/printf.h>
+#include <nk/sys/posix/handle.hpp>
 #include "dhcp.h"
 
 // There are two hashtables, a 'new' and a 'marked for death' table.  If these
@@ -46,7 +48,7 @@
 // the scheme by not actually performing moves: instead, we store an index
 // to the 'new' table, and the 'marked for death' table is the unindexed table.
 //
-// This scheme requires no timestamping and will bound the lifetime of any
+// This scheme requires no per-item timestamping and will bound the lifetime of any
 // object to be p < lifetime < 2p.  A further refinement would be to scale
 // p to be inversely proportional to the number of entries on the 'new'
 // and 'm4d' tables.  This change would cause the deletion rate to increase
@@ -55,85 +57,18 @@
 class ClientStates
 {
 public:
-    ClientStates(asio::io_service &io_service)
-            : swapTimer_(io_service)
-        {
-        currentMap_ = 0;
-        swapInterval_ = 60; // 1m
-    }
+    ClientStates();
     ClientStates(const ClientStates &) = delete;
     ClientStates &operator=(const ClientStates &) = delete;
-    ~ClientStates() {}
-    bool stateExists(uint32_t xid, uint8_t *hwaddr) {
-        key_ = generateKey(xid, hwaddr);
-        return (map_[0].find(key_) != map_[0].end()) ||
-               (map_[1].find(key_) != map_[1].end());
-    }
-    void stateAdd(uint32_t xid, uint8_t *hwaddr, uint8_t state)
-    {
-        key_ = generateKey(xid, hwaddr);
-        if (!state)
-            return;
-        stateKill(xid, hwaddr);
-        map_[currentMap_][key_] = state;
-        if (swapTimer_.expiry() <= std::chrono::steady_clock::now())
-            setTimer();
-    }
-    uint8_t stateGet(uint32_t xid, uint8_t *hwaddr) {
-        key_ = generateKey(xid, hwaddr);
-        auto r = map_[currentMap_].find(key_);
-        if (r != map_[currentMap_].end())
-            return r->second;
-        r = map_[!currentMap_].find(key_);
-        if (r != map_[!currentMap_].end()) {
-            map_[!currentMap_].erase(r);
-            map_[currentMap_][key_] = r->second;
-            return r->second;
-        }
-        return DHCPNULL;
-    }
-    void stateKill(uint32_t xid, uint8_t *hwaddr) {
-        key_ = generateKey(xid, hwaddr);
-        auto elt = map_[currentMap_].find(key_);
-        if (elt != map_[currentMap_].end()) {
-            map_[currentMap_].erase(elt);
-            return;
-        }
-        elt = map_[!currentMap_].find(key_);
-        if (elt != map_[!currentMap_].end())
-            map_[!currentMap_].erase(elt);
-    }
+
+    bool stateExists(uint32_t xid, uint8_t *hwaddr);
+    void stateAdd(uint32_t xid, uint8_t *hwaddr, uint8_t state);
+    uint8_t stateGet(uint32_t xid, uint8_t *hwaddr);
+    void stateKill(uint32_t xid, uint8_t *hwaddr);
 private:
-    const std::string generateKey(uint32_t xid, uint8_t *hwaddr) const {
-        return fmt::sprintf("{}%02.x%02.x%02.x%02.x%02.x%02.x", xid,
-                            hwaddr[0], hwaddr[1], hwaddr[2], hwaddr[3],
-                            hwaddr[4], hwaddr[5]);
-    }
-    void doSwap(void) {
-        int killMap = !currentMap_;
-        map_[killMap].clear();
-        currentMap_ = killMap;
-    }
-    void setTimer(void) {
-        swapTimer_.expires_after(std::chrono::seconds(swapInterval_));
-        swapTimer_.async_wait
-            ([this](const std::error_code& error)
-             {
-                 if (error) {
-                     fmt::print(stderr, "dhcp4: Error during swap timer: {}\n", error);
-                     exit(EXIT_FAILURE);
-                     return;
-                 }
-                 doSwap();
-                 if (map_[0].size() || map_[1].size())
-                     setTimer();
-             });
-    }
-    // key_ is concatenation of xid|hwaddr.  Neither of these need to be
-    // stored in explicit fields in the state structure.
-    asio::steady_timer swapTimer_;
+    void maybe_swap(void);
+    std::chrono::steady_clock::time_point expires_;
     std::unordered_map<std::string, uint8_t> map_[2];
-    std::string key_; // Stored here to reduce number of allocations.
     int currentMap_; // Either 0 or 1.
     int swapInterval_;
 };
@@ -141,18 +76,20 @@ private:
 class D4Listener
 {
 public:
-    D4Listener() : socket_(io_service_) {}
+    D4Listener() {}
     D4Listener(const D4Listener &) = delete;
     D4Listener &operator=(const D4Listener &) = delete;
 
     [[nodiscard]] bool init(const std::string &ifname);
+    auto fd() const { return fd_(); }
 private:
-    void start_receive();
+    bool create_dhcp4_socket();
     void dhcpmsg_init(dhcpmsg &dm, char type, uint32_t xid) const;
     uint32_t local_ip() const;
     std::string ipStr(uint32_t ip) const;
 
     enum class SendReplyType { UnicastCi, Broadcast, Relay, UnicastYiCh };
+    bool send_to(const void *buf, size_t len, uint32_t addr, int port);
     void send_reply_do(const dhcpmsg &dm, SendReplyType srt);
     void send_reply(const dhcpmsg &dm);
     bool iplist_option(dhcpmsg &reply, std::string &iplist, uint8_t code,
@@ -165,13 +102,12 @@ private:
     void do_release();
     std::string getChaddr(const struct dhcpmsg &dm) const;
     uint8_t validate_dhcp(size_t len) const;
+    void process_receive(const char *buf, std::size_t bytes_xferred,
+                         const sockaddr_in &sai, socklen_t sailen);
 
     std::thread thd_;
-    asio::io_service io_service_;
-    asio::ip::udp::socket socket_;
-    //asio::ip::udp::socket broadcast_socket_;
+    nk::sys::handle fd_;
     asio::ip::udp::endpoint remote_endpoint_;
-    std::array<uint8_t, 1024> recv_buffer_;
     struct dhcpmsg dhcpmsg_;
     std::string ifname_;
     asio::ip::address local_ip_;
