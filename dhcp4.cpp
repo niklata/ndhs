@@ -30,7 +30,6 @@
 #include <sys/types.h>
 #include <poll.h>
 #include <pwd.h>
-#include <fmt/format.h>
 #include "rng.hpp"
 #include "dhcp4.hpp"
 #include "dhcp_state.hpp"
@@ -44,9 +43,18 @@ extern "C" {
 // key is concatenation of xid|hwaddr.  Neither of these need to be
 // stored in explicit fields in the state structure.
 static std::string generateKey(uint32_t xid, uint8_t *hwaddr) {
-    return fmt::sprintf("{}%02.x%02.x%02.x%02.x%02.x%02.x", xid,
-                        hwaddr[0], hwaddr[1], hwaddr[2], hwaddr[3],
-                        hwaddr[4], hwaddr[5]);
+    std::string ret;
+    ret.resize(32);
+    int splen = snprintf(ret.data(), ret.size(), "%u%2.x%2.x%2.x%2.x%2.x%2.x",
+                         xid, hwaddr[0], hwaddr[1], hwaddr[2],
+                         hwaddr[3], hwaddr[4], hwaddr[5]);
+    if (splen < 0)
+        suicide("%s: snprintf failed; return=%d", __func__, splen);
+    if ((size_t)splen >= ret.size())
+        suicide("%s: snprintf dest buffer too small %d >= %u",
+                __func__, splen, ret.size());
+    ret.resize(splen);
+    return ret;
 }
 
 ClientStates::ClientStates() : currentMap_(0), swapInterval_(60) /* 1m */
@@ -123,20 +131,20 @@ bool D4Listener::create_dhcp4_socket()
 {
     auto tfd = nk::sys::handle{ socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, IPPROTO_UDP) };
     if (!tfd) {
-        fmt::print(stderr, "Failed to create v4 UDP socket on {}: {}\n", ifname_, strerror(errno));
+        log_warning("Failed to create v4 UDP socket on %s: %s", ifname_, strerror(errno));
         return false;
     }
     const int iv = 1;
     if (setsockopt(tfd(), SOL_SOCKET, SO_BROADCAST, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
-        fmt::print(stderr, "Failed to set broadcast flag on {}: {}\n", ifname_, strerror(errno));
+        log_warning("Failed to set broadcast flag on %s: %s", ifname_, strerror(errno));
         return false;
     }
     if (setsockopt(tfd(), SOL_SOCKET, SO_DONTROUTE, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
-        fmt::print(stderr, "Failed to set do not route flag on {}: {}\n", ifname_, strerror(errno));
+        log_warning("Failed to set do not route flag on %s: %s", ifname_, strerror(errno));
         return false;
     }
     if (setsockopt(tfd(), SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
-        fmt::print(stderr, "Failed to set reuse address flag on {}: {}\n", ifname_, strerror(errno));
+        log_warning("Failed to set reuse address flag on %s: %s", ifname_, strerror(errno));
         return false;
     }
     sockaddr_in sai;
@@ -144,20 +152,20 @@ bool D4Listener::create_dhcp4_socket()
     sai.sin_port = htons(67);
     sai.sin_addr.s_addr = 0; // any
     if (bind(tfd(), reinterpret_cast<const sockaddr *>(&sai), sizeof sai)) {
-        fmt::print(stderr, "Failed to bind to UDP 67 on {}: {}\n", ifname_, strerror(errno));
+        log_warning("Failed to bind to UDP 67 on %s: %s", ifname_, strerror(errno));
         return false;
     }
 
     struct ifreq ifr;
     memset(&ifr, 0, sizeof ifr);
     if (ifname_.size() >= sizeof ifr.ifr_name) {
-        fmt::print(stderr, "Interface name '{}' is too long: {} >= {}\n",
+        log_warning("Interface name '%s' is too long: %zu >= %zu",
                    ifname_, ifname_.size(), sizeof ifr.ifr_name);
         return false;
     }
     memcpy(ifr.ifr_name, ifname_.c_str(), ifname_.size());
     if (setsockopt(tfd(), SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
-        fmt::print(stderr, "failed to bind socket to device on {}: {}\n", ifname_, strerror(errno));
+        log_warning("failed to bind socket to device on %s: %s", ifname_, strerror(errno));
         return false;
     }
 
@@ -174,19 +182,19 @@ bool D4Listener::init(const std::string &ifname)
     {
         auto ifinfo = nl_socket->get_ifinfo(ifname);
         if (!ifinfo.value()) {
-            fmt::print(stderr, "Failed to get interface index for {}\n", ifname);
+            log_warning("Failed to get interface index for %s", ifname);
             return false;
         }
 
         for (const auto &i: ifinfo.value()->addrs) {
             if (i.address.is_v4()) {
                 local_ip_ = i.address.to_v4();
-                fmt::print(stderr, "IP address for {} is {}.\n", ifname, local_ip_);
+                log_line("IP address for %s is %s.", ifname.c_str(), local_ip_.to_string().c_str());
             }
         }
     }
     if (!local_ip_.is_v4()) {
-        fmt::print(stderr, "Interface ({}) has no IP address\n", ifname);
+        log_warning("Interface (%s) has no IP address", ifname);
         return false;
     }
 
@@ -202,8 +210,7 @@ bool D4Listener::init(const std::string &ifname)
             }
             if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
                 pfds[0].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
-                fmt::print(stderr, "{}: dhcp4 socket closed unexpectedly", ifname_.c_str());
-                std::exit(EXIT_FAILURE);
+                suicide("%s: dhcp4 socket closed unexpectedly", ifname_.c_str());
             }
             if (pfds[0].revents & POLLIN) {
                 pfds[0].revents &= ~POLLIN;
@@ -216,8 +223,7 @@ bool D4Listener::init(const std::string &ifname)
                         int err = errno;
                         if (err == EINTR) continue;
                         if (err == EAGAIN || err == EWOULDBLOCK) break;
-                        fmt::print(stderr, "D4Listener: recvfrom failed: {}\n", strerror(err));
-                        std::exit(EXIT_FAILURE);
+                        suicide("D4Listener: recvfrom failed: %s", strerror(err));
                     }
                     process_receive(buf, buflen, sai, sailen);
                 }
@@ -246,7 +252,7 @@ uint32_t D4Listener::local_ip() const
 {
     uint32_t ret;
     if (inet_pton(AF_INET, local_ip_.to_string().c_str(), &ret) != 1) {
-        fmt::print(stderr, "inet_pton failed: {}\n", strerror(errno));
+        log_warning("inet_pton failed: %s", strerror(errno));
         return 0;
     }
     return ret;
@@ -263,7 +269,7 @@ bool D4Listener::send_to(const void *buf, size_t len, uint32_t addr, int port)
         const auto r = sendto(fd_(), buf, len, 0, reinterpret_cast<const sockaddr *>(&sai), sizeof sai);
         if (r == -1) {
             if (errno == EINTR) continue;
-            fmt::print(stderr, "D4Listener sendto failed: {}\n", strerror(errno));
+            log_warning("D4Listener sendto failed: %s", strerror(errno));
             return false;
         }
         break;
@@ -347,11 +353,11 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     if (!query_use_dynamic_v4(ifname_, dynamic_lifetime))
         return false;
 
-    fmt::print(stderr, "Checking dynamic IP.\n");
+    log_line("Checking dynamic IP.");
 
     const auto dr = query_dynamic_range(ifname_);
     if (!dr) {
-        fmt::print(stderr, "No dynamic range is associated.  Can't assign an IP.\n");
+        log_line("No dynamic range is associated.  Can't assign an IP.");
         return false;
     }
     const auto expire_time = get_current_ts() + dynamic_lifetime;
@@ -360,10 +366,10 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     if (v4a != asio::ip::address_v4::any()) {
         reply.yiaddr = htonl(v4a.to_ulong());
         add_u32_option(&reply, DCODE_LEASET, htonl(dynamic_lifetime));
-        fmt::print(stderr, "Assigned existing dynamic IP: {}.\n", v4a.to_string());
+        log_line("Assigned existing dynamic IP: %s", v4a.to_string());
         return true;
     }
-    fmt::print(stderr, "Selecting an unused dynamic IP.\n");
+    log_line("Selecting an unused dynamic IP.");
 
     // IP is randomly selected from the dynamic range.
     const auto al = dr->first.to_ulong();
@@ -433,7 +439,7 @@ bool D4Listener::create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_ass
 
 void D4Listener::reply_discover()
 {
-    fmt::print(stderr, "Got DHCP4 discover message\n");
+    log_line("Got DHCP4 discover message");
     dhcpmsg reply;
     dhcpmsg_init(reply, DHCPOFFER, dhcpmsg_.xid);
     if (create_reply(reply, dhcpmsg_.chaddr, true))
@@ -442,7 +448,7 @@ void D4Listener::reply_discover()
 
 void D4Listener::reply_request(bool /* is_direct */)
 {
-    fmt::print(stderr, "Got DHCP4 request message\n");
+    log_line("Got DHCP4 request message");
     dhcpmsg reply;
     dhcpmsg_init(reply, DHCPACK, dhcpmsg_.xid);
     if (create_reply(reply, dhcpmsg_.chaddr, true)) {
@@ -454,7 +460,7 @@ void D4Listener::reply_request(bool /* is_direct */)
 static asio::ip::address_v4 zero_v4(0lu);
 void D4Listener::reply_inform()
 {
-    fmt::print(stderr, "Got DHCP4 inform message\n");
+    log_line("Got DHCP4 inform message");
     struct dhcpmsg reply;
     dhcpmsg_init(reply, DHCPACK, dhcpmsg_.xid);
     if (create_reply(reply, dhcpmsg_.chaddr, false)) {
@@ -485,7 +491,7 @@ void D4Listener::reply_inform()
 void D4Listener::do_release() {
     auto valid = dynlease_exists(ifname_, remote_endpoint_.address().to_v4(), dhcpmsg_.chaddr);
     if (!valid) {
-        fmt::print(stderr, "do_release: ignoring spoofed release request for {}.\n",
+        log_line("do_release: ignoring spoofed release request for %s.",
                    remote_endpoint_.address().to_string());
         std::fflush(stdout);
         return;
@@ -512,7 +518,9 @@ uint8_t D4Listener::validate_dhcp(size_t len) const
 void D4Listener::process_receive(const char *buf, std::size_t buflen,
                                  const sockaddr_in &sai, socklen_t sailen)
 {
+    (void)sailen;
     asio::ip::address_v4::bytes_type abt;
+    assert(sailen == sizeof abt);
     memcpy(&abt, &sai.sin_addr, sizeof abt);
     remote_endpoint_ = asio::ip::udp::endpoint{ asio::ip::make_address_v4(abt), sai.sin_port };
 
@@ -550,7 +558,7 @@ void D4Listener::process_receive(const char *buf, std::size_t buflen,
     case DHCPDISCOVER: reply_discover(); break;
     case DHCPREQUEST:  reply_request(direct_request); break;
     case DHCPINFORM:   reply_inform(); break;
-    case DHCPDECLINE:  fmt::print(stderr, "Received a DHCPDECLINE.  Clients conflict?\n");
+    case DHCPDECLINE:  log_line("Received a DHCPDECLINE.  Clients conflict?");
     case DHCPRELEASE:  do_release(); break;
     }
 }

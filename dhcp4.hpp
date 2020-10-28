@@ -35,7 +35,6 @@
 #include <chrono>
 #include <netdb.h>
 #include <asio.hpp>
-#include <fmt/printf.h>
 #include <nk/sys/posix/handle.hpp>
 #include "dhcp.h"
 
