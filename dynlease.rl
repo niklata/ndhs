@@ -5,10 +5,12 @@
 #include <vector>
 #include <unordered_map>
 #include <algorithm>
-#include <fmt/format.h>
 #include <nk/scopeguard.hpp>
 #include <nk/from_string.hpp>
 #include <asio.hpp>
+extern "C" {
+#include "nk/log.h"
+}
 
 #define MAX_LINE 2048
 
@@ -82,7 +84,7 @@ static bool emplace_dynlease_state(size_t linenum, std::string &&interface,
     std::error_code ec;
     auto v4a = aia4::from_string(v4_addr, ec);
     if (ec) {
-        fmt::print(stderr, "Bad IPv4 address at line {}: {}\n", linenum, v4_addr);
+        log_warning("Bad IPv4 address at line %zu: %s", linenum, v4_addr.c_str());
         return false;
     }
     // We won't get duplicates unless someone manually edits the file.  If they do,
@@ -103,7 +105,7 @@ static bool emplace_dynlease_state(size_t linenum, std::string &&interface,
     std::error_code ec;
     auto v6a = aia6::from_string(v6_addr, ec);
     if (ec) {
-        fmt::print(stderr, "Bad IPv6 address at line {}: {}\n", linenum, v6_addr);
+        log_warning("Bad IPv6 address at line %zu: %s", linenum, v6_addr.c_str());
         return false;
     }
     si->second.emplace_back(std::move(v6a), std::move(duid), iaid, expire_time);
@@ -283,12 +285,11 @@ bool dynlease_serialize(const std::string &path)
     const auto tmp_path = path + ".tmp";
     const auto f = fopen(tmp_path.c_str(), "w");
     if (!f) {
-        fmt::print(stderr, "{}: failed to open '{}' for dynamic lease serialization\n",
-                   __func__, path);
+        log_warning("%s: failed to open '%s' for dynamic lease serialization\n",
+                    __func__, path.c_str());
         return false;
     }
     SCOPE_EXIT{ fclose(f); unlink(tmp_path.c_str()); };
-    std::string wbuf;
     for (const auto &i: dyn_leases_v4) {
         const auto &iface = i.first;
         const auto &ls = i.second;
@@ -296,14 +297,19 @@ bool dynlease_serialize(const std::string &path)
             // Don't write out dynamic leases that have expired.
             if (get_current_ts() >= j.expire_time)
                 continue;
-
-            wbuf = fmt::format("v4 {} {} {:02x}{:02x}{:02x}{:02x}{:02x}{:02x} {}\n",
-                               iface, j.addr.to_string(),
-                               j.macaddr[0], j.macaddr[1], j.macaddr[2],
-                               j.macaddr[3], j.macaddr[4], j.macaddr[5], j.expire_time);
-            const auto fs = fwrite(wbuf.c_str(), 1, wbuf.size(), f);
-            if (fs != wbuf.size()) {
-                fmt::print(stderr, "{}: short write {} < {}\n", __func__, fs, wbuf.size());
+            char wbuf[1024];
+            int splen = snprintf(wbuf, sizeof wbuf, "v4 %s %s %2.x%2.x%2.x%2.x%2.x%2.x %zu\n",
+                                 iface.c_str(), j.addr.to_string().c_str(),
+                                 j.macaddr[0], j.macaddr[1], j.macaddr[2],
+                                 j.macaddr[3], j.macaddr[4], j.macaddr[5], j.expire_time);
+            if (splen < 0)
+                suicide("%s: snprintf failed; return=%d", __func__, splen);
+            if ((size_t)splen >= sizeof wbuf)
+                suicide("%s: snprintf dest buffer too small %d >= %u",
+                        __func__, splen, sizeof wbuf);
+            const auto fs = fwrite(wbuf, 1, splen, f);
+            if (fs != (size_t)splen) {
+                log_warning("%s: short write %zd < %zu\n", __func__, fs, sizeof wbuf);
                 return false;
             }
         }
@@ -316,28 +322,40 @@ bool dynlease_serialize(const std::string &path)
             if (get_current_ts() >= j.expire_time)
                 continue;
 
-            wbuf = fmt::format("v6 {} {} ", iface, j.addr.to_string());
-            for (const auto &k: j.duid)
-                wbuf.append(fmt::format("{:02x}", k));
-            wbuf.append(fmt::format(" {} {}\n", j.iaid, j.expire_time));
+            std::string wbuf;
+            wbuf.append("v6 ");
+            wbuf.append(iface);
+            wbuf.append(" ");
+            wbuf.append(j.addr.to_string());
+            wbuf.append(" ");
+            for (const auto &k: j.duid) {
+                char tbuf[16];
+                snprintf(tbuf, sizeof tbuf, "%.2hhx", k);
+                wbuf.append(tbuf);
+            }
+            wbuf.append(" ");
+            wbuf.append(std::to_string(j.iaid));
+            wbuf.append(" ");
+            wbuf.append(std::to_string(j.expire_time));
+            wbuf.append("\n");
             const auto fs = fwrite(wbuf.c_str(), 1, wbuf.size(), f);
             if (fs != wbuf.size()) {
-                fmt::print(stderr, "{}: short write {} < {}\n", __func__, fs, wbuf.size());
+                log_warning("%s: short write %zd < %zu", __func__, fs, wbuf.size());
                 return false;
             }
         }
     }
     if (fflush(f)) {
-        fmt::print(stderr, "{}: fflush failed: {}\n", __func__, strerror(errno));
+        log_warning("%s: fflush failed: %s", __func__, strerror(errno));
         return false;
     }
     const auto fd = fileno(f);
     if (fdatasync(fd)) {
-        fmt::print(stderr, "{}: fdatasync failed: {}\n", __func__, strerror(errno));
+        log_warning("%s: fdatasync failed: %s", __func__, strerror(errno));
         return false;
     }
     if (rename(tmp_path.c_str(), path.c_str())) {
-        fmt::print(stderr, "{}: rename failed: {}\n", __func__, strerror(errno));
+        log_warning("%s: rename failed: %s", __func__, strerror(errno));
         return false;
     }
     return true;
@@ -449,8 +467,8 @@ bool dynlease_deserialize(const std::string &path)
     char buf[MAX_LINE];
     const auto f = fopen(path.c_str(), "r");
     if (!f) {
-        fmt::print(stderr, "{}: failed to open '{}' for dynamic lease deserialization\n",
-                   __func__, path);
+        log_warning("%s: failed to open '%s' for dynamic lease deserialization\n",
+                    __func__, path.c_str());
         return false;
     }
     SCOPE_EXIT{ fclose(f); };
@@ -461,7 +479,7 @@ bool dynlease_deserialize(const std::string &path)
     while (!feof(f)) {
         if (!fgets(buf, sizeof buf, f)) {
             if (!feof(f))
-                fmt::print(stderr, "{}: io error fetching line of '{}'\n", __func__, path);
+                log_warning("%s: io error fetching line of '%s'\n", __func__, path.c_str());
             break;
         }
         auto llen = strlen(buf);
@@ -474,11 +492,11 @@ bool dynlease_deserialize(const std::string &path)
         const auto r = do_parse_dynlease_line(ps, buf, llen, linenum);
         if (r < 0) {
             if (r == -2)
-                fmt::print(stderr, "{}: Incomplete dynlease at line {}; ignoring\n",
-                           __func__, linenum);
+                log_warning("%s: Incomplete dynlease at line %zu; ignoring",
+                            __func__, linenum);
             else
-                fmt::print(stderr, "{}: Malformed dynlease at line {}; ignoring.\n",
-                           __func__, linenum);
+                log_warning("%s: Malformed dynlease at line %zu; ignoring.",
+                            __func__, linenum);
             continue;
         }
     }
