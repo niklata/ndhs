@@ -36,7 +36,6 @@
 #include <net/if.h>
 #include <sys/socket.h>
 
-#include <fmt/format.h>
 #include <nk/netbits.hpp>
 #include "radv6.hpp"
 #include "nlsocket.hpp"
@@ -385,7 +384,7 @@ bool RA6Listener::init(const std::string &ifname)
 
     auto tfd = nk::sys::handle{ socket(AF_INET6, SOCK_RAW|SOCK_CLOEXEC, IPPROTO_ICMPV6) };
     if (!tfd) {
-        fmt::print(stderr, "Failed to create v6 ICMP socket on {}: {}\n", ifname_, strerror(errno));
+        log_warning("ra6: Failed to create v6 ICMP socket on %s: %s", ifname_.c_str(), strerror(errno));
         return false;
     }
     if (!attach_multicast(tfd(), ifname_, mc6_allrouters))
@@ -396,13 +395,13 @@ bool RA6Listener::init(const std::string &ifname)
     memset(&sai, 0, sizeof sai); // s6_addr, s6_port are set to any/0 here
     sai.sin6_family = AF_INET6;
     if (bind(tfd(), reinterpret_cast<const sockaddr *>(&sai), sizeof sai)) {
-        fmt::print(stderr, "Failed to bind ICMP route advertisement listener on {}: {}\n", ifname_, strerror(errno));
+        log_warning("ra6: Failed to bind ICMP route advertisement listener on %s: %s", ifname_.c_str(), strerror(errno));
         return false;
     }
     swap(fd_, tfd);
 
     if (!send_advert())
-        fmt::print(stderr, "Failed to send initial router advertisement on {}\n", ifname_);
+        log_warning("ra6: Failed to send initial router advertisement on %s", ifname_.c_str());
     set_next_advert_ts();
 
     thd_ = std::thread([this]() {
@@ -414,11 +413,11 @@ bool RA6Listener::init(const std::string &ifname)
             const auto timeout = send_periodic_advert();
             if (poll(pfds, 1, timeout > 0 ? timeout : 0) < 0) {
                 if (errno != EINTR)
-                    suicide("poll failed");
+                    suicide("ra6: poll failed");
             }
             if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
                 pfds[0].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
-                suicide("%s: ra6 socket closed unexpectedly", ifname_.c_str());
+                suicide("ra6: socket closed unexpectedly on %s", ifname_.c_str());
             }
             if (pfds[0].revents & POLLIN) {
                 pfds[0].revents &= ~POLLIN;
@@ -494,7 +493,7 @@ bool RA6Listener::send_advert()
     {
         auto ifinfo = nl_socket->get_ifinfo(ifname_);
         if (!ifinfo.value()) {
-            fmt::print(stderr, "send_advert: failed to get interface index for {}\n", ifname_);
+            log_warning("ra6: Failed to get interface index for %s", ifname_.c_str());
             return false;
         }
 
@@ -594,7 +593,7 @@ bool RA6Listener::send_advert()
     const size_t slen = si - sbuf;
 
     if (safe_sendto(fd_(), sbuf, slen, 0, reinterpret_cast<const sockaddr *>(&mc6_allhosts), sizeof mc6_allhosts) < 0) {
-        fmt::print(stderr, "ra6: sendto failed: {}\n", strerror(errno));
+        log_warning("ra6: sendto failed on %s: %s", ifname_.c_str(), strerror(errno));
         return false;
     }
     return true;
@@ -605,7 +604,7 @@ int RA6Listener::send_periodic_advert()
     const auto now = std::chrono::steady_clock::now();
     if (now >= advert_ts_) {
         if (!send_advert())
-            fmt::print(stderr, "Failed to send periodic router advertisement on {}\n", ifname_);
+            log_warning("ra6: Failed to send periodic router advertisement on %s", ifname_.c_str());
         set_next_advert_ts();
     }
     return std::chrono::duration_cast<std::chrono::milliseconds>(advert_ts_ - now).count();
@@ -624,7 +623,7 @@ void RA6Listener::process_receive(char *buf, std::size_t buflen,
     (void)sailen;
     char sip_str[32];
     if (!sa6_to_string(sip_str, sizeof sip_str, &sai)) {
-        fmt::print(stderr, "ra6: failed to stringize sender ip\n");
+        log_warning("ra6: Failed to stringize sender ip on %s", ifname_.c_str());
         return;
     }
     const bool sender_unspecified = ip6_is_unspecified(sai);
@@ -632,7 +631,7 @@ void RA6Listener::process_receive(char *buf, std::size_t buflen,
     sbufs rs{ buf, buf + buflen };
     // Discard if the ICMP length < 8 octets.
     if (buflen < icmp_header::size + ra6_solicit_header::size) {
-        fmt::print(stderr, "ICMP from {} is too short: {}\n", sip_str, buflen);
+        log_line("ra6: ICMP from %s is too short: %zu", sip_str, buflen);
         return;
     }
 
@@ -644,7 +643,7 @@ void RA6Listener::process_receive(char *buf, std::size_t buflen,
     // XXX: Discard if the ip header hop limit field != 255
 #if 0
     if (ipv6_hdr.hop_limit() != 255) {
-        fmt::print(stderr, "Hop limit != 255\n");
+        log_line("ra6: Hop limit != 255");
         return;
     }
 #endif
@@ -652,12 +651,12 @@ void RA6Listener::process_receive(char *buf, std::size_t buflen,
     if (!using_bpf_) {
         // Discard if the ICMP code is not 0.
         if (icmp_hdr.code() != 0) {
-            fmt::print(stderr, "ICMP code != 0\n");
+            log_line("ra6: ICMP code != 0 on %s", ifname_.c_str());
             return;
         }
 
         if (icmp_hdr.type() != 133) {
-            fmt::print(stderr, "ICMP type != 133\n");
+            log_line("ra6: ICMP type != 133 on %s", ifname_.c_str());
             return;
         }
     }
@@ -676,17 +675,17 @@ void RA6Listener::process_receive(char *buf, std::size_t buflen,
         size_t opt_length = 8 * (*(rs.si)++);
         // Discard if any included option has a length <= 0.
         if (opt_length <= 0) {
-            fmt::print(stderr, "Solicitation option length == 0\n");
+            log_line("ra6: Solicitation option length <= 0 on %s", ifname_.c_str());
             return;
         }
         if (opt_type == 1) {
             if (got_macaddr) {
-                fmt::print(stderr, "More than one Source Link-Layer Address option; dropping.\n");
+                log_line("ra6: More than one Source Link-Layer Address option on %s; dropping", ifname_.c_str());
                 return;
             }
             if (opt_length == 8) {
                 if (rs.se - rs.si < static_cast<ptrdiff_t>(sizeof macaddr)) {
-                    fmt::print(stderr, "Source Link-Layer Address is wrong size for ethernet.\n");
+                    log_line("ra6: Source Link-Layer Address is wrong size for ethernet on %s", ifname_.c_str());
                     return;
                 }
                 got_macaddr = true;
@@ -694,15 +693,15 @@ void RA6Listener::process_receive(char *buf, std::size_t buflen,
                     macaddr[i] = *(rs.si)++;
                 }
             } else {
-                fmt::print(stderr, "Source Link-Layer Address is wrong size for ethernet.\n");
+                log_line("ra6: Source Link-Layer Address is wrong size for ethernet on %s", ifname_.c_str());
                 return;
             }
         } else {
             if (rs.se - rs.si < static_cast<ptrdiff_t>(opt_length) - 2) {
-                fmt::print(stderr, "Invalid length({}) for option type({})\n", +opt_type, opt_length);
+                log_line("ra6: Invalid length(%zu) for option type(%u) on %s", opt_length, +opt_type, ifname_.c_str());
                 return;
             }
-            fmt::print(stderr, "Ignoring unknown option type({})\n", +opt_type);
+            log_line("ra6: Ignoring unknown option type(%u) on %s", +opt_type, ifname_.c_str());
             for (size_t i = 0; i < opt_length - 2; ++i) (rs.si)++;
         }
     }
@@ -710,13 +709,13 @@ void RA6Listener::process_receive(char *buf, std::size_t buflen,
     // Discard if the source address is unspecified and
     // there is no source link-layer address option included.
     if (!got_macaddr && sender_unspecified) {
-        fmt::print(stderr, "Solicitation provides no specified source address or option.\n");
+        log_line("ra6: Solicitation provides no specified source address or option on %s", ifname_.c_str());
         return;
     }
 
     // Send a router advertisement in reply.
     if (!send_advert())
-        fmt::print(stderr, "Failed to send router advertisement on {}\n", ifname_);
+        log_line("ra6: Failed to send router advertisement on %s", ifname_.c_str());
     set_next_advert_ts();
 }
 

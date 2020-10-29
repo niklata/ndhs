@@ -3,6 +3,9 @@
 
 #include <cstring>
 #include <arpa/inet.h>
+extern "C" {
+#include "nk/log.h"
+}
 
 struct sbufs {
     char *si;
@@ -14,7 +17,7 @@ static inline bool sa6_from_string(sockaddr_in6 *sin, const char *str)
     memset(sin, 0, sizeof(sockaddr_in6));
     sin->sin6_family = AF_INET6;
     if (inet_pton(AF_INET6, str, &sin->sin6_addr) != 1) {
-        fmt::print(stderr, "ra6: inet_pton failed: {}\n", strerror(errno));
+        log_warning("inet_pton failed: %s", strerror(errno));
         return false;
     }
     return true;
