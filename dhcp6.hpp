@@ -7,6 +7,7 @@
 #include <asio.hpp>
 #include <fmt/printf.h>
 #include <nk/netbits.hpp>
+#include <nk/sys/posix/handle.hpp>
 #include "dhcp_state.hpp"
 #include "radv6.hpp"
 #include "sbufs.h"
@@ -199,7 +200,7 @@ struct d6_statuscode
 class D6Listener
 {
 public:
-    D6Listener() : socket_(io_service_) {}
+    D6Listener() {}
     D6Listener(const D6Listener &) = delete;
     D6Listener &operator=(const D6Listener &) = delete;
 
@@ -252,19 +253,17 @@ private:
     [[nodiscard]] bool handle_release_msg(const d6msg_state &d6s, sbufs &ss);
     [[nodiscard]] bool handle_decline_msg(const d6msg_state &d6s, sbufs &ss);
     bool serverid_incorrect(const d6msg_state &d6s) const;
-    void start_receive();
     void attach_bpf(int fd);
+    void process_receive(char *buf, std::size_t buflen,
+                         const sockaddr_in6 &sai, socklen_t sailen);
 
     std::thread thd_;
-    asio::io_service io_service_;
-    std::array<char, 8192> r_buffer_;
-    asio::ip::udp::endpoint sender_endpoint_;
     asio::ip::address_v6 local_ip_;
     asio::ip::address_v6 local_ip_prefix_;
     asio::ip::address_v6 link_local_ip_;
-    asio::ip::udp::socket socket_;
     std::string ifname_;
     std::unique_ptr<RA6Listener> radv6_listener_;
+    nk::sys::handle fd_;
     bool using_bpf_:1;
     char prefixlen_;
     uint8_t preference_;

@@ -9,7 +9,7 @@ extern "C" {
 }
 
 extern std::unique_ptr<NLSocket> nl_socket;
-[[nodiscard]] static bool attach_multicast(int fd, const std::string &ifname, asio::ip::address_v6 &mc6addr)
+[[nodiscard]] static inline bool attach_multicast(int fd, const std::string &ifname, const sockaddr_in6 &mc6addr)
 {
     int ifidx;
     if (auto t = nl_socket->get_ifindex(ifname)) ifidx = *t;
@@ -38,9 +38,8 @@ extern std::unique_ptr<NLSocket> nl_socket;
         log_warning("failed to disable multicast hops for socket: %s", strerror(errno));
         return false;
     }
-    auto mrb = mc6addr.to_bytes();
     struct ipv6_mreq mr;
-    memcpy(&mr.ipv6mr_multiaddr, mrb.data(), sizeof mrb);
+    memcpy(&mr.ipv6mr_multiaddr, &mc6addr.sin6_addr, sizeof mc6addr.sin6_addr);
     mr.ipv6mr_interface = ifidx;
     if (setsockopt(fd, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &mr, sizeof mr) < 0) {
         log_warning("failed to join router multicast group for socket: %s", strerror(errno));
@@ -49,5 +48,13 @@ extern std::unique_ptr<NLSocket> nl_socket;
     return true;
 }
 
+[[nodiscard]] static inline bool attach_multicast(int fd, const std::string &ifname, asio::ip::address_v6 &mc6addr)
+{
+    sockaddr_in6 sai;
+    memset(&sai, 0, sizeof sai);
+    sai.sin6_family = AF_INET6;
+    memcpy(&sai.sin6_addr, mc6addr.to_bytes().data(), sizeof sai.sin6_addr);
+    return attach_multicast(fd, ifname, sai);
+}
 #endif
 
