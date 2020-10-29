@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <iterator>
 #include <asio.hpp>
-#include <fmt/printf.h>
 #include <nk/netbits.hpp>
 #include <nk/sys/posix/handle.hpp>
 #include "dhcp_state.hpp"

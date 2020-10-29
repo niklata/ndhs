@@ -237,7 +237,7 @@ public:
     uint8_t length() const { return data_[1] * 8; }
     const uint8_t *macaddr() const { return data_ + 2; }
     void macaddr(char *mac, std::size_t maclen) {
-        if (maclen != 6) suicide("wrong maclen");
+        if (maclen != 6) suicide("ra6: wrong maclen");
         memcpy(data_ + 2, mac, 6);
     }
     static const std::size_t size = 8;
@@ -413,7 +413,7 @@ bool RA6Listener::init(const std::string &ifname)
             const auto timeout = send_periodic_advert();
             if (poll(pfds, 1, timeout > 0 ? timeout : 0) < 0) {
                 if (errno != EINTR)
-                    suicide("ra6: poll failed");
+                    suicide("ra6: poll failed on %s", ifname_.c_str());
             }
             if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
                 pfds[0].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
@@ -430,7 +430,7 @@ bool RA6Listener::init(const std::string &ifname)
                         int err = errno;
                         if (err == EINTR) continue;
                         if (err == EAGAIN || err == EWOULDBLOCK) break;
-                        suicide("RA6Listener: recvfrom failed: %s", strerror(err));
+                        suicide("ra6: recvfrom failed on %s: %s", ifname_.c_str(), strerror(err));
                     }
                     process_receive(buf, buflen, sai, sailen);
                 }
