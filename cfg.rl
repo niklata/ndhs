@@ -1,6 +1,6 @@
 /* cfg.rl - configure file parser for ndhs
  *
- * Copyright 2016-2017 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2016-2020 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,9 +29,11 @@
 #include <string>
 #include <cstdio>
 #include <nk/scopeguard.hpp>
-#include <fmt/format.h>
 #include <nk/from_string.hpp>
 #include "dhcp_state.hpp"
+extern "C" {
+#include "nk/log.h"
+}
 extern void set_user_runas(size_t linenum, std::string &&username);
 extern void set_chroot_path(size_t linenum, std::string &&path);
 
@@ -102,8 +104,8 @@ static inline std::string lc_string(const char *s, size_t slen)
     }
     action DefPrefEn {
         if (auto t = nk::from_string<uint8_t>(cps.st, p - cps.st)) cps.default_preference = *t; else {
-            fmt::print(stderr, "default_preference on line {} out of range [0,255]: {}\n",
-                       linenum, std::string(cps.st, p - cps.st));
+            log_warning("default_preference on line %zu out of range [0,255]: %s",
+                        linenum, std::string(cps.st, p - cps.st));
             cps.parse_error = true;
             fbreak;
         }
@@ -209,8 +211,8 @@ void parse_config(const std::string &path)
     char buf[MAX_LINE];
     auto f = fopen(path.c_str(), "r");
     if (!f) {
-        fmt::print(stderr, "{}: failed to open config file \"{}\" for read: {}\n",
-                   __func__, path, strerror(errno));
+        log_warning("%s: failed to open config file \"%s\" for read: %s",
+                    __func__, path.c_str(), strerror(errno));
         return;
     }
     SCOPE_EXIT{ fclose(f); };
@@ -219,7 +221,7 @@ void parse_config(const std::string &path)
     while (!feof(f)) {
         if (!fgets(buf, sizeof buf, f)) {
             if (!feof(f))
-                fmt::print(stderr, "{}: io error fetching line of '{}'\n", __func__, path);
+                log_warning("%s: io error fetching line of '%s'", __func__, path.c_str());
             break;
         }
         auto llen = strlen(buf);
@@ -232,11 +234,11 @@ void parse_config(const std::string &path)
         const auto r = do_parse_cfg_line(ps, buf, llen, linenum);
         if (r < 0) {
             if (r == -2)
-                fmt::print(stderr, "{}: Incomplete configuration at line {}; ignoring\n",
-                           __func__, linenum);
+                log_warning("%s: Incomplete configuration at line %zu; ignoring",
+                            __func__, linenum);
             else
-                fmt::print(stderr, "{}: Malformed configuration at line {}; ignoring.\n",
-                           __func__, linenum);
+                log_warning("%s: Malformed configuration at line %zu; ignoring.",
+                            __func__, linenum);
             continue;
         }
     }
