@@ -1,9 +1,11 @@
 #include <unordered_map>
 #include <optional>
-#include <fmt/format.h>
 #include <asio.hpp>
 #include <mutex>
 #include "dhcp_state.hpp"
+extern "C" {
+#include "nk/log.h"
+}
 
 struct interface_data
 {
@@ -98,13 +100,13 @@ static void create_dns_search_blob(std::vector<std::string> &dns_search,
     for (const auto &dnsname: dns_search) {
         auto lbl = dns_label(dnsname);
         if (!lbl) {
-            fmt::print(stderr, "labelizing {} failed\n", dnsname);
+            log_warning("labelizing %s failed", dnsname.c_str());
             continue;
         }
         // See if the search blob size is too large to encode in a RA
         // dns search option.
         if (dns_search_blob.size() + lbl->size() > 8 * 254) {
-            fmt::print(stderr, "dns search list is too long, truncating\n");
+            log_warning("dns search list is too long, truncating");
             break;
         }
         dns_search_blob.insert(dns_search_blob.end(),
@@ -124,7 +126,7 @@ static void create_ntp6_fqdns_blob(std::vector<std::string> &ntp_fqdns,
     for (const auto &ntpname: ntp_fqdns) {
         auto lbl = dns_label(ntpname);
         if (!lbl) {
-            fmt::print(stderr, "labelizing {} failed\n", ntpname);
+            log_warning("labelizing %s failed", ntpname.c_str());
             continue;
         }
         ntp6_fqdns_blob.push_back(0);
@@ -170,7 +172,7 @@ bool emplace_interface(size_t linenum, const std::string &interface, uint8_t pre
     std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) {
-        fmt::print(stderr, "interface specified at line {} is not bound\n", linenum);
+        log_warning("interface specified at line %zu is not bound", linenum);
         return false;
     }
     si->second.preference = preference;
@@ -183,16 +185,15 @@ bool emplace_dhcp_state(size_t linenum, const std::string &interface, std::strin
     std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (interface.empty() || si == interface_state.end()) {
-        fmt::print(stderr, "No interface specified at line {}\n", linenum);
+        log_warning("No interface specified at line %zu", linenum);
         return false;
     }
     std::error_code ec;
     auto v6a = asio::ip::address_v6::from_string(v6_addr, ec);
     if (ec) {
-        fmt::print(stderr, "Bad IPv6 address at line {}: {}\n", linenum, v6_addr);
+        log_warning("Bad IPv6 address at line %zu: %s", linenum, v6_addr.c_str());
         return false;
     }
-    //fmt::print(stderr, "STATEv6: {} {} {} {}\n", duid, iaid, v6_addr, default_lifetime);
     si->second.duid_mapping.emplace
         (std::make_pair(std::move(duid),
                         std::make_unique<dhcpv6_entry>(iaid, v6a, default_lifetime)));
@@ -205,16 +206,15 @@ bool emplace_dhcp_state(size_t linenum, const std::string &interface, const std:
     std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (interface.empty() || si == interface_state.end()) {
-        fmt::print(stderr, "No interface specified at line {}\n", linenum);
+        log_warning("No interface specified at line %zu", linenum);
         return false;
     }
     std::error_code ec;
     auto v4a = asio::ip::address_v4::from_string(v4_addr, ec);
     if (ec) {
-        fmt::print(stderr, "Bad IPv4 address at line {}: {}\n", linenum, v4_addr);
+        log_warning("Bad IPv4 address at line %zu: %s", linenum, v4_addr.c_str());
         return false;
     }
-    //fmt::print(stderr, "STATEv4: {} {} {}\n", macaddr, v4_addr, default_lifetime);
     uint8_t buf[7] = {0};
     for (unsigned i = 0; i < 6; ++i)
         buf[i] = strtol(macaddr.c_str() + 3*i, nullptr, 16);
@@ -228,11 +228,11 @@ bool emplace_dns_server(size_t linenum, const std::string &interface,
                         const std::string &addr, addr_type atype)
 {
     if (interface.empty()) {
-        fmt::print(stderr, "No interface specified at line {}\n", linenum);
+        log_warning("No interface specified at line %zu", linenum);
         return false;
     }
     if (atype == addr_type::null) {
-        fmt::print(stderr, "Invalid address type at line {}\n", linenum);
+        log_warning("Invalid address type at line %zu", linenum);
         return false;
     }
     std::lock_guard<std::recursive_mutex> ml(mtx_);
@@ -245,14 +245,14 @@ bool emplace_dns_server(size_t linenum, const std::string &interface,
             si->second.dns4_servers.emplace_back(std::move(v4a));
             return true;
         } else
-            fmt::print(stderr, "Bad IPv4 address at line {}: {}\n", linenum, addr);
+            log_warning("Bad IPv4 address at line %zu: %s", linenum, addr);
     } else {
         auto v6a = asio::ip::address_v6::from_string(addr, ec);
         if (!ec) {
             si->second.dns6_servers.emplace_back(std::move(v6a));
             return true;
         } else
-            fmt::print(stderr, "Bad IPv6 address at line {}: {}\n", linenum, addr);
+            log_warning("Bad IPv6 address at line %zu: %s", linenum, addr);
     }
     return false;
 }
@@ -261,11 +261,11 @@ bool emplace_ntp_server(size_t linenum, const std::string &interface,
                         const std::string &addr, addr_type atype)
 {
     if (interface.empty()) {
-        fmt::print(stderr, "No interface specified at line {}\n", linenum);
+        log_warning("No interface specified at line %zu", linenum);
         return false;
     }
     if (atype == addr_type::null) {
-        fmt::print(stderr, "Invalid address type at line {}\n", linenum);
+        log_warning("Invalid address type at line %zu", linenum);
         return false;
     }
     std::lock_guard<std::recursive_mutex> ml(mtx_);
@@ -278,14 +278,14 @@ bool emplace_ntp_server(size_t linenum, const std::string &interface,
             si->second.ntp4_servers.emplace_back(std::move(v4a));
             return true;
         } else
-            fmt::print(stderr, "Bad IPv4 address at line {}: {}\n", linenum, addr);
+            log_warning("Bad IPv4 address at line %zu: %s", linenum, addr);
     } else {
         auto v6a = asio::ip::address_v6::from_string(addr, ec);
         if (!ec) {
             si->second.ntp6_servers.emplace_back(std::move(v6a));
             return true;
         } else
-            fmt::print(stderr, "Bad IPv6 address at line {}: {}\n", linenum, addr);
+            log_warning("Bad IPv6 address at line %zu: %s", linenum, addr);
     }
     return false;
 }
@@ -293,7 +293,7 @@ bool emplace_ntp_server(size_t linenum, const std::string &interface,
 bool emplace_subnet(size_t linenum, const std::string &interface, const std::string &addr)
 {
     if (interface.empty()) {
-        fmt::print(stderr, "No interface specified at line {}\n", linenum);
+        log_warning("No interface specified at line %zu", linenum);
         return false;
     }
     std::lock_guard<std::recursive_mutex> ml(mtx_);
@@ -305,14 +305,14 @@ bool emplace_subnet(size_t linenum, const std::string &interface, const std::str
         si->second.subnet = std::move(v4a);
         return true;
     } else
-        fmt::print(stderr, "Bad IPv4 address at line {}: {}\n", linenum, addr);
+        log_warning("Bad IPv4 address at line %zu: %s", linenum, addr);
     return false;
 }
 
 bool emplace_gateway(size_t linenum, const std::string &interface, const std::string &addr)
 {
     if (interface.empty()) {
-        fmt::print(stderr, "No interface specified at line {}\n", linenum);
+        log_warning("No interface specified at line %zu", linenum);
         return false;
     }
     std::lock_guard<std::recursive_mutex> ml(mtx_);
@@ -324,14 +324,14 @@ bool emplace_gateway(size_t linenum, const std::string &interface, const std::st
         si->second.gateway.emplace_back(std::move(v4a));
         return true;
     } else
-        fmt::print(stderr, "Bad IPv4 address at line {}: {}\n", linenum, addr);
+        log_warning("Bad IPv4 address at line %zu: %s", linenum, addr);
     return false;
 }
 
 bool emplace_broadcast(size_t linenum, const std::string &interface, const std::string &addr)
 {
     if (interface.empty()) {
-        fmt::print(stderr, "No interface specified at line {}\n", linenum);
+        log_warning("No interface specified at line %zu", linenum);
         return false;
     }
     std::lock_guard<std::recursive_mutex> ml(mtx_);
@@ -343,7 +343,7 @@ bool emplace_broadcast(size_t linenum, const std::string &interface, const std::
         si->second.broadcast = std::move(v4a);
         return true;
     } else
-        fmt::print(stderr, "Bad IPv4 address at line {}: {}\n", linenum, addr);
+        log_warning("Bad IPv4 address at line %zu: %s", linenum, addr);
     return false;
 }
 
@@ -352,7 +352,7 @@ bool emplace_dynamic_range(size_t linenum, const std::string &interface,
                            uint32_t dynamic_lifetime)
 {
     if (interface.empty()) {
-        fmt::print(stderr, "No interface specified at line {}\n", linenum);
+        log_warning("No interface specified at line %zu", linenum);
         return false;
     }
     std::lock_guard<std::recursive_mutex> ml(mtx_);
@@ -361,12 +361,12 @@ bool emplace_dynamic_range(size_t linenum, const std::string &interface,
     std::error_code ec;
     auto v4a_lo = asio::ip::address_v4::from_string(lo_addr, ec);
     if (ec) {
-        fmt::print(stderr, "Bad IPv4 address at line {}: {}\n", linenum, lo_addr);
+        log_warning("Bad IPv4 address at line %zu: %s", linenum, lo_addr);
         return false;
     }
     auto v4a_hi = asio::ip::address_v4::from_string(hi_addr, ec);
     if (ec) {
-        fmt::print(stderr, "Bad IPv4 address at line {}: {}\n", linenum, hi_addr);
+        log_warning("Bad IPv4 address at line %zu: %s", linenum, hi_addr);
         return false;
     }
     if (v4a_lo > v4a_hi)
@@ -380,7 +380,7 @@ bool emplace_dynamic_range(size_t linenum, const std::string &interface,
 bool emplace_dynamic_v6(size_t linenum, const std::string &interface)
 {
     if (interface.empty()) {
-        fmt::print(stderr, "No interface specified at line {}\n", linenum);
+        log_warning("No interface specified at line %zu", linenum);
         return false;
     }
     std::lock_guard<std::recursive_mutex> ml(mtx_);
@@ -393,7 +393,7 @@ bool emplace_dynamic_v6(size_t linenum, const std::string &interface)
 bool emplace_dns_search(size_t linenum, const std::string &interface, std::string &&label)
 {
     if (interface.empty()) {
-        fmt::print(stderr, "No interface specified at line {}\n", linenum);
+        log_warning("No interface specified at line %zu", linenum);
         return false;
     }
     std::lock_guard<std::recursive_mutex> ml(mtx_);
