@@ -37,7 +37,6 @@ else()
 endif()
 
 add_subdirectory(ncmlib)
-add_subdirectory(fmt)
 
 find_package(Threads)
 
@@ -88,7 +87,6 @@ target_include_directories(ndhs PRIVATE
   "${PROJECT_SOURCE_DIR}"
   "${PROJECT_SOURCE_DIR}/ncmlib"
   "${PROJECT_SOURCE_DIR}/asio"
-  "${PROJECT_SOURCE_DIR}/fmt"
 )
-target_link_libraries(ndhs PUBLIC ${CMAKE_THREAD_LIBS_INIT} ncmlib fmt)
+target_link_libraries(ndhs PUBLIC ${CMAKE_THREAD_LIBS_INIT} ncmlib)
 

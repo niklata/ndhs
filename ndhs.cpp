@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <getopt.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -50,7 +51,6 @@
 #include <signal.h>
 #include <poll.h>
 #include <errno.h>
-#include <nk/optionarg.hpp>
 #include <nk/from_string.hpp>
 extern "C" {
 #include "nk/log.h"
@@ -157,7 +157,18 @@ static void setup_signals_ndhs()
             suicide("sigaction failed");
 }
 
-static void print_version(void)
+static void usage()
+{
+    printf("ndhs " NDHS_VERSION ", DHCPv4/DHCPv6 and IPv6 Router Advertisement server.\n");
+    printf("Copyright 2014-2020 Nicholas J. Kain\n");
+    printf("ndhs [options] [configfile]...\n\nOptions:");
+    printf("--config          -c []  Path to configuration file.\n");
+    printf("--quiet           -q     Log less information while running.\n");
+    printf("--version         -v     Print version and exit.\n");
+    printf("--help            -h     Print this help and exit.\n");
+}
+
+static void print_version()
 {
     log_line("ndhs " NDHS_VERSION ", ipv6 router advertisment and dhcp server.\n"
              "Copyright 2014-2020 Nicholas J. Kain\n"
@@ -182,65 +193,29 @@ static void print_version(void)
              "POSSIBILITY OF SUCH DAMAGE.\n");
 }
 
-enum OpIdx {
-    OPT_UNKNOWN, OPT_HELP, OPT_VERSION, OPT_CONFIG, OPT_QUIET
-};
-static const option::Descriptor usage[] = {
-    { OPT_UNKNOWN,    0,  "",           "", Arg::Unknown,
-        "ndhs " NDHS_VERSION ", DHCPv4/DHCPv6 and IPv6 Router Advertisement server.\n"
-        "Copyright 2014-2017 Nicholas J. Kain\n"
-        "ndhs [options] [configfile]...\n\nOptions:" },
-    { OPT_HELP,       0, "h",            "help",    Arg::None, "\t-h, \t--help  \tPrint usage and exit." },
-    { OPT_VERSION,    0, "v",         "version",    Arg::None, "\t-v, \t--version  \tPrint version and exit." },
-    { OPT_CONFIG,     0, "c",          "config",  Arg::String, "\t-c, \t--config  \tPath to configuration file (default: /etc/ndhs.conf)."},
-    { OPT_QUIET,      0, "q",           "quiet",    Arg::None, "\t-q, \t--quiet  \tDon't log to std(out|err) or syslog." },
-    {0,0,0,0,0,0}
-};
 static void process_options(int ac, char *av[])
 {
-    ac-=ac>0; av+=ac>0;
-    option::Stats stats(usage, ac, av);
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wvla"
-    option::Option options[stats.options_max], buffer[stats.buffer_max];
-#pragma GCC diagnostic pop
-    option::Parser parse(usage, ac, av, options, buffer);
-#else
-    auto options = std::make_unique<option::Option[]>(stats.options_max);
-    auto buffer = std::make_unique<option::Option[]>(stats.buffer_max);
-    option::Parser parse(usage, ac, av, options.get(), buffer.get());
-#endif
-    if (parse.error())
-        std::exit(EXIT_FAILURE);
-    if (options[OPT_HELP]) {
-        uint16_t col{80};
-        if (const auto cols = getenv("COLUMNS")) {
-            if (auto t = nk::from_string<uint16_t>(cols)) col = *t;
-        }
-        option::printUsage(fwrite, stdout, usage, col);
-        std::exit(EXIT_FAILURE);
-    }
-    if (options[OPT_VERSION]) {
-        print_version();
-        std::exit(EXIT_FAILURE);
-    }
-
-    std::vector<std::string> addrlist;
-
-    for (int i = 0; i < parse.optionsCount(); ++i) {
-        option::Option &opt = buffer[i];
-        switch (opt.index()) {
-            case OPT_CONFIG: configfile = std::string(opt.arg); break;
-            case OPT_QUIET: gflags_quiet = 1; break;
+    static struct option long_options[] = {
+        {"quiet", 0, (int *)0, 'q'},
+        {"config", 1, (int *)0, 'c'},
+        {"version", 0, (int *)0, 'v'},
+        {"help", 0, (int *)0, 'h'},
+        {(const char *)0, 0, (int *)0, 0 }
+    };
+    for (;;) {
+        auto c = getopt_long(ac, av, "qc:vh", long_options, (int *)0);
+        if (c == -1) break;
+        switch (c) {
+            case 'q': gflags_quiet = 1; break;
+            case 'c': configfile = optarg; break;
+            case 'v': print_version(); std::exit(EXIT_SUCCESS); break;
+            case 'h': usage(); std::exit(EXIT_SUCCESS); break;
+            default: break;
         }
     }
 
     if (configfile.size())
         parse_config(configfile);
-
-    for (int i = 0; i < parse.nonOptionsCount(); ++i)
-        parse_config(parse.nonOption(i));
 
     if (!bound_interfaces_count())
         suicide("No interfaces have been bound");
