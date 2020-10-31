@@ -290,12 +290,9 @@ void D4Listener::send_reply_do(const dhcpmsg &dm, SendReplyType srt)
         send_to(&dm, dmlen, dhcpmsg_.ciaddr, 68);
         break;
     case SendReplyType::Broadcast: {
-        uint32_t remotebcast;
-        {
-            auto t = remote_endpoint_.address().to_v4().broadcast().to_bytes();
-            memcpy(&remotebcast, t.data(), sizeof remotebcast);
-        }
-        send_to(&dm, dmlen, remotebcast, 68);
+        const auto broadcast = query_broadcast(ifname_);
+        if (!broadcast) suicide("dhcp4: misconfigured -- must have a broadcast address");
+        send_to(&dm, dmlen, htonl(broadcast->to_ulong()), 68);
         break;
     }
     case SendReplyType::Relay:
