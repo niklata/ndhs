@@ -35,8 +35,10 @@
 #include "dhcp_state.hpp"
 #include "nlsocket.hpp"
 #include "dynlease.hpp"
+#include "sbufs.h"
 extern "C" {
 #include "nk/log.h"
+#include "nk/io.h"
 #include "options.h"
 }
 
@@ -215,18 +217,9 @@ bool D4Listener::init(const std::string &ifname)
             if (pfds[0].revents & POLLIN) {
                 pfds[0].revents &= ~POLLIN;
                 char buf[8192];
-                for (;;) {
-                    sockaddr_in sai;
-                    socklen_t sailen = sizeof sai;
-                    auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, reinterpret_cast<sockaddr *>(&sai), &sailen);
-                    if (buflen == -1) {
-                        int err = errno;
-                        if (err == EINTR) continue;
-                        if (err == EAGAIN || err == EWOULDBLOCK) break;
-                        suicide("D4Listener: recvfrom failed: %s", strerror(err));
-                    }
-                    process_receive(buf, buflen, sai, sailen);
-                }
+                auto buflen = safe_recv(fd_(), buf, sizeof buf, MSG_DONTWAIT);
+                if (buflen < 0) suicide("D4Listener: recv failed: %s", strerror(errno));
+                process_receive(buf, buflen);
             }
         }
     });
@@ -265,14 +258,10 @@ bool D4Listener::send_to(const void *buf, size_t len, uint32_t addr, int port)
     sai.sin_family = AF_INET;
     sai.sin_port = htons(port);
     sai.sin_addr.s_addr = addr;
-    for (;;) {
-        const auto r = sendto(fd_(), buf, len, 0, reinterpret_cast<const sockaddr *>(&sai), sizeof sai);
-        if (r == -1) {
-            if (errno == EINTR) continue;
-            log_warning("D4Listener sendto failed: %s", strerror(errno));
-            return false;
-        }
-        break;
+    const auto r = safe_sendto(fd_(), (const char *)buf, len, 0, reinterpret_cast<const sockaddr *>(&sai), sizeof sai);
+    if (r < 0) {
+        log_warning("D4Listener sendto failed: %s", strerror(errno));
+        return false;
     }
     return true;
 }
@@ -478,22 +467,21 @@ void D4Listener::reply_inform()
             auto fl = ntohs(reply.flags);
             reply.flags = htons(fl | 0x8000u);
             send_reply_do(reply, SendReplyType::Relay);
-        } else if (remote_endpoint_.address() != zero_v4)
-            send_reply_do(reply, SendReplyType::UnicastCi);
-        else
+        } else
             send_reply_do(reply, SendReplyType::Broadcast);
     }
 }
 
 void D4Listener::do_release() {
-    auto valid = dynlease_exists(ifname_, remote_endpoint_.address().to_v4(), dhcpmsg_.chaddr);
+    using aia4 = asio::ip::address_v4;
+    auto valid = dynlease_exists(ifname_, aia4(ntohl(dhcpmsg_.ciaddr)), dhcpmsg_.chaddr);
     if (!valid) {
-        log_line("do_release: ignoring spoofed release request for %s.",
-                   remote_endpoint_.address().to_string());
-        std::fflush(stdout);
+        char buf[32] = "invalid ip";
+        ip4_to_string(buf, sizeof buf, dhcpmsg_.ciaddr);
+        log_line("do_release: ignoring spoofed release request for %s.", buf);
         return;
     }
-    dynlease_del(ifname_, remote_endpoint_.address().to_v4(), dhcpmsg_.chaddr);
+    dynlease_del(ifname_, aia4(ntohl(dhcpmsg_.ciaddr)), dhcpmsg_.chaddr);
 }
 
 std::string D4Listener::getChaddr(const struct dhcpmsg &dm) const
@@ -512,15 +500,8 @@ uint8_t D4Listener::validate_dhcp(size_t len) const
     return get_option_msgtype(&dhcpmsg_);
 }
 
-void D4Listener::process_receive(const char *buf, std::size_t buflen,
-                                 const sockaddr_in &sai, socklen_t sailen)
+void D4Listener::process_receive(const char *buf, std::size_t buflen)
 {
-    (void)sailen;
-    asio::ip::address_v4::bytes_type abt;
-    assert(sailen == sizeof abt);
-    memcpy(&abt, &sai.sin_addr, sizeof abt);
-    remote_endpoint_ = asio::ip::udp::endpoint{ asio::ip::make_address_v4(abt), sai.sin_port };
-
     bool direct_request = false;
     auto msglen = std::min(static_cast<size_t>(buflen), sizeof dhcpmsg_);
     memset(&dhcpmsg_, 0, sizeof dhcpmsg_);

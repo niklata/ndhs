@@ -101,12 +101,10 @@ private:
     void do_release();
     std::string getChaddr(const struct dhcpmsg &dm) const;
     uint8_t validate_dhcp(size_t len) const;
-    void process_receive(const char *buf, std::size_t bytes_xferred,
-                         const sockaddr_in &sai, socklen_t sailen);
+    void process_receive(const char *buf, std::size_t bytes_xferred);
 
     std::thread thd_;
     nk::sys::handle fd_;
-    asio::ip::udp::endpoint remote_endpoint_;
     struct dhcpmsg dhcpmsg_;
     std::string ifname_;
     asio::ip::address local_ip_;

@@ -12,6 +12,11 @@ struct sbufs {
     char *se;
 };
 
+static inline bool ip4_to_string(char *buf, size_t buflen, uint32_t addr)
+{
+    return !!inet_ntop(AF_INET, &addr, buf, buflen);
+}
+
 static inline bool sa6_from_string(sockaddr_in6 *sin, const char *str)
 {
     memset(sin, 0, sizeof(sockaddr_in6));
