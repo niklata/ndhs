@@ -96,7 +96,7 @@ private:
     bool allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do_assign);
     bool create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_assign);
     void reply_discover();
-    void reply_request(bool is_direct);
+    void reply_request();
     void reply_inform();
     void do_release();
     std::string getChaddr(const struct dhcpmsg &dm) const;

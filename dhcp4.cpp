@@ -432,7 +432,7 @@ void D4Listener::reply_discover()
         send_reply(reply);
 }
 
-void D4Listener::reply_request(bool /* is_direct */)
+void D4Listener::reply_request()
 {
     log_line("Got DHCP4 request message");
     dhcpmsg reply;
@@ -502,7 +502,6 @@ uint8_t D4Listener::validate_dhcp(size_t len) const
 
 void D4Listener::process_receive(const char *buf, std::size_t buflen)
 {
-    bool direct_request = false;
     auto msglen = std::min(static_cast<size_t>(buflen), sizeof dhcpmsg_);
     memset(&dhcpmsg_, 0, sizeof dhcpmsg_);
     memcpy(&dhcpmsg_, buf, msglen);
@@ -514,7 +513,6 @@ void D4Listener::process_receive(const char *buf, std::size_t buflen)
     if (cs == DHCPNULL) {
         switch (msgtype) {
         case DHCPREQUEST:
-            direct_request = true;
         case DHCPDISCOVER:
             cs = msgtype;
             client_states_v4->stateAdd(dhcpmsg_.xid, dhcpmsg_.chaddr, cs);
@@ -534,7 +532,7 @@ void D4Listener::process_receive(const char *buf, std::size_t buflen)
 
     switch (cs) {
     case DHCPDISCOVER: reply_discover(); break;
-    case DHCPREQUEST:  reply_request(direct_request); break;
+    case DHCPREQUEST:  reply_request(); break;
     case DHCPINFORM:   reply_inform(); break;
     case DHCPDECLINE:  log_line("Received a DHCPDECLINE.  Clients conflict?");
     case DHCPRELEASE:  do_release(); break;
