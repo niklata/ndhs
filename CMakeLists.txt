@@ -7,9 +7,8 @@ endif()
 
 project (ndhs DESCRIPTION "dhcp[46] and ipv6 router advertisement server" LANGUAGES CXX C)
 
-# XXX: Until ASIO is removed, we can't use -fno-rtti
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -fno-strict-overflow -pedantic -Wall -Wextra -Wimplicit-fallthrough=0 -Wformat=2 -Wformat-nonliteral -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -Wcast-qual -Wsign-conversion -DNDHS_BUILD -DASIO_STANDALONE")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++17 -fno-strict-overflow -pedantic -Wall -Wextra -Wimplicit-fallthrough=0 -Wformat-security -Wpointer-arith -DNDHS_BUILD -DASIO_STANDALONE")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++17 -fno-strict-overflow -fno-rtti -pedantic -Wall -Wextra -Wimplicit-fallthrough=0 -Wformat-security -Wpointer-arith -DNDHS_BUILD -DASIO_STANDALONE -DASIO_NO_TYPEID")
 
 if (WIN32)
   set(OSNAME "Win32")
