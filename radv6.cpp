@@ -404,42 +404,24 @@ bool RA6Listener::init(const std::string &ifname)
         log_warning("ra6: Failed to send initial router advertisement on %s", ifname_.c_str());
     set_next_advert_ts();
 
-    thd_ = std::thread([this]() {
-        struct pollfd pfds[1];
-        memset(pfds, 0, sizeof pfds);
-        pfds[0].fd = fd_();
-        pfds[0].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
-        for (;;) {
-            const auto timeout = send_periodic_advert();
-            if (poll(pfds, 1, timeout > 0 ? timeout : 0) < 0) {
-                if (errno != EINTR)
-                    suicide("ra6: poll failed on %s", ifname_.c_str());
-            }
-            if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                pfds[0].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
-                suicide("ra6: socket closed unexpectedly on %s", ifname_.c_str());
-            }
-            if (pfds[0].revents & POLLIN) {
-                pfds[0].revents &= ~POLLIN;
-                char buf[8192];
-                for (;;) {
-                    sockaddr_in6 sai;
-                    socklen_t sailen = sizeof sai;
-                    auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, reinterpret_cast<sockaddr *>(&sai), &sailen);
-                    if (buflen == -1) {
-                        int err = errno;
-                        if (err == EINTR) continue;
-                        if (err == EAGAIN || err == EWOULDBLOCK) break;
-                        suicide("ra6: recvfrom failed on %s: %s", ifname_.c_str(), strerror(err));
-                    }
-                    process_receive(buf, buflen, sai, sailen);
-                }
-            }
-
-        }
-    });
-    thd_.detach();
     return true;
+}
+
+void RA6Listener::process_input()
+{
+    char buf[8192];
+    for (;;) {
+        sockaddr_in6 sai;
+        socklen_t sailen = sizeof sai;
+        auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, reinterpret_cast<sockaddr *>(&sai), &sailen);
+        if (buflen == -1) {
+            int err = errno;
+            if (err == EINTR) continue;
+            if (err == EAGAIN || err == EWOULDBLOCK) break;
+            suicide("ra6: recvfrom failed on %s: %s", ifname_.c_str(), strerror(err));
+        }
+        process_receive(buf, buflen, sai, sailen);
+    }
 }
 
 void RA6Listener::attach_bpf(int fd)

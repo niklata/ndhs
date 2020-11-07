@@ -28,7 +28,6 @@
 
 #include <unistd.h>
 #include <sys/types.h>
-#include <poll.h>
 #include <pwd.h>
 #include "rng.hpp"
 #include "dhcp4.hpp"
@@ -200,31 +199,15 @@ bool D4Listener::init(const std::string &ifname)
         return false;
     }
 
-    thd_ = std::thread([this]() {
-        struct pollfd pfds[1];
-        memset(pfds, 0, sizeof pfds);
-        pfds[0].fd = fd_();
-        pfds[0].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
-        for (;;) {
-            if (poll(pfds, 1, -1) < 0) {
-                if (errno != EINTR)
-                    suicide("poll failed");
-            }
-            if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                pfds[0].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
-                suicide("%s: dhcp4 socket closed unexpectedly", ifname_.c_str());
-            }
-            if (pfds[0].revents & POLLIN) {
-                pfds[0].revents &= ~POLLIN;
-                char buf[8192];
-                auto buflen = safe_recv(fd_(), buf, sizeof buf, MSG_DONTWAIT);
-                if (buflen < 0) suicide("D4Listener: recv failed: %s", strerror(errno));
-                process_receive(buf, buflen);
-            }
-        }
-    });
-    thd_.detach();
     return true;
+}
+
+void D4Listener::process_input()
+{
+    char buf[8192];
+    auto buflen = safe_recv(fd_(), buf, sizeof buf, MSG_DONTWAIT);
+    if (buflen < 0) suicide("D4Listener: recv failed: %s", strerror(errno));
+    process_receive(buf, buflen);
 }
 
 void D4Listener::dhcpmsg_init(dhcpmsg &dm, char type, uint32_t xid) const

@@ -1,4 +1,3 @@
-#include <poll.h>
 #include "rng.hpp"
 #include "nlsocket.hpp"
 #include "multicast6.hpp"
@@ -97,40 +96,24 @@ bool D6Listener::init(const std::string &ifname, uint8_t preference)
     }
     if (!create_dhcp6_socket()) return false;
 
-    thd_ = std::thread([this]() {
-        struct pollfd pfds[1];
-        memset(pfds, 0, sizeof pfds);
-        pfds[0].fd = fd_();
-        pfds[0].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
-        for (;;) {
-            if (poll(pfds, 1, -1) < 0) {
-                if (errno != EINTR)
-                    suicide("dhcp6: poll failed on %s", ifname_.c_str());
-            }
-            if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                pfds[0].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
-                suicide("dhcp6: socket closed unexpectedly on %s", ifname_.c_str());
-            }
-            if (pfds[0].revents & POLLIN) {
-                pfds[0].revents &= ~POLLIN;
-                char buf[8192];
-                for (;;) {
-                    sockaddr_in6 sai;
-                    socklen_t sailen = sizeof sai;
-                    auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, reinterpret_cast<sockaddr *>(&sai), &sailen);
-                    if (buflen == -1) {
-                        int err = errno;
-                        if (err == EINTR) continue;
-                        if (err == EAGAIN || err == EWOULDBLOCK) break;
-                        suicide("dhcp6: recvfrom failed on %s: %s", ifname_.c_str(), strerror(err));
-                    }
-                    process_receive(buf, buflen, sai, sailen);
-                }
-            }
-        }
-    });
-    thd_.detach();
     return true;
+}
+
+void D6Listener::process_input()
+{
+    char buf[8192];
+    for (;;) {
+        sockaddr_in6 sai;
+        socklen_t sailen = sizeof sai;
+        auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, reinterpret_cast<sockaddr *>(&sai), &sailen);
+        if (buflen == -1) {
+            int err = errno;
+            if (err == EINTR) continue;
+            if (err == EAGAIN || err == EWOULDBLOCK) break;
+            suicide("dhcp6: recvfrom failed on %s: %s", ifname_.c_str(), strerror(err));
+        }
+        process_receive(buf, buflen, sai, sailen);
+    }
 }
 
 void D6Listener::attach_bpf(int fd)

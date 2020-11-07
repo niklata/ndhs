@@ -80,7 +80,9 @@ public:
     D4Listener &operator=(const D4Listener &) = delete;
 
     [[nodiscard]] bool init(const std::string &ifname);
+    void process_input();
     auto fd() const { return fd_(); }
+    auto& ifname() const { return ifname_; }
 private:
     bool create_dhcp4_socket();
     void dhcpmsg_init(dhcpmsg &dm, char type, uint32_t xid) const;
@@ -103,7 +105,6 @@ private:
     uint8_t validate_dhcp(size_t len) const;
     void process_receive(const char *buf, std::size_t bytes_xferred);
 
-    std::thread thd_;
     nk::sys::handle fd_;
     struct dhcpmsg dhcpmsg_;
     std::string ifname_;

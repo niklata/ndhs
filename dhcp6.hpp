@@ -204,6 +204,9 @@ public:
     D6Listener &operator=(const D6Listener &) = delete;
 
     [[nodiscard]] bool init(const std::string &ifname, uint8_t preference);
+    void process_input();
+    auto fd() const { return fd_(); }
+    auto& ifname() const { return ifname_; }
 private:
     using prev_opt_state = std::pair<int8_t, uint16_t>; // Type of parent opt and length left
     struct d6msg_state
@@ -256,7 +259,6 @@ private:
     void process_receive(char *buf, std::size_t buflen,
                          const sockaddr_in6 &sai, socklen_t sailen);
 
-    std::thread thd_;
     asio::ip::address_v6 local_ip_;
     asio::ip::address_v6 local_ip_prefix_;
     asio::ip::address_v6 link_local_ip_;

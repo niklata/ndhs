@@ -63,6 +63,21 @@ extern "C" {
 #include "dynlease.hpp"
 #include "duid.hpp"
 
+enum class pfd_type
+{
+    netlink,
+    dhcp6,
+    dhcp4,
+    radv6,
+};
+
+struct pfd_meta
+{
+    pfd_meta(pfd_type p, void *d) : pfdt(p), data(d) {}
+    pfd_type pfdt;
+    void *data;
+};
+
 static std::string configfile{"/etc/ndhs.conf"};
 static std::string chroot_path;
 static uid_t ndhs_uid;
@@ -72,14 +87,25 @@ std::unique_ptr<NLSocket> nl_socket;
 
 static std::vector<std::unique_ptr<D6Listener>> v6_listeners;
 static std::vector<std::unique_ptr<D4Listener>> v4_listeners;
-static std::vector<std::unique_ptr<RA6Listener>> radv6_listeners;
+static std::vector<std::unique_ptr<RA6Listener>> r6_listeners;
+
+static std::vector<struct pollfd> poll_vector;
+static std::vector<pfd_meta> poll_meta;
 
 extern void parse_config(const std::string &path);
 
 static void init_listeners()
 {
+    nl_socket = std::make_unique<NLSocket>();
+    struct pollfd pt;
+    pt.fd = nl_socket->fd();
+    pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+    pt.revents = 0;
+    poll_vector.push_back(pt);
+    poll_meta.emplace_back(pfd_type::netlink, nl_socket.get());
+
     auto v6l = &v6_listeners;
-    auto vr6l = &radv6_listeners;
+    auto vr6l = &r6_listeners;
     auto v4l = &v4_listeners;
     bound_interfaces_foreach([v6l, vr6l, v4l](const std::string &i, bool use_v4, bool use_v6,
                                               uint8_t preference) {
@@ -94,6 +120,18 @@ static void init_listeners()
                     v6l->pop_back();
                     vr6l->pop_back();
                     log_warning("Can't bind to rav6 interface: %s", i.c_str());
+                } else {
+                    struct pollfd pt;
+                    pt.fd = v6l->back()->fd();
+                    pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+                    pt.revents = 0;
+                    poll_vector.push_back(pt);
+                    poll_meta.emplace_back(pfd_type::dhcp6, v6l->back().get());
+                    pt.fd = vr6l->back()->fd();
+                    pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+                    pt.revents = 0;
+                    poll_vector.push_back(pt);
+                    poll_meta.emplace_back(pfd_type::radv6, vr6l->back().get());
                 }
             }
         }
@@ -102,6 +140,13 @@ static void init_listeners()
             if (!v4l->back()->init(i)) {
                 v4l->pop_back();
                 log_warning("Can't bind to dhcpv4 interface: %s", i.c_str());
+            } else {
+                struct pollfd pt;
+                pt.fd = v4l->back()->fd();
+                pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+                pt.revents = 0;
+                poll_vector.push_back(pt);
+                poll_meta.emplace_back(pfd_type::dhcp4, v4l->back().get());
             }
         }
     });
@@ -233,7 +278,6 @@ static void process_options(int ac, char *av[])
     if (chroot_path.empty())
         suicide("No chroot path is specified.");
 
-    nl_socket = std::make_unique<NLSocket>();
     init_listeners();
 
     umask(077);
@@ -251,17 +295,64 @@ int main(int ac, char *av[])
 
     process_options(ac, av);
 
-    struct pollfd pfds[1];
-    memset(pfds, 0, sizeof pfds);
-    pfds[0].fd = -1;
-    pfds[0].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
-
     for (;;) {
-        if (poll(pfds, 1, -1) < 0) {
-            if (errno != EINTR)
-                suicide("poll failed");
+        int timeout = INT_MAX;
+        for (auto &i: r6_listeners) {
+            auto t = i->send_periodic_advert();
+            timeout = std::min(timeout, t);
+        }
+        if (poll(poll_vector.data(), poll_vector.size(), timeout > 0 ? timeout : 0) < 0) {
+            if (errno != EINTR) suicide("poll failed");
         }
         if (l_signal_exit) break;
+        for (size_t i = 0, iend = poll_vector.size(); i < iend; ++i) {
+            switch (poll_meta[i].pfdt) {
+            case pfd_type::netlink: {
+                auto nl = static_cast<NLSocket *>(poll_meta[i].data);
+                if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+                    poll_vector[i].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
+                    suicide("nlfd closed unexpectedly");
+                }
+                if (poll_vector[i].revents & POLLIN) {
+                    poll_vector[i].revents &= ~POLLIN;
+                    nl->process_input();
+                }
+            } break;
+            case pfd_type::dhcp6: {
+                auto d6 = static_cast<D6Listener *>(poll_meta[i].data);
+                if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+                    poll_vector[i].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
+                    suicide("%s: dhcp6 socket closed unexpectedly", d6->ifname().c_str());
+                }
+                if (poll_vector[i].revents & POLLIN) {
+                    poll_vector[i].revents &= ~POLLIN;
+                    d6->process_input();
+                }
+            } break;
+            case pfd_type::dhcp4: {
+                auto d4 = static_cast<D4Listener *>(poll_meta[i].data);
+                if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+                    poll_vector[i].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
+                    suicide("%s: dhcp4 socket closed unexpectedly", d4->ifname().c_str());
+                }
+                if (poll_vector[i].revents & POLLIN) {
+                    poll_vector[i].revents &= ~POLLIN;
+                    d4->process_input();
+                }
+            } break;
+            case pfd_type::radv6: {
+                auto r6 = static_cast<RA6Listener *>(poll_meta[i].data);
+                if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+                    poll_vector[i].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
+                    suicide("%s: ra6 socket closed unexpectedly", r6->ifname().c_str());
+                }
+                if (poll_vector[i].revents & POLLIN) {
+                    poll_vector[i].revents &= ~POLLIN;
+                    r6->process_input();
+                }
+            } break;
+            }
+        }
     }
 
     dynlease_serialize(LEASEFILE_PATH);

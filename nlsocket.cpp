@@ -26,7 +26,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <poll.h>
 #include "rng.hpp"
 #include "nlsocket.hpp"
 extern "C" {
@@ -47,39 +46,22 @@ bool NLSocket::init()
     request_addrs();
     initialized_ = true;
 
-    thd_ = std::thread([this]() {
-        struct pollfd pfds[1];
-        memset(pfds, 0, sizeof pfds);
-        pfds[0].fd = fd_();
-        pfds[0].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
-        for (;;) {
-            if (poll(pfds, 1, -1) < 0) {
-                if (errno != EINTR)
-                    suicide("poll failed");
-            }
-            if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                pfds[0].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
-                suicide("nlfd closed unexpectedly");
-            }
-            if (pfds[0].revents & POLLIN) {
-                pfds[0].revents &= ~POLLIN;
-                char buf[8192];
-                for (;;) {
-                    auto buflen = recv(fd_(), buf, sizeof buf, MSG_DONTWAIT);
-                    if (buflen == -1) {
-                        int err = errno;
-                        if (err == EINTR) continue;
-                        if (err == EAGAIN || err == EWOULDBLOCK) break;
-                        suicide("nlsocket: recv failed: %s", strerror(err));
-                    }
-                    process_receive(buf, buflen, 0, 0);
-                }
-            }
-        }
-    });
-    thd_.detach();
-
     return true;
+}
+
+void NLSocket::process_input()
+{
+    char buf[8192];
+    for (;;) {
+        auto buflen = recv(fd_(), buf, sizeof buf, MSG_DONTWAIT);
+        if (buflen == -1) {
+            int err = errno;
+            if (err == EINTR) continue;
+            if (err == EAGAIN || err == EWOULDBLOCK) break;
+            suicide("nlsocket: recv failed: %s", strerror(err));
+        }
+        process_receive(buf, buflen, 0, 0);
+    }
 }
 
 void NLSocket::request_links()

@@ -36,7 +36,6 @@
 #include <optional>
 #include <nk/sys/posix/handle.hpp>
 #include <mutex>
-#include <thread>
 #include <asio.hpp>
 extern "C" {
 #include "nl.h"
@@ -90,6 +89,7 @@ public:
     NLSocket &operator=(const NLSocket &) = delete;
 
     [[nodiscard]] bool init();
+    void process_input();
     auto fd() const { return fd_(); }
     [[nodiscard]] std::optional<int> get_ifindex(const std::string &name) {
         std::lock_guard<std::mutex> m(mtx_);
@@ -135,7 +135,6 @@ private:
     void request_addrs();
     void request_addrs(int ifidx);
     std::mutex mtx_; // guards interfaces_ and name_to_ifindex_
-    std::thread thd_;
     std::map<std::string, int> name_to_ifindex_;
     std::map<int, netif_info> interfaces_;
     nk::sys::handle fd_;
