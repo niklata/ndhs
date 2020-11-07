@@ -1,7 +1,6 @@
 #include <unordered_map>
 #include <optional>
 #include <asio.hpp>
-#include <mutex>
 #include "dhcp_state.hpp"
 extern "C" {
 #include "nk/log.h"
@@ -35,7 +34,6 @@ struct interface_data
     bool use_dynamic_v6:1;
 };
 
-static std::recursive_mutex mtx_;
 static std::unordered_map<std::string, interface_data> interface_state;
 
 // Performs DNS label wire encoding cf RFC1035 3.1
@@ -142,7 +140,6 @@ static void create_ntp6_fqdns_blob(std::vector<std::string> &ntp_fqdns,
 
 void create_blobs()
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     for (auto &i: interface_state) {
         create_dns_search_blob(i.second.dns_search, i.second.dns_search_blob);
         create_ntp6_fqdns_blob(i.second.ntp6_fqdns, i.second.ntp6_fqdns_blob);
@@ -153,7 +150,6 @@ bool emplace_bind(size_t /* linenum */, std::string &&interface, bool is_v4)
 {
     if (interface.empty())
         return false;
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) {
         interface_state.emplace(std::make_pair(std::move(interface),
@@ -169,7 +165,6 @@ bool emplace_interface(size_t linenum, const std::string &interface, uint8_t pre
 {
     if (interface.empty())
         return false;
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) {
         log_warning("interface specified at line %zu is not bound", linenum);
@@ -182,7 +177,6 @@ bool emplace_interface(size_t linenum, const std::string &interface, uint8_t pre
 bool emplace_dhcp_state(size_t linenum, const std::string &interface, std::string &&duid,
                         uint32_t iaid, const std::string &v6_addr, uint32_t default_lifetime)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (interface.empty() || si == interface_state.end()) {
         log_warning("No interface specified at line %zu", linenum);
@@ -203,7 +197,6 @@ bool emplace_dhcp_state(size_t linenum, const std::string &interface, std::strin
 bool emplace_dhcp_state(size_t linenum, const std::string &interface, const std::string &macaddr,
                         const std::string &v4_addr, uint32_t default_lifetime)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (interface.empty() || si == interface_state.end()) {
         log_warning("No interface specified at line %zu", linenum);
@@ -235,7 +228,6 @@ bool emplace_dns_server(size_t linenum, const std::string &interface,
         log_warning("Invalid address type at line %zu", linenum);
         return false;
     }
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
     std::error_code ec;
@@ -268,7 +260,6 @@ bool emplace_ntp_server(size_t linenum, const std::string &interface,
         log_warning("Invalid address type at line %zu", linenum);
         return false;
     }
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
     std::error_code ec;
@@ -296,7 +287,6 @@ bool emplace_subnet(size_t linenum, const std::string &interface, const std::str
         log_warning("No interface specified at line %zu", linenum);
         return false;
     }
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
     std::error_code ec;
@@ -315,7 +305,6 @@ bool emplace_gateway(size_t linenum, const std::string &interface, const std::st
         log_warning("No interface specified at line %zu", linenum);
         return false;
     }
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
     std::error_code ec;
@@ -334,7 +323,6 @@ bool emplace_broadcast(size_t linenum, const std::string &interface, const std::
         log_warning("No interface specified at line %zu", linenum);
         return false;
     }
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
     std::error_code ec;
@@ -355,7 +343,6 @@ bool emplace_dynamic_range(size_t linenum, const std::string &interface,
         log_warning("No interface specified at line %zu", linenum);
         return false;
     }
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
     std::error_code ec;
@@ -383,7 +370,6 @@ bool emplace_dynamic_v6(size_t linenum, const std::string &interface)
         log_warning("No interface specified at line %zu", linenum);
         return false;
     }
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
     si->second.use_dynamic_v6 = true;
@@ -396,7 +382,6 @@ bool emplace_dns_search(size_t linenum, const std::string &interface, std::strin
         log_warning("No interface specified at line %zu", linenum);
         return false;
     }
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
     si->second.dns_search.emplace_back(std::move(label));
@@ -406,7 +391,6 @@ bool emplace_dns_search(size_t linenum, const std::string &interface, std::strin
 const dhcpv6_entry *query_dhcp_state(const std::string &interface, const std::string &duid,
                                      uint32_t iaid)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     auto f = si->second.duid_mapping.equal_range(duid);
@@ -419,7 +403,6 @@ const dhcpv6_entry *query_dhcp_state(const std::string &interface, const std::st
 
 const dhcpv4_entry* query_dhcp_state(const std::string &interface, const uint8_t *hwaddr)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     auto f = si->second.macaddr_mapping.find(std::string(reinterpret_cast<const char *>(hwaddr), 6));
@@ -428,7 +411,6 @@ const dhcpv4_entry* query_dhcp_state(const std::string &interface, const uint8_t
 
 const std::vector<asio::ip::address_v6> *query_dns6_servers(const std::string &interface)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     return &si->second.dns6_servers;
@@ -436,7 +418,6 @@ const std::vector<asio::ip::address_v6> *query_dns6_servers(const std::string &i
 
 const std::vector<asio::ip::address_v4> *query_dns4_servers(const std::string &interface)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     return &si->second.dns4_servers;
@@ -444,7 +425,6 @@ const std::vector<asio::ip::address_v4> *query_dns4_servers(const std::string &i
 
 const std::vector<uint8_t> *query_dns6_search_blob(const std::string &interface)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     return &si->second.dns_search_blob;
@@ -452,7 +432,6 @@ const std::vector<uint8_t> *query_dns6_search_blob(const std::string &interface)
 
 const std::vector<asio::ip::address_v6> *query_ntp6_servers(const std::string &interface)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     return &si->second.ntp6_servers;
@@ -460,7 +439,6 @@ const std::vector<asio::ip::address_v6> *query_ntp6_servers(const std::string &i
 
 const std::vector<asio::ip::address_v4> *query_ntp4_servers(const std::string &interface)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     return &si->second.ntp4_servers;
@@ -468,7 +446,6 @@ const std::vector<asio::ip::address_v4> *query_ntp4_servers(const std::string &i
 
 const std::vector<uint8_t> *query_ntp6_fqdns_blob(const std::string &interface)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     return &si->second.ntp6_fqdns_blob;
@@ -476,7 +453,6 @@ const std::vector<uint8_t> *query_ntp6_fqdns_blob(const std::string &interface)
 
 const std::vector<asio::ip::address_v6> *query_ntp6_multicasts(const std::string &interface)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     return &si->second.ntp6_multicasts;
@@ -484,7 +460,6 @@ const std::vector<asio::ip::address_v6> *query_ntp6_multicasts(const std::string
 
 const std::vector<asio::ip::address_v4> *query_gateway(const std::string &interface)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     return &si->second.gateway;
@@ -492,7 +467,6 @@ const std::vector<asio::ip::address_v4> *query_gateway(const std::string &interf
 
 const asio::ip::address_v4 *query_subnet(const std::string &interface)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     return &si->second.subnet;
@@ -500,7 +474,6 @@ const asio::ip::address_v4 *query_subnet(const std::string &interface)
 
 const asio::ip::address_v4 *query_broadcast(const std::string &interface)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     return &si->second.broadcast;
@@ -509,7 +482,6 @@ const asio::ip::address_v4 *query_broadcast(const std::string &interface)
 const std::pair<asio::ip::address_v4, asio::ip::address_v4> *
 query_dynamic_range(const std::string &interface)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     return &si->second.dynamic_range;
@@ -517,7 +489,6 @@ query_dynamic_range(const std::string &interface)
 
 const std::vector<std::string> *query_dns_search(const std::string &interface)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     return &si->second.dns_search;
@@ -525,7 +496,6 @@ const std::vector<std::string> *query_dns_search(const std::string &interface)
 
 bool query_use_dynamic_v4(const std::string &interface, uint32_t &dynamic_lifetime)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
     dynamic_lifetime = si->second.dynamic_lifetime;
@@ -534,7 +504,6 @@ bool query_use_dynamic_v4(const std::string &interface, uint32_t &dynamic_lifeti
 
 bool query_use_dynamic_v6(const std::string &interface, uint32_t &dynamic_lifetime)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
     dynamic_lifetime = si->second.dynamic_lifetime;
@@ -543,7 +512,6 @@ bool query_use_dynamic_v6(const std::string &interface, uint32_t &dynamic_lifeti
 
 bool query_unused_addr(const std::string &interface, const asio::ip::address_v6 &addr)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return true;
 
@@ -556,13 +524,11 @@ bool query_unused_addr(const std::string &interface, const asio::ip::address_v6 
 
 size_t bound_interfaces_count()
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     return interface_state.size();
 }
 
 void bound_interfaces_foreach(std::function<void(const std::string&, bool, bool, uint8_t)> fn)
 {
-    std::lock_guard<std::recursive_mutex> ml(mtx_);
     for (const auto &i: interface_state)
         fn(i.first, i.second.use_dhcpv4, i.second.use_dhcpv6, i.second.preference);
 }

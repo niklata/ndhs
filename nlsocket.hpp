@@ -35,7 +35,6 @@
 #include <map>
 #include <optional>
 #include <nk/sys/posix/handle.hpp>
-#include <mutex>
 #include <asio.hpp>
 extern "C" {
 #include "nl.h"
@@ -92,38 +91,27 @@ public:
     void process_input();
     auto fd() const { return fd_(); }
     [[nodiscard]] std::optional<int> get_ifindex(const std::string &name) {
-        std::lock_guard<std::mutex> m(mtx_);
         auto elt = name_to_ifindex_.find(name);
         if (elt == name_to_ifindex_.end()) return {};
         return elt->second;
     }
 
-    struct ifinfo_ret
+    [[nodiscard]] netif_info *get_ifinfo(int ifindex)
     {
-        ifinfo_ret(netif_info *v, std::unique_lock<std::mutex> &&ml) : ml_(std::move(ml)), v_(v) {}
-        netif_info *value() const { return v_; }
-    private:
-        std::unique_lock<std::mutex> ml_;
-        netif_info *v_;
-    };
-    [[nodiscard]] ifinfo_ret get_ifinfo(int ifindex)
-    {
-        std::unique_lock<std::mutex> ml(mtx_);
         if (auto elt = interfaces_.find(ifindex); elt != interfaces_.end()) {
-            return ifinfo_ret(&elt->second, std::move(ml));
+            return &elt->second;
         }
-        return ifinfo_ret(nullptr, std::move(ml));
+        return nullptr;
     }
-    [[nodiscard]] ifinfo_ret get_ifinfo(const std::string &name)
+    [[nodiscard]] netif_info *get_ifinfo(const std::string &name)
     {
-        std::unique_lock<std::mutex> ml(mtx_);
         auto alt = name_to_ifindex_.find(name);
         if (alt != name_to_ifindex_.end()) {
             if (auto elt = interfaces_.find(alt->second); elt != interfaces_.end()) {
-                return ifinfo_ret(&elt->second, std::move(ml));
+                return &elt->second;
             }
         }
-        return ifinfo_ret(nullptr, std::move(ml));
+        return nullptr;
     }
 private:
     void process_receive(const char *buf, std::size_t bytes_xferred,
@@ -134,7 +122,6 @@ private:
     void request_links();
     void request_addrs();
     void request_addrs(int ifidx);
-    std::mutex mtx_; // guards interfaces_ and name_to_ifindex_
     std::map<std::string, int> name_to_ifindex_;
     std::map<int, netif_info> interfaces_;
     nk::sys::handle fd_;

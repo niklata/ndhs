@@ -151,7 +151,6 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
 
     switch (nlh->nlmsg_type) {
     case RTM_NEWADDR: {
-        std::lock_guard<std::mutex> ml(mtx_);
         auto ifelt = interfaces_.find(nia.if_index);
         if (ifelt == interfaces_.end()) {
             log_line("nlsocket: Address for unknown interface %s", nia.if_name.c_str());
@@ -168,7 +167,6 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
         return;
     }
     case RTM_DELADDR: {
-        std::lock_guard<std::mutex> ml(mtx_);
         auto ifelt = interfaces_.find(nia.if_index);
         if (ifelt == interfaces_.end())
             return;
@@ -226,7 +224,6 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
 
     switch (nlh->nlmsg_type) {
     case RTM_NEWLINK: {
-        std::lock_guard<std::mutex> ml(mtx_);
         name_to_ifindex_.emplace(std::make_pair(nii.name, nii.index));
         auto elt = interfaces_.find(nii.index);
         // Preserve the addresses if we're just modifying fields.
@@ -237,7 +234,6 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
         break;
     }
     case RTM_DELLINK: {
-        std::lock_guard<std::mutex> ml(mtx_);
         name_to_ifindex_.erase(nii.name);
         interfaces_.erase(nii.index);
         break;

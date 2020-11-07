@@ -72,14 +72,14 @@ bool D6Listener::init(const std::string &ifname, uint8_t preference)
 
     {
         auto ifinfo = nl_socket->get_ifinfo(ifname_);
-        if (!ifinfo.value()) {
+        if (!ifinfo) {
             log_warning("dhcp6: Failed to get interface index for %s", ifname_.c_str());
             return false;
         }
 
         log_line("dhcp6: DHCPv6 Preference is %u on %s", preference_, ifname_.c_str());
 
-        for (const auto &i: ifinfo.value()->addrs) {
+        for (const auto &i: ifinfo->addrs) {
             if (i.scope == netif_addr::Scope::Global && i.address.is_v6()) {
                 local_ip_ = i.address.to_v6();
                 prefixlen_ = i.prefixlen;

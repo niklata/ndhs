@@ -182,12 +182,12 @@ bool D4Listener::init(const std::string &ifname)
 
     {
         auto ifinfo = nl_socket->get_ifinfo(ifname);
-        if (!ifinfo.value()) {
+        if (!ifinfo) {
             log_warning("Failed to get interface index for %s", ifname);
             return false;
         }
 
-        for (const auto &i: ifinfo.value()->addrs) {
+        for (const auto &i: ifinfo->addrs) {
             if (i.address.is_v4()) {
                 local_ip_ = i.address.to_v4();
                 log_line("IP address for %s is %s.", ifname.c_str(), local_ip_.to_string().c_str());

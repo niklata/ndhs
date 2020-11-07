@@ -474,20 +474,20 @@ bool RA6Listener::send_advert()
 
     {
         auto ifinfo = nl_socket->get_ifinfo(ifname_);
-        if (!ifinfo.value()) {
+        if (!ifinfo) {
             log_warning("ra6: Failed to get interface index for %s", ifname_.c_str());
             return false;
         }
 
-        ra6_slla.macaddr(ifinfo.value()->macaddr, sizeof ifinfo.value()->macaddr);
+        ra6_slla.macaddr(ifinfo->macaddr, sizeof ifinfo->macaddr);
         csum = net_checksum16_add
             (csum, net_checksum16(&ra6_slla, sizeof ra6_slla));
-        ra6_mtu.mtu(ifinfo.value()->mtu);
+        ra6_mtu.mtu(ifinfo->mtu);
         csum = net_checksum16_add
             (csum, net_checksum16(&ra6_mtu, sizeof ra6_mtu));
 
         // Prefix Information
-        for (const auto &i: ifinfo.value()->addrs) {
+        for (const auto &i: ifinfo->addrs) {
             if (i.scope == netif_addr::Scope::Global && i.address.is_v6()) {
                 ra6_prefix_info_opt ra6_pfxi;
                 ra6_pfxi.prefix(i.address.to_v6(), i.prefixlen);
