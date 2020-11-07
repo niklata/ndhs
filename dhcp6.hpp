@@ -261,7 +261,6 @@ private:
     asio::ip::address_v6 local_ip_prefix_;
     asio::ip::address_v6 link_local_ip_;
     std::string ifname_;
-    std::unique_ptr<RA6Listener> radv6_listener_;
     nk::sys::handle fd_;
     bool using_bpf_:1;
     char prefixlen_;

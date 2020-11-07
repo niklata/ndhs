@@ -72,27 +72,36 @@ std::unique_ptr<NLSocket> nl_socket;
 
 static std::vector<std::unique_ptr<D6Listener>> v6_listeners;
 static std::vector<std::unique_ptr<D4Listener>> v4_listeners;
+static std::vector<std::unique_ptr<RA6Listener>> radv6_listeners;
 
 extern void parse_config(const std::string &path);
 
 static void init_listeners()
 {
     auto v6l = &v6_listeners;
+    auto vr6l = &radv6_listeners;
     auto v4l = &v4_listeners;
-    bound_interfaces_foreach([v6l, v4l](const std::string &i, bool use_v4, bool use_v6,
-                                        uint8_t preference) {
+    bound_interfaces_foreach([v6l, vr6l, v4l](const std::string &i, bool use_v4, bool use_v6,
+                                              uint8_t preference) {
         if (use_v6) {
             v6l->emplace_back(std::make_unique<D6Listener>());
             if (!v6l->back()->init(i, preference)) {
                 v6l->pop_back();
-                log_warning("Can't bind to v6 interface: %s", i.c_str());
+                log_warning("Can't bind to dhcpv6 interface: %s", i.c_str());
+            } else {
+                vr6l->emplace_back(std::make_unique<RA6Listener>());
+                if (!vr6l->back()->init(i)) {
+                    v6l->pop_back();
+                    vr6l->pop_back();
+                    log_warning("Can't bind to rav6 interface: %s", i.c_str());
+                }
             }
         }
         if (use_v4) {
             v4l->emplace_back(std::make_unique<D4Listener>());
             if (!v4l->back()->init(i)) {
                 v4l->pop_back();
-                log_warning("Can't bind to v4 interface: %s", i.c_str());
+                log_warning("Can't bind to dhcpv4 interface: %s", i.c_str());
             }
         }
     });

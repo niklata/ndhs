@@ -97,10 +97,6 @@ bool D6Listener::init(const std::string &ifname, uint8_t preference)
     }
     if (!create_dhcp6_socket()) return false;
 
-    radv6_listener_ = std::make_unique<RA6Listener>();
-    if (!radv6_listener_->init(ifname))
-        return false;
-
     thd_ = std::thread([this]() {
         struct pollfd pfds[1];
         memset(pfds, 0, sizeof pfds);
