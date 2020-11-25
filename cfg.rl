@@ -104,8 +104,8 @@ static inline std::string lc_string(const char *s, size_t slen)
     }
     action DefPrefEn {
         if (auto t = nk::from_string<uint8_t>(cps.st, p - cps.st)) cps.default_preference = *t; else {
-            log_warning("default_preference on line %zu out of range [0,255]: %s",
-                        linenum, std::string(cps.st, p - cps.st));
+            log_line("default_preference on line %zu out of range [0,255]: %s",
+                     linenum, std::string(cps.st, p - cps.st).c_str());
             cps.parse_error = true;
             fbreak;
         }
@@ -211,8 +211,8 @@ void parse_config(const std::string &path)
     char buf[MAX_LINE];
     auto f = fopen(path.c_str(), "r");
     if (!f) {
-        log_warning("%s: failed to open config file \"%s\" for read: %s",
-                    __func__, path.c_str(), strerror(errno));
+        log_line("%s: failed to open config file \"%s\" for read: %s",
+                 __func__, path.c_str(), strerror(errno));
         return;
     }
     SCOPE_EXIT{ fclose(f); };
@@ -221,7 +221,7 @@ void parse_config(const std::string &path)
     while (!feof(f)) {
         if (!fgets(buf, sizeof buf, f)) {
             if (!feof(f))
-                log_warning("%s: io error fetching line of '%s'", __func__, path.c_str());
+                log_line("%s: io error fetching line of '%s'", __func__, path.c_str());
             break;
         }
         auto llen = strlen(buf);
@@ -234,11 +234,11 @@ void parse_config(const std::string &path)
         const auto r = do_parse_cfg_line(ps, buf, llen, linenum);
         if (r < 0) {
             if (r == -2)
-                log_warning("%s: Incomplete configuration at line %zu; ignoring",
-                            __func__, linenum);
+                log_line("%s: Incomplete configuration at line %zu; ignoring",
+                         __func__, linenum);
             else
-                log_warning("%s: Malformed configuration at line %zu; ignoring.",
-                            __func__, linenum);
+                log_line("%s: Malformed configuration at line %zu; ignoring.",
+                         __func__, linenum);
             continue;
         }
     }

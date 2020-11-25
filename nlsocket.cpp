@@ -229,7 +229,7 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
         // Preserve the addresses if we're just modifying fields.
         if (elt != interfaces_.end())
             std::swap(nii.addrs, elt->second.addrs);
-        log_line("nlsocket: Adding link info: %s", nii.name);
+        log_line("nlsocket: Adding link info: %s", nii.name.c_str());
         interfaces_.emplace(std::make_pair(nii.index, nii));
         break;
     }
@@ -277,17 +277,17 @@ void NLSocket::process_receive(const char *buf, std::size_t bytes_xferred,
         } else {
             switch (nlh->nlmsg_type) {
             case NLMSG_ERROR: {
-                log_warning("nlsocket: Received a NLMSG_ERROR: %s",
-                           strerror(nlmsg_get_error(nlh)));
+                log_line("nlsocket: Received a NLMSG_ERROR: %s",
+                         strerror(nlmsg_get_error(nlh)));
                 auto nle = reinterpret_cast<struct nlmsgerr *>(NLMSG_DATA(nlh));
-                log_warning("error=%u len=%u type=%u flags=%u seq=%u pid=%u",
+                log_line("error=%u len=%u type=%u flags=%u seq=%u pid=%u",
                          nle->error, nle->msg.nlmsg_len, nle->msg.nlmsg_type,
                          nle->msg.nlmsg_flags, nle->msg.nlmsg_seq,
                          nle->msg.nlmsg_pid);
                 break;
             }
             case NLMSG_OVERRUN:
-                log_warning("nlsocket: Received a NLMSG_OVERRUN.");
+                log_line("nlsocket: Received a NLMSG_OVERRUN.");
             case NLMSG_NOOP:
             case NLMSG_DONE:
             default:

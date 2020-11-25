@@ -67,11 +67,11 @@ bool attach_bpf_icmp6_ra(int fd, const char *ifname)
         if (r >= 0)
             return true;
         else
-            log_warning("%s: Failed to lock BPF for ICMPv6 socket: %s",
-                        ifname, strerror(errno));
+            log_line("%s: Failed to lock BPF for ICMPv6 socket: %s",
+                     ifname, strerror(errno));
     } else
-        log_warning("%s: Failed to set BPF for ICMPv6 socket: %s",
-                    ifname, strerror(errno));
+        log_line("%s: Failed to set BPF for ICMPv6 socket: %s",
+                 ifname, strerror(errno));
     return false;
 }
 
@@ -89,11 +89,11 @@ bool attach_bpf_dhcp6_info(int fd, const char *ifname)
         if (r >= 0)
             return true;
         else
-            log_warning("%s: Failed to lock BPF for DHCPv6 socket: %s",
-                        ifname, strerror(errno));
+            log_line("%s: Failed to lock BPF for DHCPv6 socket: %s",
+                     ifname, strerror(errno));
     } else
-        log_warning("%s: Failed to set BPF for DHCPv6 socket: %s",
-                    ifname, strerror(errno));
+        log_line("%s: Failed to set BPF for DHCPv6 socket: %s",
+                 ifname, strerror(errno));
     return false;
 }
 

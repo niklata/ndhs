@@ -384,7 +384,7 @@ bool RA6Listener::init(const std::string &ifname)
 
     auto tfd = nk::sys::handle{ socket(AF_INET6, SOCK_RAW|SOCK_CLOEXEC, IPPROTO_ICMPV6) };
     if (!tfd) {
-        log_warning("ra6: Failed to create v6 ICMP socket on %s: %s", ifname_.c_str(), strerror(errno));
+        log_line("ra6: Failed to create v6 ICMP socket on %s: %s", ifname_.c_str(), strerror(errno));
         return false;
     }
     if (!attach_multicast(tfd(), ifname_, mc6_allrouters))
@@ -395,13 +395,13 @@ bool RA6Listener::init(const std::string &ifname)
     memset(&sai, 0, sizeof sai); // s6_addr, s6_port are set to any/0 here
     sai.sin6_family = AF_INET6;
     if (bind(tfd(), reinterpret_cast<const sockaddr *>(&sai), sizeof sai)) {
-        log_warning("ra6: Failed to bind ICMP route advertisement listener on %s: %s", ifname_.c_str(), strerror(errno));
+        log_line("ra6: Failed to bind ICMP route advertisement listener on %s: %s", ifname_.c_str(), strerror(errno));
         return false;
     }
     swap(fd_, tfd);
 
     if (!send_advert())
-        log_warning("ra6: Failed to send initial router advertisement on %s", ifname_.c_str());
+        log_line("ra6: Failed to send initial router advertisement on %s", ifname_.c_str());
     set_next_advert_ts();
 
     return true;
@@ -475,7 +475,7 @@ bool RA6Listener::send_advert()
     {
         auto ifinfo = nl_socket->get_ifinfo(ifname_);
         if (!ifinfo) {
-            log_warning("ra6: Failed to get interface index for %s", ifname_.c_str());
+            log_line("ra6: Failed to get interface index for %s", ifname_.c_str());
             return false;
         }
 
@@ -575,7 +575,7 @@ bool RA6Listener::send_advert()
     const size_t slen = si - sbuf;
 
     if (safe_sendto(fd_(), sbuf, slen, 0, reinterpret_cast<const sockaddr *>(&mc6_allhosts), sizeof mc6_allhosts) < 0) {
-        log_warning("ra6: sendto failed on %s: %s", ifname_.c_str(), strerror(errno));
+        log_line("ra6: sendto failed on %s: %s", ifname_.c_str(), strerror(errno));
         return false;
     }
     return true;
@@ -586,7 +586,7 @@ int RA6Listener::send_periodic_advert()
     const auto now = std::chrono::steady_clock::now();
     if (now >= advert_ts_) {
         if (!send_advert())
-            log_warning("ra6: Failed to send periodic router advertisement on %s", ifname_.c_str());
+            log_line("ra6: Failed to send periodic router advertisement on %s", ifname_.c_str());
         set_next_advert_ts();
     }
     return std::chrono::duration_cast<std::chrono::milliseconds>(advert_ts_ - now).count();
@@ -605,7 +605,7 @@ void RA6Listener::process_receive(char *buf, std::size_t buflen,
     (void)sailen;
     char sip_str[32];
     if (!sa6_to_string(sip_str, sizeof sip_str, &sai)) {
-        log_warning("ra6: Failed to stringize sender ip on %s", ifname_.c_str());
+        log_line("ra6: Failed to stringize sender ip on %s", ifname_.c_str());
         return;
     }
     const bool sender_unspecified = ip6_is_unspecified(sai);

@@ -44,7 +44,7 @@ bool D6Listener::create_dhcp6_socket()
 {
     auto tfd = nk::sys::handle{ socket(AF_INET6, SOCK_DGRAM|SOCK_CLOEXEC, IPPROTO_UDP) };
     if (!tfd) {
-        log_warning("dhcp6: Failed to create v6 UDP socket on %s: %s", ifname_.c_str(), strerror(errno));
+        log_line("dhcp6: Failed to create v6 UDP socket on %s: %s", ifname_.c_str(), strerror(errno));
         return false;
     }
     if (!attach_multicast(tfd(), ifname_, mc6_alldhcp_ras))
@@ -56,7 +56,7 @@ bool D6Listener::create_dhcp6_socket()
     sai.sin6_family = AF_INET6;
     sai.sin6_port = htons(547);
     if (bind(tfd(), reinterpret_cast<const sockaddr *>(&sai), sizeof sai)) {
-        log_warning("dhcp6: Failed to bind to UDP 547 on %s: %s", ifname_.c_str(), strerror(errno));
+        log_line("dhcp6: Failed to bind to UDP 547 on %s: %s", ifname_.c_str(), strerror(errno));
         return false;
     }
 
@@ -73,7 +73,7 @@ bool D6Listener::init(const std::string &ifname, uint8_t preference)
     {
         auto ifinfo = nl_socket->get_ifinfo(ifname_);
         if (!ifinfo) {
-            log_warning("dhcp6: Failed to get interface index for %s", ifname_.c_str());
+            log_line("dhcp6: Failed to get interface index for %s", ifname_.c_str());
             return false;
         }
 
@@ -641,7 +641,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
              rs.si += t;
              OPTIONS_CONSUME(t);
          } else return;
-         log_line("dhcp6: Option '%s' length=%zu on %s",
+         log_line("dhcp6: Option '%s' length=%d on %s",
                   dhcp6_opt_to_string(opt.type()), opt.length(), ifname_.c_str());
          auto l = opt.length();
          auto ot = opt.type();
@@ -676,7 +676,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
                  OPTIONS_CONSUME(1);
              }
              if (tmpstr.size() > 0)
-                log_line("dhcp6: Server DUID '%s' len %zu on %s", tmpstr,
+                log_line("dhcp6: Server DUID '%s' len %zu on %s", tmpstr.c_str(),
                          d6s.server_duid_blob.size(), ifname_.c_str());
          } else if (ot == 3) { // Option_IA_NA
              if (l < 12) {
@@ -724,7 +724,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
              if (iaa_options_len > 0)
                  d6s.prev_opt.emplace_back(std::make_pair(5, iaa_options_len));
 
-             log_line("dhcp6: IA Address: %s prefer=%us valid=%us opt_len=%zu on %s",
+             log_line("dhcp6: IA Address: %s prefer=%us valid=%us opt_len=%d on %s",
                       d6s.ias.back().ia_na_addrs.back().addr.to_string().c_str(),
                       d6s.ias.back().ia_na_addrs.back().prefer_lifetime,
                       d6s.ias.back().ia_na_addrs.back().valid_lifetime,
@@ -732,7 +732,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
 
          } else if (ot == 6) { // OptionRequest
              if (l % 2) {
-                 log_line("dhcp6: Client-sent option Request has a bad length (%zu) on %s", l, ifname_.c_str());
+                 log_line("dhcp6: Client-sent option Request has a bad length (%d) on %s", l, ifname_.c_str());
                  return;
              }
              d6s.optreq_exists = true;
@@ -778,7 +778,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
              }
              d6s.use_rapid_commit = true;
          } else if (ot == 39) { // Client FQDN
-             log_line("dhcp6: FQDN Length: %zu", l);
+             log_line("dhcp6: FQDN Length: %d", l);
              if (l < 3) {
                  log_line("dhcp6: Client-sent option Client FQDN has a bad length on %s", ifname_.c_str());
                  return;
@@ -795,7 +795,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
              }
              d6s.fqdn_.clear();
              d6s.fqdn_.reserve(namelen);
-             log_line("dhcp6: FQDN Flags='{}', NameLen='{}' on %s", +flags, +namelen, ifname_.c_str());
+             log_line("dhcp6: FQDN Flags='%d', NameLen='%d' on %s", +flags, +namelen, ifname_.c_str());
              while (l--) {
                  char c = *(rs.si)++;
                  OPTIONS_CONSUME(1);
@@ -852,7 +852,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
 
      const size_t slen = ss.si - sbuf;
      if (safe_sendto(fd_(), sbuf, slen, 0, reinterpret_cast<const sockaddr *>(&sai), sizeof sai) < 0) {
-         log_warning("dhcp6: sendto failed on %s: %s", ifname_.c_str(), strerror(errno));
+         log_line("dhcp6: sendto failed on %s: %s", ifname_.c_str(), strerror(errno));
          return;
      }
 }

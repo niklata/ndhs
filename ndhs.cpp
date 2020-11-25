@@ -113,13 +113,13 @@ static void init_listeners()
             v6l->emplace_back(std::make_unique<D6Listener>());
             if (!v6l->back()->init(i, preference)) {
                 v6l->pop_back();
-                log_warning("Can't bind to dhcpv6 interface: %s", i.c_str());
+                log_line("Can't bind to dhcpv6 interface: %s", i.c_str());
             } else {
                 vr6l->emplace_back(std::make_unique<RA6Listener>());
                 if (!vr6l->back()->init(i)) {
                     v6l->pop_back();
                     vr6l->pop_back();
-                    log_warning("Can't bind to rav6 interface: %s", i.c_str());
+                    log_line("Can't bind to rav6 interface: %s", i.c_str());
                 } else {
                     struct pollfd pt;
                     pt.fd = v6l->back()->fd();
@@ -139,7 +139,7 @@ static void init_listeners()
             v4l->emplace_back(std::make_unique<D4Listener>());
             if (!v4l->back()->init(i)) {
                 v4l->pop_back();
-                log_warning("Can't bind to dhcpv4 interface: %s", i.c_str());
+                log_line("Can't bind to dhcpv4 interface: %s", i.c_str());
             } else {
                 struct pollfd pt;
                 pt.fd = v4l->back()->fd();
@@ -217,7 +217,6 @@ static void usage()
     printf("Copyright 2014-2020 Nicholas J. Kain\n");
     printf("ndhs [options] [configfile]...\n\nOptions:");
     printf("--config          -c []  Path to configuration file.\n");
-    printf("--quiet           -q     Log less information while running.\n");
     printf("--version         -v     Print version and exit.\n");
     printf("--help            -h     Print this help and exit.\n");
 }
@@ -250,7 +249,6 @@ static void print_version()
 static void process_options(int ac, char *av[])
 {
     static struct option long_options[] = {
-        {"quiet", 0, (int *)0, 'q'},
         {"config", 1, (int *)0, 'c'},
         {"version", 0, (int *)0, 'v'},
         {"help", 0, (int *)0, 'h'},
@@ -260,7 +258,6 @@ static void process_options(int ac, char *av[])
         auto c = getopt_long(ac, av, "qc:vh", long_options, (int *)0);
         if (c == -1) break;
         switch (c) {
-            case 'q': gflags_quiet = 1; break;
             case 'c': configfile = optarg; break;
             case 'v': print_version(); std::exit(EXIT_SUCCESS); break;
             case 'h': usage(); std::exit(EXIT_SUCCESS); break;
@@ -291,8 +288,6 @@ static void process_options(int ac, char *av[])
 
 int main(int ac, char *av[])
 {
-    gflags_log_name = const_cast<char *>("ndhs");
-
     process_options(ac, av);
 
     for (;;) {

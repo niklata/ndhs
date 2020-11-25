@@ -52,7 +52,7 @@ static std::string generateKey(uint32_t xid, uint8_t *hwaddr) {
     if (splen < 0)
         suicide("%s: snprintf failed; return=%d", __func__, splen);
     if ((size_t)splen >= ret.size())
-        suicide("%s: snprintf dest buffer too small %d >= %u",
+        suicide("%s: snprintf dest buffer too small %d >= %zu",
                 __func__, splen, ret.size());
     ret.resize(splen);
     return ret;
@@ -132,20 +132,20 @@ bool D4Listener::create_dhcp4_socket()
 {
     auto tfd = nk::sys::handle{ socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, IPPROTO_UDP) };
     if (!tfd) {
-        log_warning("Failed to create v4 UDP socket on %s: %s", ifname_, strerror(errno));
+        log_line("Failed to create v4 UDP socket on %s: %s", ifname_.c_str(), strerror(errno));
         return false;
     }
     const int iv = 1;
     if (setsockopt(tfd(), SOL_SOCKET, SO_BROADCAST, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
-        log_warning("Failed to set broadcast flag on %s: %s", ifname_, strerror(errno));
+        log_line("Failed to set broadcast flag on %s: %s", ifname_.c_str(), strerror(errno));
         return false;
     }
     if (setsockopt(tfd(), SOL_SOCKET, SO_DONTROUTE, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
-        log_warning("Failed to set do not route flag on %s: %s", ifname_, strerror(errno));
+        log_line("Failed to set do not route flag on %s: %s", ifname_.c_str(), strerror(errno));
         return false;
     }
     if (setsockopt(tfd(), SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
-        log_warning("Failed to set reuse address flag on %s: %s", ifname_, strerror(errno));
+        log_line("Failed to set reuse address flag on %s: %s", ifname_.c_str(), strerror(errno));
         return false;
     }
     sockaddr_in sai;
@@ -153,20 +153,20 @@ bool D4Listener::create_dhcp4_socket()
     sai.sin_port = htons(67);
     sai.sin_addr.s_addr = 0; // any
     if (bind(tfd(), reinterpret_cast<const sockaddr *>(&sai), sizeof sai)) {
-        log_warning("Failed to bind to UDP 67 on %s: %s", ifname_, strerror(errno));
+        log_line("Failed to bind to UDP 67 on %s: %s", ifname_.c_str(), strerror(errno));
         return false;
     }
 
     struct ifreq ifr;
     memset(&ifr, 0, sizeof ifr);
     if (ifname_.size() >= sizeof ifr.ifr_name) {
-        log_warning("Interface name '%s' is too long: %zu >= %zu",
-                   ifname_, ifname_.size(), sizeof ifr.ifr_name);
+        log_line("Interface name '%s' is too long: %zu >= %zu",
+                 ifname_.c_str(), ifname_.size(), sizeof ifr.ifr_name);
         return false;
     }
     memcpy(ifr.ifr_name, ifname_.c_str(), ifname_.size());
     if (setsockopt(tfd(), SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
-        log_warning("failed to bind socket to device on %s: %s", ifname_, strerror(errno));
+        log_line("failed to bind socket to device on %s: %s", ifname_.c_str(), strerror(errno));
         return false;
     }
 
@@ -183,7 +183,7 @@ bool D4Listener::init(const std::string &ifname)
     {
         auto ifinfo = nl_socket->get_ifinfo(ifname);
         if (!ifinfo) {
-            log_warning("Failed to get interface index for %s", ifname);
+            log_line("Failed to get interface index for %s", ifname.c_str());
             return false;
         }
 
@@ -195,7 +195,7 @@ bool D4Listener::init(const std::string &ifname)
         }
     }
     if (!local_ip_.is_v4()) {
-        log_warning("Interface (%s) has no IP address", ifname);
+        log_line("Interface (%s) has no IP address", ifname.c_str());
         return false;
     }
 
@@ -228,7 +228,7 @@ uint32_t D4Listener::local_ip() const
 {
     uint32_t ret;
     if (inet_pton(AF_INET, local_ip_.to_string().c_str(), &ret) != 1) {
-        log_warning("inet_pton failed: %s", strerror(errno));
+        log_line("inet_pton failed: %s", strerror(errno));
         return 0;
     }
     return ret;
@@ -243,7 +243,7 @@ bool D4Listener::send_to(const void *buf, size_t len, uint32_t addr, int port)
     sai.sin_addr.s_addr = addr;
     const auto r = safe_sendto(fd_(), (const char *)buf, len, 0, reinterpret_cast<const sockaddr *>(&sai), sizeof sai);
     if (r < 0) {
-        log_warning("D4Listener sendto failed: %s", strerror(errno));
+        log_line("D4Listener sendto failed: %s", strerror(errno));
         return false;
     }
     return true;
@@ -335,7 +335,7 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     if (v4a != asio::ip::address_v4::any()) {
         reply.yiaddr = htonl(v4a.to_ulong());
         add_u32_option(&reply, DCODE_LEASET, htonl(dynamic_lifetime));
-        log_line("Assigned existing dynamic IP: %s", v4a.to_string());
+        log_line("Assigned existing dynamic IP: %s", v4a.to_string().c_str());
         return true;
     }
     log_line("Selecting an unused dynamic IP.");
