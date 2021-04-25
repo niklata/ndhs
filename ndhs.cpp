@@ -305,44 +305,36 @@ int main(int ac, char *av[])
             case pfd_type::netlink: {
                 auto nl = static_cast<NLSocket *>(poll_meta[i].data);
                 if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                    poll_vector[i].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
                     suicide("nlfd closed unexpectedly");
                 }
                 if (poll_vector[i].revents & POLLIN) {
-                    poll_vector[i].revents &= ~POLLIN;
                     nl->process_input();
                 }
             } break;
             case pfd_type::dhcp6: {
                 auto d6 = static_cast<D6Listener *>(poll_meta[i].data);
                 if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                    poll_vector[i].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
                     suicide("%s: dhcp6 socket closed unexpectedly", d6->ifname().c_str());
                 }
                 if (poll_vector[i].revents & POLLIN) {
-                    poll_vector[i].revents &= ~POLLIN;
                     d6->process_input();
                 }
             } break;
             case pfd_type::dhcp4: {
                 auto d4 = static_cast<D4Listener *>(poll_meta[i].data);
                 if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                    poll_vector[i].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
                     suicide("%s: dhcp4 socket closed unexpectedly", d4->ifname().c_str());
                 }
                 if (poll_vector[i].revents & POLLIN) {
-                    poll_vector[i].revents &= ~POLLIN;
                     d4->process_input();
                 }
             } break;
             case pfd_type::radv6: {
                 auto r6 = static_cast<RA6Listener *>(poll_meta[i].data);
                 if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                    poll_vector[i].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
                     suicide("%s: ra6 socket closed unexpectedly", r6->ifname().c_str());
                 }
                 if (poll_vector[i].revents & POLLIN) {
-                    poll_vector[i].revents &= ~POLLIN;
                     r6->process_input();
                 }
             } break;
