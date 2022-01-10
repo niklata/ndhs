@@ -343,7 +343,7 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     // IP is randomly selected from the dynamic range.
     const auto al = dr->first.to_ulong();
     const auto ah = dr->second.to_ulong();
-    const auto ar = ah - al;
+    const uint64_t ar = ah > al ? ah - al : al - ah;
     std::uniform_int_distribution<uint64_t> dist(0, ar);
     random_u64_wrapper r64w;
     const auto rqs = dist(r64w);
