@@ -96,7 +96,7 @@ extern void parse_config(const std::string &path);
 
 static void init_listeners()
 {
-    nl_socket = std::make_unique<NLSocket>();
+    nl_socket = std::make_unique<NLSocket>(bound_interfaces_names());
     struct pollfd pt;
     pt.fd = nl_socket->fd();
     pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;

@@ -33,20 +33,49 @@ extern "C" {
 #include "nl.h"
 }
 
-bool NLSocket::init()
+NLSocket::NLSocket(std::vector<std::string> &&ifnames)
+    : ifnames_(std::move(ifnames)), nlseq_(random_u64()), got_newlink_(false)
 {
-    initialized_ = false;
-    nlseq_ = random_u64();
-
     auto tfd = nk::sys::handle{ nl_open(NETLINK_ROUTE, RTMGRP_LINK, 0) };
-    if (!tfd) return false;
+    if (!tfd) suicide("NLSocket: failed to create netlink socket");
     swap(fd_, tfd);
 
     request_links();
-    request_addrs();
-    initialized_ = true;
 
-    return true;
+    struct pollfd pfd;
+    pfd.fd = fd_();
+    pfd.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+    pfd.revents = 0;
+    for (;(got_newlink_ == false);) {
+        if (poll(&pfd, 1, -1) < 0) {
+            if (errno == EINTR) continue;
+            suicide("poll failed");
+        }
+        if (pfd.revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+            suicide("nlfd closed unexpectedly");
+        }
+        if (pfd.revents & POLLIN) {
+            process_input();
+        }
+    }
+
+    for (auto &i: ifnames_) {
+        const auto ifindex = name_to_ifindex_[i];
+        query_ifindex_ = ifindex;
+        request_addrs(ifindex);
+        for (;query_ifindex_.has_value();) {
+            if (poll(&pfd, 1, -1) < 0) {
+                if (errno == EINTR) continue;
+                suicide("poll failed");
+            }
+            if (pfd.revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+                suicide("nlfd closed unexpectedly");
+            }
+            if (pfd.revents & POLLIN) {
+                process_input();
+            }
+        }
+    }
 }
 
 void NLSocket::process_input()
@@ -69,13 +98,6 @@ void NLSocket::request_links()
     auto link_seq = nlseq_++;
     if (nl_sendgetlinks(fd_(), link_seq) < 0)
         suicide("nlsocket: failed to get initial rtlink state");
-}
-
-// Must be called after request_links() completes
-void NLSocket::request_addrs()
-{
-    for (auto &i: name_to_ifindex_)
-        request_addrs(i.second);
 }
 
 void NLSocket::request_addrs(int ifidx)
@@ -151,6 +173,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
 
     switch (nlh->nlmsg_type) {
     case RTM_NEWADDR: {
+        if (query_ifindex_.has_value() && *query_ifindex_ == nia.if_index) query_ifindex_.reset();
         auto ifelt = interfaces_.find(nia.if_index);
         if (ifelt == interfaces_.end()) {
             log_line("nlsocket: Address for unknown interface %s", nia.if_name.c_str());
@@ -286,12 +309,10 @@ void NLSocket::process_receive(const char *buf, std::size_t bytes_xferred,
                          nle->msg.nlmsg_pid);
                 break;
             }
-            case NLMSG_OVERRUN:
-                log_line("nlsocket: Received a NLMSG_OVERRUN.");
-            case NLMSG_NOOP:
-            case NLMSG_DONE:
-            default:
-                break;
+            case NLMSG_OVERRUN: log_line("nlsocket: Received a NLMSG_OVERRUN.");
+            case NLMSG_NOOP: break;
+            case NLMSG_DONE: got_newlink_ = true; break;
+            default: break;
             }
         }
     }

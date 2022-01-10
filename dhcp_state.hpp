@@ -59,6 +59,7 @@ bool query_use_dynamic_v4(const std::string &interface, uint32_t &dynamic_lifeti
 bool query_use_dynamic_v6(const std::string &interface, uint32_t &dynamic_lifetime);
 bool query_unused_addr(const std::string &interface, const asio::ip::address_v6 &addr);
 size_t bound_interfaces_count();
+std::vector<std::string> bound_interfaces_names();
 void bound_interfaces_foreach(std::function<void(const std::string&, bool, bool, uint8_t)> fn);
 
 #endif

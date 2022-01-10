@@ -527,6 +527,14 @@ size_t bound_interfaces_count()
     return interface_state.size();
 }
 
+std::vector<std::string> bound_interfaces_names()
+{
+    std::vector<std::string> ret;
+    for (const auto &i: interface_state)
+        ret.emplace_back(i.first);
+    return ret;
+}
+
 void bound_interfaces_foreach(std::function<void(const std::string&, bool, bool, uint8_t)> fn)
 {
     for (const auto &i: interface_state)

@@ -83,11 +83,10 @@ struct netif_info
 class NLSocket
 {
 public:
-    NLSocket() : initialized_(false) {}
+    NLSocket(std::vector<std::string> &&ifnames);
     NLSocket(const NLSocket &) = delete;
     NLSocket &operator=(const NLSocket &) = delete;
 
-    [[nodiscard]] bool init();
     void process_input();
     auto fd() const { return fd_(); }
     [[nodiscard]] std::optional<int> get_ifindex(const std::string &name) {
@@ -120,13 +119,14 @@ private:
     void process_rt_addr_msgs(const struct nlmsghdr *nlh);
     void process_nlmsg(const struct nlmsghdr *nlh);
     void request_links();
-    void request_addrs();
     void request_addrs(int ifidx);
     std::map<std::string, int> name_to_ifindex_;
     std::map<int, netif_info> interfaces_;
+    std::vector<std::string> ifnames_;
+    std::optional<int> query_ifindex_;
     nk::sys::handle fd_;
     int nlseq_;
-    bool initialized_:1;
+    bool got_newlink_:1;
 };
 
 #endif
