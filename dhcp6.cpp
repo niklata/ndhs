@@ -809,8 +809,8 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
              log_line("dhcp6: Client FQDN: flags='%u' '%s' on %s", flags, d6s.fqdn_.c_str(), ifname_.c_str());
          } else {
              while (l--) {
-                 rs.si += l;
-                 OPTIONS_CONSUME(l);
+                 rs.si++;
+                 OPTIONS_CONSUME(1);
              }
          }
      }
