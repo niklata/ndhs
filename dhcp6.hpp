@@ -32,9 +32,15 @@ enum class dhcp6_msgtype {
 class dhcp6_header
 {
 public:
-    dhcp6_header() : type_(0), xid_(0) {}
-    uint32_t xid() const { return xid_; }
-    void xid(uint32_t xid) { xid_ = xid; }
+    dhcp6_header() : type_(0), xid_{0, 0, 0} {}
+    dhcp6_header(const dhcp6_header &o) : type_(o.type_) {
+        memcpy(xid_, o.xid_, sizeof xid_);
+    }
+    dhcp6_header &operator=(const dhcp6_header &o) {
+        type_ = o.type_;
+        memcpy(xid_, o.xid_, sizeof xid_);
+        return *this;
+    }
     dhcp6_msgtype msg_type() const {
         if (type_ >= 1 && type_ <= 13)
             return static_cast<dhcp6_msgtype>(type_);
@@ -61,7 +67,7 @@ public:
     }
 private:
     uint8_t type_;
-    uint32_t xid_;
+    char xid_[3];
 };
 
 // Option header.
@@ -108,7 +114,9 @@ struct dhcp6_opt_serverid
         dhcp6_opt header;
         header.type(2);
         header.length(duid_len_);
-        int r = header.write(b, len);
+        auto r = header.write(b, len);
+        if (r < 0) return -1;
+        if (size_t(r) < dhcp6_opt::size) return -1;
         memcpy(b + r, duid_string_, duid_len_);
         return size;
     }
@@ -257,7 +265,7 @@ private:
     bool serverid_incorrect(const d6msg_state &d6s) const;
     void attach_bpf(int fd);
     void process_receive(char *buf, std::size_t buflen,
-                         const sockaddr_in6 &sai, socklen_t sailen);
+                         const sockaddr_storage &sai, socklen_t sailen);
 
     asio::ip::address_v6 local_ip_;
     asio::ip::address_v6 local_ip_prefix_;

@@ -103,7 +103,7 @@ void D6Listener::process_input()
 {
     char buf[8192];
     for (;;) {
-        sockaddr_in6 sai;
+        sockaddr_storage sai;
         socklen_t sailen = sizeof sai;
         auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, reinterpret_cast<sockaddr *>(&sai), &sailen);
         if (buflen == -1) {
@@ -255,9 +255,8 @@ bool D6Listener::attach_status_code(const d6msg_state &, sbufs &ss,
 bool D6Listener::write_response_header(const d6msg_state &d6s, sbufs &ss,
                                        dhcp6_msgtype mtype)
 {
-    dhcp6_header send_d6hdr;
+    dhcp6_header send_d6hdr(d6s.header); // to copy the xid
     send_d6hdr.msg_type(mtype);
-    send_d6hdr.xid(d6s.header.xid());
     if (auto t = send_d6hdr.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
 
     dhcp6_opt_serverid send_serverid(g_server_duid, sizeof g_server_duid);
@@ -380,6 +379,7 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
             *ss.si++ = i;
         }
     }
+#if 0
     const auto ntp6_servers = query_ntp6_servers(ifname_);
     const auto ntp6_multicasts = query_ntp6_multicasts(ifname_);
     const auto ntp6_fqdns_blob = query_ntp6_fqdns_blob(ifname_);
@@ -438,6 +438,7 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
             }
         }
     }
+#endif
     return true;
 }
 
@@ -591,11 +592,14 @@ bool D6Listener::serverid_incorrect(const d6msg_state &d6s) const
 }
 
 void D6Listener::process_receive(char *buf, std::size_t buflen,
-                                 const sockaddr_in6 &sai, socklen_t sailen)
+                                 const sockaddr_storage &sai, socklen_t sailen)
 {
-    (void)sailen;
+    if (sailen < sizeof(sockaddr_in6)) {
+        log_line("dhcp6: Received too-short address family on %s: %u", ifname_.c_str(), sailen);
+        return;
+    }
     char sip_str[32];
-    if (!sa6_to_string(sip_str, sizeof sip_str, &sai)) {
+    if (!sa6_to_string(sip_str, sizeof sip_str, &sai, sailen)) {
         log_line("dhcp6: Failed to stringize sender ip on %s", ifname_.c_str());
         return;
     }
@@ -824,9 +828,11 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
      case dhcp6_msgtype::solicit:
          if (!d6s.server_duid_blob.empty()) return;
          if (!handle_solicit_msg(d6s, ss)) return;
+         break;
      case dhcp6_msgtype::request:
          if (serverid_incorrect(d6s)) return;
          if (!handle_request_msg(d6s, ss)) return;
+         break;
      case dhcp6_msgtype::confirm:
          if (!d6s.server_duid_blob.empty()) return;
          if (!handle_confirm_msg(d6s, ss)) return;
@@ -834,24 +840,32 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
      case dhcp6_msgtype::renew:
          if (serverid_incorrect(d6s)) return;
          if (!handle_renew_msg(d6s, ss)) return;
+         break;
      case dhcp6_msgtype::rebind:
          if (!d6s.server_duid_blob.empty()) return;
          if (!handle_rebind_msg(d6s, ss)) return;
+         break;
      case dhcp6_msgtype::release:
          if (serverid_incorrect(d6s)) return;
          if (!handle_release_msg(d6s, ss)) return;
+         break;
      case dhcp6_msgtype::decline:
          if (serverid_incorrect(d6s)) return;
          if (!handle_decline_msg(d6s, ss)) return;
+         break;
      case dhcp6_msgtype::information_request:
          if (!d6s.server_duid_blob.empty() && serverid_incorrect(d6s)) return;
          if (!d6s.ias.empty()) return;
          if (!handle_information_msg(d6s, ss)) return;
+         break;
      default: return;
      }
 
+     sockaddr_in6 sao;
+     memcpy(&sao, &sai, sizeof sao);
+     sao.sin6_port = htons(546);
      const size_t slen = ss.si - sbuf;
-     if (safe_sendto(fd_(), sbuf, slen, 0, reinterpret_cast<const sockaddr *>(&sai), sizeof sai) < 0) {
+     if (safe_sendto(fd_(), sbuf, slen, 0, reinterpret_cast<const sockaddr *>(&sao), sizeof sao) < 0) {
          log_line("dhcp6: sendto failed on %s: %s", ifname_.c_str(), strerror(errno));
          return;
      }

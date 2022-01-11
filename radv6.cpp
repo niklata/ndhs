@@ -411,7 +411,7 @@ void RA6Listener::process_input()
 {
     char buf[8192];
     for (;;) {
-        sockaddr_in6 sai;
+        sockaddr_storage sai;
         socklen_t sailen = sizeof sai;
         auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, reinterpret_cast<sockaddr *>(&sai), &sailen);
         if (buflen == -1) {
@@ -592,19 +592,23 @@ int RA6Listener::send_periodic_advert()
     return std::chrono::duration_cast<std::chrono::milliseconds>(advert_ts_ - now).count();
 }
 
-bool ip6_is_unspecified(const sockaddr_in6 &sai)
+bool ip6_is_unspecified(const sockaddr_storage &sa)
 {
-    sockaddr_in6 t;
+    sockaddr_in6 sai, t;
+    memcpy(&sai, &sa, sizeof sai);
     memset(&t, 0, sizeof t);
     return memcmp(&sai.sin6_addr, &t.sin6_addr, sizeof t.sin6_addr) == 0;
 }
 
 void RA6Listener::process_receive(char *buf, std::size_t buflen,
-                                  const sockaddr_in6 &sai, socklen_t sailen)
+                                  const sockaddr_storage &sai, socklen_t sailen)
 {
-    (void)sailen;
+    if (sailen < sizeof(sockaddr_in6)) {
+        log_line("ra6: Received too-short address family on %s: %u", ifname_.c_str(), sailen);
+        return;
+    }
     char sip_str[32];
-    if (!sa6_to_string(sip_str, sizeof sip_str, &sai)) {
+    if (!sa6_to_string(sip_str, sizeof sip_str, &sai, sailen)) {
         log_line("ra6: Failed to stringize sender ip on %s", ifname_.c_str());
         return;
     }

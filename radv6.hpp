@@ -20,7 +20,7 @@ public:
     auto& ifname() const { return ifname_; }
 private:
     void process_receive(char *buf, std::size_t buflen,
-                         const sockaddr_in6 &sai, socklen_t sailen);
+                         const sockaddr_storage &sai, socklen_t sailen);
     void set_advi_s_max(unsigned int v);
     void set_next_advert_ts();
     [[nodiscard]] bool send_advert();
