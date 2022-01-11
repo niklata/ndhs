@@ -785,9 +785,9 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
                  log_line("dhcp6: Client-sent option Client FQDN has a bad length on %s", ifname_.c_str());
                  return;
              }
-             uint8_t namelen, flags;
-             memcpy(&namelen, rs.si++, 1);
+             uint8_t flags, namelen;
              memcpy(&flags, rs.si++, 1);
+             memcpy(&namelen, rs.si++, 1);
              OPTIONS_CONSUME(2);
              l -= 2;
              if (l != namelen) {
