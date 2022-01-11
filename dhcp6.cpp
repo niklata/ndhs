@@ -235,9 +235,9 @@ bool D6Listener::attach_status_code(const d6msg_state &, sbufs &ss,
     dhcp6_opt header;
     header.type(13);
     header.length(OPT_STATUSCODE_SIZE);
-    if (auto t = header.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
+    if (!header.write(ss)) return false;
     d6_statuscode sc(scode);
-    if (auto t = sc.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
+    if (!sc.write(ss)) return false;
     if (scode == d6_statuscode::code::success) {
         for (int i = 0; ok_str[i]; ++i) {
             if (ss.si == ss.se) return false;
@@ -257,15 +257,15 @@ bool D6Listener::write_response_header(const d6msg_state &d6s, sbufs &ss,
 {
     dhcp6_header send_d6hdr(d6s.header); // to copy the xid
     send_d6hdr.msg_type(mtype);
-    if (auto t = send_d6hdr.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
+    if (!send_d6hdr.write(ss)) return false;
 
     dhcp6_opt_serverid send_serverid(g_server_duid, sizeof g_server_duid);
-    if (auto t = send_serverid.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
+    if (!send_serverid.write(ss)) return false;
 
     dhcp6_opt send_clientid;
     send_clientid.type(1);
     send_clientid.length(d6s.client_duid_blob.size());
-    if (auto t = send_clientid.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
+    if (!send_clientid.write(ss)) return false;
     for (const auto &i: d6s.client_duid_blob) {
         if (ss.si == ss.se) return false;
         *ss.si++ = i;
@@ -275,7 +275,7 @@ bool D6Listener::write_response_header(const d6msg_state &d6s, sbufs &ss,
         dhcp6_opt send_pref;
         send_pref.type(7);
         send_pref.length(1);
-        if (auto t = send_pref.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
+        if (!send_pref.write(ss)) return false;
         if (ss.si == ss.se) return false;
         *ss.si++ = preference_;
     }
@@ -289,20 +289,20 @@ bool D6Listener::emit_IA_addr(const d6msg_state &, sbufs &ss, const dhcpv6_entry
     dhcp6_opt header;
     header.type(3);
     header.length(d6_ia::size + dhcp6_opt::size + d6_ia_addr::size);
-    if (auto t = header.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
+    if (!header.write(ss)) return false;
     d6_ia ia;
     ia.iaid = v->iaid;
     ia.t1_seconds = static_cast<uint32_t>(0.5 * v->lifetime);
     ia.t2_seconds = static_cast<uint32_t>(0.8 * v->lifetime);
-    if (auto t = ia.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
+    if (!ia.write(ss)) return false;
     header.type(5);
     header.length(d6_ia_addr::size);
-    if (auto t = header.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
+    if (!header.write(ss)) return false;
     d6_ia_addr addr;
     addr.addr = v->address;
     addr.prefer_lifetime = v->lifetime;
     addr.valid_lifetime = v->lifetime;
-    if (auto t = addr.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
+    if (!addr.write(ss)) return false;
     return true;
 }
 
@@ -312,12 +312,12 @@ bool D6Listener::emit_IA_code(const d6msg_state &d6s, sbufs &ss, uint32_t iaid,
     dhcp6_opt header;
     header.type(3);
     header.length(d6_ia::size + dhcp6_opt::size + OPT_STATUSCODE_SIZE);
-    if (auto t = header.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
+    if (!header.write(ss)) return false;
     d6_ia ia;
     ia.iaid = iaid;
     ia.t1_seconds = 0;
     ia.t2_seconds = 0;
-    if (auto t = ia.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
+    if (!ia.write(ss)) return false;
     if (!attach_status_code(d6s, ss, scode)) return false;
     return true;
 }
@@ -358,7 +358,7 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
         dhcp6_opt send_dns;
         send_dns.type(23);
         send_dns.length(dns6_servers->size() * 16);
-        if (auto t = send_dns.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
+        if (!send_dns.write(ss)) return false;
         for (const auto &i: *dns6_servers) {
             const auto d6b = i.to_bytes();
             for (const auto &j: d6b) {
@@ -373,7 +373,7 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
         dhcp6_opt send_dns_search;
         send_dns_search.type(24);
         send_dns_search.length(dns6_search_blob->size());
-        if (auto t = send_dns_search.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
+        if (!send_dns_search.write(ss)) return false;
         for (const auto &i: *dns6_search_blob) {
             if (ss.si == ss.se) return false;
             *ss.si++ = i;
@@ -394,13 +394,13 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
         if (ntp6_multicasts) len += 4 + ntp6_multicasts->size() * 16;
         if (ntp6_fqdns_blob) len += ntp6_fqdns_blob->size();
         send_ntp.length(len);
-        if (auto t = send_ntp.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
+        if (!send_ntp.write(ss)) return false;
 
         for (const auto &i: *ntp6_servers) {
             dhcp6_opt n6_svr;
             n6_svr.type(1);
             n6_svr.length(16);
-            if (auto t = n6_svr.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
+            if (!n6_svr.write(ss)) return false;
             const auto n6b = i.to_bytes();
             for (const auto &j: n6b) {
                 if (ss.si == ss.se) return false;
@@ -411,7 +411,7 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
             dhcp6_opt n6_mc;
             n6_mc.type(2);
             n6_mc.length(16);
-            if (auto t = n6_mc.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
+            if (!n6_mc.write(ss)) return false;
             const auto n6b = i.to_bytes();
             for (const auto &j: n6b) {
                 if (ss.si == ss.se) return false;
@@ -429,7 +429,7 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
         send_sntp.type(31);
         if (ntp6_servers) len += ntp6_servers->size() * 16;
         send_sntp.length(len);
-        if (auto t = send_sntp.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
+        if (!send_sntp.write(ss)) return false;
         for (const auto &i: *ntp6_servers) {
             const auto n6b = i.to_bytes();
             for (const auto &j: n6b) {
@@ -499,7 +499,7 @@ bool D6Listener::handle_solicit_msg(const d6msg_state &d6s, sbufs &ss)
         dhcp6_opt rapid_commit;
         rapid_commit.type(14);
         rapid_commit.length(0);
-        if (auto t = rapid_commit.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
+        if (!rapid_commit.write(ss)) return false;
     }
     return true;
 }
@@ -615,7 +615,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
     }
 
     d6msg_state d6s;
-    if (auto t = d6s.header.read(rs.si, rs.se - rs.si); t >= 0) {
+    if (auto t = d6s.header.read(rs.si, rs.brem()); t >= 0) {
         rs.si += t;
         OPTIONS_CONSUME(t);
     } else {
@@ -639,9 +639,9 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
         }
     }
 
-     while ((rs.se - rs.si) >= 4) {
+     while (rs.brem() >= 4) {
          dhcp6_opt opt;
-         if (auto t = opt.read(rs.si, rs.se - rs.si); t >= 0) {
+         if (auto t = opt.read(rs.si, rs.brem()); t >= 0) {
              rs.si += t;
              OPTIONS_CONSUME(t);
          } else return;
@@ -650,7 +650,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
          auto l = opt.length();
          auto ot = opt.type();
 
-         if (l > (rs.se - rs.si)) {
+         if (l > rs.brem()) {
              log_line("dhcp6: Option is too long on %s", ifname_.c_str());
              return;
          }
@@ -690,7 +690,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
                  return;
              }
              d6s.ias.emplace_back();
-             if (auto t = d6s.ias.back().read(rs.si, rs.se - rs.si); t >= 0) {
+             if (auto t = d6s.ias.back().read(rs.si, rs.brem()); t >= 0) {
                  rs.si += t;
                  OPTIONS_CONSUME(t);
              } else
@@ -721,7 +721,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
              d6s.ias.back().ia_na_addrs.emplace_back();
              if (d6s.ias.back().ia_na_addrs.empty())
                  suicide("dhcp6: d6.ias.back().ia_na_addrs is empty on %s", ifname_.c_str());
-             if (auto t = d6s.ias.back().ia_na_addrs.back().read(rs.si, rs.se - rs.si); t >= 0) {
+             if (auto t = d6s.ias.back().ia_na_addrs.back().read(rs.si, rs.brem()); t >= 0) {
                  rs.si += t;
                  OPTIONS_CONSUME(t);
              } else return;
@@ -808,10 +808,8 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
              }
              log_line("dhcp6: Client FQDN: flags='%u' '%s' on %s", flags, d6s.fqdn_.c_str(), ifname_.c_str());
          } else {
-             while (l--) {
-                 rs.si++;
-                 OPTIONS_CONSUME(1);
-             }
+             rs.si += l;
+             OPTIONS_CONSUME(l);
          }
      }
 

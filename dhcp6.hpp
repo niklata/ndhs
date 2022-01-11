@@ -57,13 +57,13 @@ public:
         memcpy(&xid_, b + 1, sizeof xid_);
         return size;
     }
-    int write(void *buf, size_t len) const
+    bool write(sbufs &sbuf) const
     {
-        if (len < size) return -1;
-        auto b = static_cast<char *>(buf);
-        memcpy(b, &type_, sizeof type_);
-        memcpy(b + 1, &xid_, sizeof xid_);
-        return size;
+        if (sbuf.brem() < size) return false;
+        memcpy(sbuf.si, &type_, sizeof type_);
+        memcpy(sbuf.si + 1, &xid_, sizeof xid_);
+        sbuf.si += size;
+        return true;
     }
 private:
     uint8_t type_;
@@ -88,12 +88,12 @@ public:
         memcpy(&data_, b, sizeof data_);
         return size;
     }
-    int write(void *buf, size_t len) const
+    bool write(sbufs &sbuf) const
     {
-        if (len < size) return -1;
-        auto b = static_cast<char *>(buf);
-        memcpy(b, &data_, sizeof data_);
-        return size;
+        if (sbuf.brem() < size) return false;
+        memcpy(sbuf.si, &data_, sizeof data_);
+        sbuf.si += size;
+        return true;
     }
 private:
     uint8_t data_[4];
@@ -106,19 +106,17 @@ struct dhcp6_opt_serverid
     const char *duid_string_;
     size_t duid_len_;
 
-    int write(void *buf, size_t len) const
+    bool write(sbufs &sbuf) const
     {
         const auto size = dhcp6_opt::size + duid_len_;
-        if (len < size) return -1;
-        auto b = static_cast<char *>(buf);
+        if (sbuf.brem() < size) return false;
         dhcp6_opt header;
         header.type(2);
         header.length(duid_len_);
-        auto r = header.write(b, len);
-        if (r < 0) return -1;
-        if (size_t(r) < dhcp6_opt::size) return -1;
-        memcpy(b + r, duid_string_, duid_len_);
-        return size;
+        if (!header.write(sbuf)) return false;
+        memcpy(sbuf.si, duid_string_, duid_len_);
+        sbuf.si += duid_len_;
+        return true;
     }
 };
 
@@ -141,15 +139,15 @@ struct d6_ia_addr {
         valid_lifetime = decode32be(data + 4);
         return size;
     }
-    int write(void *buf, size_t len) const
+    bool write(sbufs &sbuf) const
     {
-        if (len < size) return -1;
-        auto b = static_cast<char *>(buf);
+        if (sbuf.brem() < size) return false;
         const auto bytes = addr.to_bytes();
-        memcpy(b, bytes.data(), 16);
-        encode32be(prefer_lifetime, b + 16);
-        encode32be(valid_lifetime, b + 20);
-        return size;
+        memcpy(sbuf.si, bytes.data(), 16);
+        encode32be(prefer_lifetime, sbuf.si + 16);
+        encode32be(valid_lifetime, sbuf.si + 20);
+        sbuf.si += size;
+        return true;
     }
 };
 struct d6_ia {
@@ -170,14 +168,14 @@ struct d6_ia {
         t2_seconds = decode32be(data + 8);
         return size;
     }
-    int write(void *buf, size_t len) const
+    bool write(sbufs &sbuf) const
     {
-        if (len < size) return -1;
-        auto b = static_cast<char *>(buf);
-        encode32be(iaid, b);
-        encode32be(t1_seconds, b + 4);
-        encode32be(t2_seconds, b + 8);
-        return size;
+        if (sbuf.brem() < size) return false;
+        encode32be(iaid, sbuf.si);
+        encode32be(t1_seconds, sbuf.si + 4);
+        encode32be(t2_seconds, sbuf.si + 8);
+        sbuf.si += size;
+        return true;
     }
 };
 struct d6_statuscode
@@ -195,12 +193,12 @@ struct d6_statuscode
     code status_code;
     static const std::size_t size = 2;
 
-    int write(void *buf, size_t len) const
+    bool write(sbufs &sbuf) const
     {
-        if (len < size) return -1;
-        auto b = static_cast<char *>(buf);
-        encode16be(static_cast<uint16_t>(status_code), b);
-        return size;
+        if (sbuf.brem() < size) return false;
+        encode16be(static_cast<uint16_t>(status_code), sbuf.si);
+        sbuf.si += size;
+        return true;
     }
 };
 

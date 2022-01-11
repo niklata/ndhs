@@ -2,6 +2,7 @@
 #define NJK_NDHS_SBUFS_H_
 
 #include <cstring>
+#include <cstddef>
 #include <arpa/inet.h>
 extern "C" {
 #include "nk/log.h"
@@ -10,6 +11,10 @@ extern "C" {
 struct sbufs {
     char *si;
     char *se;
+
+    size_t brem() const {
+        return se >= si ? se - si : 0;
+    }
 };
 
 static inline bool ip4_to_string(char *buf, size_t buflen, uint32_t addr)
