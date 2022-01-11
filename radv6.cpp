@@ -43,6 +43,7 @@
 #include "multicast6.hpp"
 #include "attach_bpf.h"
 #include "rng.hpp"
+#include "sbufs.h"
 
 extern "C" {
 #include "nk/net_checksum16.h"
@@ -128,12 +129,12 @@ public:
         if (version() != 6) return -1; // XXX: Existing code was doing this check here.
         return size;
     }
-    int write(void *buf, size_t len) const
+    bool write(sbufs &sbuf) const
     {
-        if (len < size) return -1;
-        auto b = static_cast<char *>(buf);
-        memcpy(b, &data_, sizeof data_);
-        return size;
+        if (sbuf.brem() < size) return false;
+        memcpy(sbuf.si, &data_, sizeof data_);
+        sbuf.si += size;
+        return true;
     }
 private:
     uint8_t data_[40];
@@ -147,12 +148,12 @@ private:
         memcpy(&data_, b, sizeof data_); \
         return size; \
     } \
-    int write(void *buf, size_t len) const \
+    bool write(sbufs &sbuf) const \
     { \
-        if (len < size) return -1; \
-        auto b = static_cast<char *>(buf); \
-        memcpy(b, &data_, sizeof data_); \
-        return size; \
+        if (sbuf.brem() < size) return false; \
+        memcpy(sbuf.si, &data_, sizeof data_); \
+        sbuf.si += size; \
+        return true; \
     }
 
 class icmp_header
@@ -543,36 +544,36 @@ bool RA6Listener::send_advert()
     icmp_hdr.checksum(csum);
 
     char sbuf[4096];
-    char *si = &sbuf[0], *se = &sbuf[4096];
-    if (auto t = icmp_hdr.write(si, se - si); t >=0) si += t; else return false;
-    if (auto t = ra6adv_hdr.write(si, se - si); t >=0) si += t; else return false;
-    if (auto t = ra6_slla.write(si, se - si); t >=0) si += t; else return false;
-    if (auto t = ra6_mtu.write(si, se - si); t >=0) si += t; else return false;
+    sbufs ss{ &sbuf[0], &sbuf[4096] };
+    if (!icmp_hdr.write(ss)) return false;
+    if (!ra6adv_hdr.write(ss)) return false;
+    if (!ra6_slla.write(ss)) return false;
+    if (!ra6_mtu.write(ss)) return false;
     for (const auto &i: ra6_pfxs) {
-        if (auto t = i.write(si, se - si); t >=0) si += t; else return false;
+        if (!i.write(ss)) return false;
     }
     if (dns6_servers && dns6_servers->size()) {
-        if (auto t = ra6_dns.write(si, se - si); t >=0) si += t; else return false;
+        if (!ra6_dns.write(ss)) return false;
         for (const auto &i: *dns6_servers) {
             auto b6 = i.to_bytes();
             for (const auto &j: b6) {
-                if (si == se) return false;
-                *si++ = j;
+                if (ss.si == ss.se) return false;
+                *ss.si++ = j;
             }
         }
     }
     if (dns_search_blob && dns_search_blob->size()) {
-        if (auto t = ra6_dsrch.write(si, se - si); t >=0) si += t; else return false;
+        if (!ra6_dsrch.write(ss)) return false;
         for (const auto &i: *dns_search_blob) {
-            if (si == se) return false;
-            *si++ = i;
+            if (ss.si == ss.se) return false;
+            *ss.si++ = i;
         }
         for (size_t i = 0; i < dns_search_slack; ++i) {
-            if (si == se) return false;
-            *si++ = 0;
+            if (ss.si == ss.se) return false;
+            *ss.si++ = 0;
         }
     }
-    const size_t slen = si - sbuf;
+    const size_t slen = ss.si - sbuf;
 
     if (safe_sendto(fd_(), sbuf, slen, 0, reinterpret_cast<const sockaddr *>(&mc6_allhosts), sizeof mc6_allhosts) < 0) {
         log_line("ra6: sendto failed on %s: %s", ifname_.c_str(), strerror(errno));
