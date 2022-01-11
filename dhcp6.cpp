@@ -241,12 +241,12 @@ bool D6Listener::attach_status_code(const d6msg_state &, sbufs &ss,
     if (scode == d6_statuscode::code::success) {
         for (int i = 0; ok_str[i]; ++i) {
             if (ss.si == ss.se) return false;
-            *(ss.si)++ = ok_str[i];
+            *ss.si++ = ok_str[i];
         }
     } else {
         for (int i = 0; nak_str[i]; ++i) {
             if (ss.si == ss.se) return false;
-            *(ss.si)++ = nak_str[i];
+            *ss.si++ = nak_str[i];
         }
     }
     return true;
@@ -269,7 +269,7 @@ bool D6Listener::write_response_header(const d6msg_state &d6s, sbufs &ss,
     if (auto t = send_clientid.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
     for (const auto &i: d6s.client_duid_blob) {
         if (ss.si == ss.se) return false;
-        *(ss.si)++ = i;
+        *ss.si++ = i;
     }
 
     if (preference_ > 0) {
@@ -278,7 +278,7 @@ bool D6Listener::write_response_header(const d6msg_state &d6s, sbufs &ss,
         send_pref.length(1);
         if (auto t = send_pref.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
         if (ss.si == ss.se) return false;
-        *(ss.si)++ = preference_;
+        *ss.si++ = preference_;
     }
     return true;
 }
@@ -364,7 +364,7 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
             const auto d6b = i.to_bytes();
             for (const auto &j: d6b) {
                 if (ss.si == ss.se) return false;
-                *(ss.si)++ = j;
+                *ss.si++ = j;
             }
         }
     }
@@ -377,7 +377,7 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
         if (auto t = send_dns_search.write(ss.si, ss.se - ss.si); t >=0) ss.si += t; else return false;
         for (const auto &i: *dns6_search_blob) {
             if (ss.si == ss.se) return false;
-            *(ss.si)++ = i;
+            *ss.si++ = i;
         }
     }
     const auto ntp6_servers = query_ntp6_servers(ifname_);
@@ -404,7 +404,7 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
             const auto n6b = i.to_bytes();
             for (const auto &j: n6b) {
                 if (ss.si == ss.se) return false;
-                *(ss.si)++ = j;
+                *ss.si++ = j;
             }
         }
         for (const auto &i: *ntp6_multicasts) {
@@ -415,12 +415,12 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
             const auto n6b = i.to_bytes();
             for (const auto &j: n6b) {
                 if (ss.si == ss.se) return false;
-                *(ss.si)++ = j;
+                *ss.si++ = j;
             }
         }
         for (const auto &i: *ntp6_fqdns_blob) {
             if (ss.si == ss.se) return false;
-            *(ss.si)++ = i;
+            *ss.si++ = i;
         }
     }
     if (d6s.optreq_sntp) {
@@ -434,7 +434,7 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
             const auto n6b = i.to_bytes();
             for (const auto &j: n6b) {
                 if (ss.si == ss.se) return false;
-                *(ss.si)++ = j;
+                *ss.si++ = j;
             }
         }
     }
@@ -655,7 +655,8 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
              d6s.client_duid_blob.reserve(l);
              d6s.client_duid.reserve(2*l);
              while (l--) {
-                 uint8_t c = *(rs.si)++;
+                 uint8_t c;
+                 memcpy(&c, rs.si++, 1);
                  d6s.client_duid_blob.push_back(c);
                  char tbuf[16];
                  snprintf(tbuf, sizeof tbuf, "%.2hhx", c); // fixed len, safe
@@ -668,7 +669,8 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
              d6s.server_duid_blob.reserve(l);
              std::string tmpstr;
              while (l--) {
-                 uint8_t c = *(rs.si)++;
+                 uint8_t c;
+                 memcpy(&c, rs.si++, 1);
                  d6s.server_duid_blob.push_back(c);
                  char tbuf[16];
                  snprintf(tbuf, sizeof tbuf, "%.2hhx", c); // fixed len, safe
@@ -739,8 +741,8 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
              l /= 2;
              while (l--) {
                  char b[2];
-                 b[1] = *(rs.si)++;
-                 b[0] = *(rs.si)++;
+                 b[1] = *rs.si++;
+                 b[0] = *rs.si++;
                  OPTIONS_CONSUME(2);
                  uint16_t v;
                  memcpy(&v, b, 2);
@@ -767,8 +769,8 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
                  return;
              }
              char b[2];
-             b[1] = *(rs.si)++;
-             b[0] = *(rs.si)++;
+             b[1] = *rs.si++;
+             b[0] = *rs.si++;
              OPTIONS_CONSUME(2);
              memcpy(&d6s.elapsed_time, b, 2);
          } else if (ot == 14) { // Rapid Commit
@@ -783,10 +785,9 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
                  log_line("dhcp6: Client-sent option Client FQDN has a bad length on %s", ifname_.c_str());
                  return;
              }
-             char flags;
-             uint8_t namelen;
-             namelen = *(rs.si)++;
-             flags = *(rs.si)++;
+             uint8_t namelen, flags;
+             memcpy(&namelen, rs.si++, 1);
+             memcpy(&flags, rs.si++, 1);
              OPTIONS_CONSUME(2);
              l -= 2;
              if (l != namelen) {
@@ -795,14 +796,13 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
              }
              d6s.fqdn_.clear();
              d6s.fqdn_.reserve(namelen);
-             log_line("dhcp6: FQDN Flags='%d', NameLen='%d' on %s", +flags, +namelen, ifname_.c_str());
+             log_line("dhcp6: FQDN Flags='%u', NameLen='%u' on %s", flags, namelen, ifname_.c_str());
              while (l--) {
-                 char c = *(rs.si)++;
+                 char c = *rs.si++;
                  OPTIONS_CONSUME(1);
                  d6s.fqdn_.push_back(c);
              }
-             log_line("dhcp6: Client FQDN: flags='%u' '%s' on %s",
-                      static_cast<uint8_t>(flags), d6s.fqdn_.c_str(), ifname_.c_str());
+             log_line("dhcp6: Client FQDN: flags='%u' '%s' on %s", flags, d6s.fqdn_.c_str(), ifname_.c_str());
          } else {
              while (l--) {
                  rs.si += l;
