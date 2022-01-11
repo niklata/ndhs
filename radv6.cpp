@@ -653,8 +653,8 @@ void RA6Listener::process_receive(char *buf, std::size_t buflen,
 
     // Only the source link-layer address option is defined.
     while (rs.se - rs.si >= 2) {
-        uint8_t opt_type = *(rs.si)++;
-        size_t opt_length = 8 * (*(rs.si)++);
+        uint8_t opt_type = *rs.si++;
+        size_t opt_length = 8 * (*rs.si++);
         // Discard if any included option has a length <= 0.
         if (opt_length <= 0) {
             log_line("ra6: Solicitation option length <= 0 on %s", ifname_.c_str());
@@ -672,7 +672,7 @@ void RA6Listener::process_receive(char *buf, std::size_t buflen,
                 }
                 got_macaddr = true;
                 for (size_t i = 0; i < sizeof macaddr; ++i) {
-                    macaddr[i] = *(rs.si)++;
+                    macaddr[i] = *rs.si++;
                 }
             } else {
                 log_line("ra6: Source Link-Layer Address is wrong size for ethernet on %s", ifname_.c_str());
@@ -684,7 +684,7 @@ void RA6Listener::process_receive(char *buf, std::size_t buflen,
                 return;
             }
             log_line("ra6: Ignoring unknown option type(%u) on %s", +opt_type, ifname_.c_str());
-            for (size_t i = 0; i < opt_length - 2; ++i) (rs.si)++;
+            for (size_t i = 0; i < opt_length - 2; ++i) rs.si++;
         }
     }
 
