@@ -354,7 +354,7 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
     const auto dns6_servers = query_dns6_servers(ifname_);
     if (!dns6_servers) return true;
 
-    if ((!d6s.optreq_exists || d6s.optreq_dns) && dns6_servers->size()) {
+    if (d6s.optreq_dns && dns6_servers->size()) {
         dhcp6_opt send_dns;
         send_dns.type(23);
         send_dns.length(dns6_servers->size() * 16);
@@ -368,8 +368,7 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
         }
     }
     const auto dns6_search_blob = query_dns6_search_blob(ifname_);
-    if ((!d6s.optreq_exists || d6s.optreq_dns_search)
-        && (dns6_search_blob && dns6_search_blob->size())) {
+    if (d6s.optreq_dns_search && (dns6_search_blob && dns6_search_blob->size())) {
         dhcp6_opt send_dns_search;
         send_dns_search.type(24);
         send_dns_search.length(dns6_search_blob->size());
@@ -379,11 +378,10 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
             *ss.si++ = i;
         }
     }
-#if 0
     const auto ntp6_servers = query_ntp6_servers(ifname_);
     const auto ntp6_multicasts = query_ntp6_multicasts(ifname_);
     const auto ntp6_fqdns_blob = query_ntp6_fqdns_blob(ifname_);
-    if ((!d6s.optreq_exists || d6s.optreq_ntp)
+    if (d6s.optreq_ntp
         && ((ntp6_servers && ntp6_servers->size())
             || (ntp6_multicasts && ntp6_multicasts->size())
             || (ntp6_fqdns_blob && ntp6_fqdns_blob->size()))) {
@@ -438,7 +436,6 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
             }
         }
     }
-#endif
     return true;
 }
 
@@ -810,6 +807,20 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
          } else {
              rs.si += l;
              OPTIONS_CONSUME(l);
+         }
+     }
+
+     if (!d6s.optreq_exists) {
+         // These message types MUST include Option Request (cf. RFC 8415 21.27)
+         switch (d6s.header.msg_type()) {
+         case dhcp6_msgtype::solicit:
+         case dhcp6_msgtype::request:
+         case dhcp6_msgtype::renew:
+         case dhcp6_msgtype::rebind:
+         case dhcp6_msgtype::information_request:
+             log_line("Client sent invalid %s -- no Option Request is present", dhcp6_msgtype_to_string(d6s.header.msg_type()));
+             return;
+         default: break;
          }
      }
 
