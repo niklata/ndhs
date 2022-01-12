@@ -121,13 +121,13 @@ public:
     }
     static const std::size_t size = 40;
 
-    int read(const void *buf, size_t len)
+    bool read(sbufs &rbuf)
     {
-        if (len < size) return -1;
-        auto b = static_cast<const char *>(buf);
-        memcpy(&data_, b, sizeof data_);
-        if (version() != 6) return -1; // XXX: Existing code was doing this check here.
-        return size;
+        if (rbuf.brem() < size) return false;
+        memcpy(&data_, rbuf.si, sizeof data_);
+        if (version() != 6) return false; // XXX: Existing code was doing this check here.
+        rbuf.si += size;
+        return true;
     }
     bool write(sbufs &sbuf) const
     {
@@ -141,12 +141,12 @@ private:
 };
 
 #define DEF_RW_MEMBERS() \
-    int read(const void *buf, size_t len) \
+    bool read(sbufs &rbuf) \
     { \
-        if (len < size) return -1; \
-        auto b = static_cast<const char *>(buf); \
-        memcpy(&data_, b, sizeof data_); \
-        return size; \
+        if (rbuf.brem() < size) return false; \
+        memcpy(&data_, rbuf.si, sizeof data_); \
+        rbuf.si += size; \
+        return true; \
     } \
     bool write(sbufs &sbuf) const \
     { \
@@ -623,9 +623,7 @@ void RA6Listener::process_receive(char *buf, std::size_t buflen,
     }
 
     icmp_header icmp_hdr;
-    if (auto t = icmp_hdr.read(rs.si, rs.se - rs.si); t >= 0) {
-        rs.si += t;
-    } else return;
+    if (!icmp_hdr.read(rs)) return;
 
     // XXX: Discard if the ip header hop limit field != 255
 #if 0
@@ -649,9 +647,7 @@ void RA6Listener::process_receive(char *buf, std::size_t buflen,
     }
 
     ra6_solicit_header ra6_solicit_hdr;
-    if (auto t = ra6_solicit_hdr.read(rs.si, rs.se - rs.si); t >= 0) {
-        rs.si += t;
-    } else return;
+    if (!ra6_solicit_hdr.read(rs)) return;
 
     uint8_t macaddr[6];
     bool got_macaddr(false);
