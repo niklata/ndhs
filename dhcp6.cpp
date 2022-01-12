@@ -612,14 +612,12 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
     }
 
     d6msg_state d6s;
-    if (auto t = d6s.header.read(rs.si, rs.brem()); t >= 0) {
-        rs.si += t;
-        OPTIONS_CONSUME(t);
-    } else {
+    if (!d6s.header.read(rs)) {
         log_line("dhcp6: Packet from %s has no valid option headers on %s",
                  sip_str, ifname_.c_str());
         return;
     }
+    OPTIONS_CONSUME(d6s.header.size);
 
     log_line("dhcp6: Message (%s) on %s",
              dhcp6_msgtype_to_string(d6s.header.msg_type()), ifname_.c_str());
@@ -638,10 +636,8 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
 
      while (rs.brem() >= 4) {
          dhcp6_opt opt;
-         if (auto t = opt.read(rs.si, rs.brem()); t >= 0) {
-             rs.si += t;
-             OPTIONS_CONSUME(t);
-         } else return;
+         if (!opt.read(rs)) return;
+         OPTIONS_CONSUME(opt.size);
          log_line("dhcp6: Option '%s' length=%d on %s",
                   dhcp6_opt_to_string(opt.type()), opt.length(), ifname_.c_str());
          auto l = opt.length();
@@ -687,11 +683,8 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
                  return;
              }
              d6s.ias.emplace_back();
-             if (auto t = d6s.ias.back().read(rs.si, rs.brem()); t >= 0) {
-                 rs.si += t;
-                 OPTIONS_CONSUME(t);
-             } else
-                 return;
+             if (!d6s.ias.back().read(rs)) return;
+             OPTIONS_CONSUME(d6s.ias.back().size);
 
              const auto na_options_len = l - 12;
              if (na_options_len > 0)
@@ -718,10 +711,8 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
              d6s.ias.back().ia_na_addrs.emplace_back();
              if (d6s.ias.back().ia_na_addrs.empty())
                  suicide("dhcp6: d6.ias.back().ia_na_addrs is empty on %s", ifname_.c_str());
-             if (auto t = d6s.ias.back().ia_na_addrs.back().read(rs.si, rs.brem()); t >= 0) {
-                 rs.si += t;
-                 OPTIONS_CONSUME(t);
-             } else return;
+             if (!d6s.ias.back().ia_na_addrs.back().read(rs)) return;
+             OPTIONS_CONSUME(d6s.ias.back().ia_na_addrs.back().size);
 
              auto iaa_options_len = l - 24;
              if (iaa_options_len > 0)

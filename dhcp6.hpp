@@ -49,13 +49,13 @@ public:
     void msg_type(dhcp6_msgtype v) { type_ = static_cast<uint8_t>(v); }
     static const std::size_t size = 4;
 
-    int read(const void *buf, size_t len)
+    bool read(sbufs &rbuf)
     {
-        if (len < size) return -1;
-        auto b = static_cast<const char *>(buf);
-        memcpy(&type_, b, sizeof type_);
-        memcpy(&xid_, b + 1, sizeof xid_);
-        return size;
+        if (rbuf.brem() < size) return false;
+        memcpy(&type_, rbuf.si, sizeof type_);
+        memcpy(&xid_, rbuf.si + 1, sizeof xid_);
+        rbuf.si += size;
+        return true;
     }
     bool write(sbufs &sbuf) const
     {
@@ -81,12 +81,12 @@ public:
     void length(uint16_t v) { encode16be(v, data_ + 2); }
     static const std::size_t size = 4;
 
-    int read(const void *buf, size_t len)
+    bool read(sbufs &rbuf)
     {
-        if (len < size) return -1;
-        auto b = static_cast<const char *>(buf);
-        memcpy(&data_, b, sizeof data_);
-        return size;
+        if (rbuf.brem() < size) return false;
+        memcpy(&data_, rbuf.si, sizeof data_);
+        rbuf.si += size;
+        return true;
     }
     bool write(sbufs &sbuf) const
     {
@@ -126,18 +126,16 @@ struct d6_ia_addr {
     uint32_t valid_lifetime;
     static const std::size_t size = 24;
 
-    int read(const void *buf, size_t len)
+    bool read(sbufs &rbuf)
     {
-        if (len < size) return -1;
-        auto b = static_cast<const char *>(buf);
+        if (rbuf.brem() < size) return false;
         asio::ip::address_v6::bytes_type addrbytes;
-        memcpy(&addrbytes, b, 16);
-        char data[8];
-        memcpy(&data, b + 16, sizeof data);
+        memcpy(&addrbytes, rbuf.si, 16);
         addr = asio::ip::address_v6(addrbytes);
-        prefer_lifetime = decode32be(data);
-        valid_lifetime = decode32be(data + 4);
-        return size;
+        prefer_lifetime = decode32be(rbuf.si + 16);
+        valid_lifetime = decode32be(rbuf.si + 20);
+        rbuf.si += size;
+        return true;
     }
     bool write(sbufs &sbuf) const
     {
@@ -157,16 +155,14 @@ struct d6_ia {
     std::vector<d6_ia_addr> ia_na_addrs;
     static const std::size_t size = 12;
 
-    int read(const void *buf, size_t len)
+    bool read(sbufs &rbuf)
     {
-        if (len < size) return -1;
-        auto b = static_cast<const char *>(buf);
-        char data[12];
-        memcpy(data, b, sizeof data);
-        iaid = decode32be(data);
-        t1_seconds = decode32be(data + 4);
-        t2_seconds = decode32be(data + 8);
-        return size;
+        if (rbuf.brem() < size) return false;
+        iaid = decode32be(rbuf.si);
+        t1_seconds = decode32be(rbuf.si + 4);
+        t2_seconds = decode32be(rbuf.si + 8);
+        rbuf.si += size;
+        return true;
     }
     bool write(sbufs &sbuf) const
     {
