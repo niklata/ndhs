@@ -205,9 +205,18 @@ bool D4Listener::init(const std::string &ifname)
 void D4Listener::process_input()
 {
     char buf[8192];
-    auto buflen = safe_recv(fd_(), buf, sizeof buf, MSG_DONTWAIT);
-    if (buflen < 0) suicide("dhcp4: D4Listener: recv failed: %s", strerror(errno));
-    process_receive(buf, buflen);
+    for (;;) {
+        sockaddr_storage sai;
+        socklen_t sailen = sizeof sai;
+        auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, reinterpret_cast<sockaddr *>(&sai), &sailen);
+        if (buflen == -1) {
+            int err = errno;
+            if (err == EINTR) continue;
+            if (err == EAGAIN || err == EWOULDBLOCK) break;
+            suicide("dhcp6: recvfrom failed on %s: %s", ifname_.c_str(), strerror(err));
+        }
+        process_receive(buf, buflen);
+    }
 }
 
 void D4Listener::dhcpmsg_init(dhcpmsg &dm, char type, uint32_t xid) const
@@ -390,6 +399,8 @@ bool D4Listener::create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_ass
     const auto broadcast = query_broadcast(ifname_);
     if (!broadcast) return false;
     add_option_broadcast(&reply, htonl(broadcast->to_ulong()));
+
+    log_line("dhcp4: Sending reply %u.%u.%u.%u", reply.yiaddr & 255, (reply.yiaddr >> 8) & 255, (reply.yiaddr >> 16) & 255, (reply.yiaddr >> 24) & 255);
 
     std::string iplist;
     const auto routers = query_gateway(ifname_);
