@@ -28,6 +28,7 @@
 
 #include "rng.hpp"
 #include "nlsocket.hpp"
+#include "dhcp_state.hpp"
 extern "C" {
 #include "nk/log.h"
 #include "nl.h"
@@ -184,6 +185,17 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
             if (i->address == nia.address) {
                 *i = std::move(nia);
                 return;
+            }
+        }
+        if (nia.addr_type == AF_INET) {
+            emplace_broadcast(0, nia.if_name, nia.broadcast_address.to_string());
+
+            uint32_t subnet = 0xffffffffu;
+            for (unsigned i = 0, iend = 32 - nia.prefixlen; i < iend; ++i) subnet <<= 1;
+            subnet = htonl(subnet);
+            char sbuf[INET_ADDRSTRLEN+1];
+            if (inet_ntop(AF_INET, &subnet, sbuf, sizeof sbuf)) {
+                emplace_subnet(0, nia.if_name, sbuf);
             }
         }
         ifelt->second.addrs.emplace_back(std::move(nia));

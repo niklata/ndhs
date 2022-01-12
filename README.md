@@ -126,9 +126,7 @@ leases will be valid.
 interface <interface_name>
 v4 <mac_address> <ipv4_address>
 v6 <duid> <iaid> <ipv6_address>
-subnet <ipv4_address>
 gateway <ipv4_address>
-broadcast <ipv4_address>
 dns_server <ip_address>...
 dns_search <fully_qualified_hostname>...
 ntp_server <ip_address>...
@@ -152,12 +150,6 @@ of two-hexadecimal digits delimited by `-`, as is typical for the Windows
 `ifconfig /all` command.  The iaid is specified by a string of decimal
 digits corresponding to a 32-bit unsigned value.  The ipv6 address is
 specified by the typical hexadecimal string delimited by `:`.
-
-`subnet` specifies the subnet address for the interface, in dotted
-decimal format.
-
-`broadcast` specifies the broadcast address for the interface, in dotted
-decimal format.
 
 `dns_server` specifies a list of dns servers for the address.  The ip
 addresses are in the typical string representations for ipv4 or ipv6

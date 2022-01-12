@@ -123,14 +123,8 @@ static inline std::string lc_string(const char *s, size_t slen)
     action NtpServerEn {
         emplace_ntp_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
     }
-    action SubnetEn {
-        emplace_subnet(linenum, cps.interface, cps.ipaddr);
-    }
     action GatewayEn {
         emplace_gateway(linenum, cps.interface, cps.ipaddr);
-    }
-    action BroadcastEn {
-        emplace_broadcast(linenum, cps.interface, cps.ipaddr);
     }
     action DynRangePreEn {
         cps.ipaddr2 = std::move(cps.ipaddr);
@@ -174,16 +168,14 @@ static inline std::string lc_string(const char *s, size_t slen)
     dns_server = space* 'dns_server' (space+ (v4_addr | v6_addr) %DnsServerEn)+ tcomment;
     dns_search = space* 'dns_search' (space+ graph+ >St %DnsSearchEn)+ tcomment;
     ntp_server = space* 'ntp_server' (space+ (v4_addr | v6_addr) %NtpServerEn)+ tcomment;
-    subnet = space* 'subnet' space+ v4_addr %SubnetEn tcomment;
     gateway = space* 'gateway' space+ v4_addr %GatewayEn tcomment;
-    broadcast = space* 'broadcast' space+ v4_addr %BroadcastEn tcomment;
     dynamic_range = space* 'dynamic_range' space+ v4_addr %DynRangePreEn space+ v4_addr %DynRangeEn tcomment;
     dynamic_v6 = space* 'dynamic_v6' %DynamicV6En tcomment;
     v4_entry = space* 'v4' space+ macaddr space+ v4_addr tcomment;
     v6_entry = space* 'v6' space+ duid space+ iaid space+ v6_addr tcomment;
 
     main := comment | bind4 | bind6 | user | chroot | default_lifetime | default_preference
-          | interface | dns_server | dns_search | ntp_server | subnet | gateway | broadcast
+          | interface | dns_server | dns_search | ntp_server | gateway
           | dynamic_range | dynamic_v6 | v6_entry %V6EntryEn | v4_entry %V4EntryEn;
 }%%
 
