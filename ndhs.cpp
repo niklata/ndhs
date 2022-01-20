@@ -32,6 +32,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <climits>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>

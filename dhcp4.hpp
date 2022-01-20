@@ -30,11 +30,12 @@
 #define NK_DHCPCLIENT_H
 
 #include <string>
+#include <vector>
 #include <memory>
 #include <unordered_map>
 #include <chrono>
 #include <netdb.h>
-#include <asio.hpp>
+#include <nk/net/ip_address.hpp>
 #include <nk/sys/posix/handle.hpp>
 #include "dhcp.h"
 
@@ -94,7 +95,7 @@ private:
     void send_reply_do(const dhcpmsg &dm, SendReplyType srt);
     void send_reply(const dhcpmsg &dm);
     bool iplist_option(dhcpmsg &reply, std::string &iplist, uint8_t code,
-                       const std::vector<asio::ip::address_v4> &addrs);
+                       const std::vector<nk::ip_address> &addrs);
     bool allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do_assign);
     bool create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_assign);
     void reply_discover();
@@ -108,7 +109,7 @@ private:
     nk::sys::handle fd_;
     struct dhcpmsg dhcpmsg_;
     std::string ifname_;
-    asio::ip::address local_ip_;
+    nk::ip_address local_ip_;
 };
 
 #endif /* NK_DHCPCLIENT_H */

@@ -28,6 +28,7 @@
 
 #include <unistd.h>
 #include <sys/types.h>
+#include <net/if.h>
 #include <pwd.h>
 #include "rng.hpp"
 #include "dhcp4.hpp"
@@ -189,7 +190,7 @@ bool D4Listener::init(const std::string &ifname)
 
         for (const auto &i: ifinfo->addrs) {
             if (i.address.is_v4()) {
-                local_ip_ = i.address.to_v4();
+                local_ip_ = i.address;
                 log_line("dhcp4: IP address for %s is %s", ifname.c_str(), local_ip_.to_string().c_str());
             }
         }
@@ -273,7 +274,9 @@ void D4Listener::send_reply_do(const dhcpmsg &dm, SendReplyType srt)
     case SendReplyType::Broadcast: {
         const auto broadcast = query_broadcast(ifname_);
         if (!broadcast) suicide("dhcp4: misconfigured -- must have a broadcast address");
-        send_to(&dm, dmlen, htonl(broadcast->to_ulong()), 68);
+        uint32_t bcaddr;
+        if (!broadcast->raw_v4bytes(&bcaddr)) suicide("dhcp4: broadcast address to raw bytes failed");
+        send_to(&dm, dmlen, bcaddr, 68);
         break;
     }
     case SendReplyType::Relay:
@@ -309,14 +312,13 @@ void D4Listener::send_reply(const dhcpmsg &reply)
 }
 
 bool D4Listener::iplist_option(dhcpmsg &reply, std::string &iplist, uint8_t code,
-                               const std::vector<asio::ip::address_v4> &addrs)
+                               const std::vector<nk::ip_address> &addrs)
 {
     iplist.clear();
     iplist.reserve(addrs.size() * 4);
     for (const auto &i: addrs) {
-        const auto ip32 = htonl(i.to_ulong());
         char ip8[4];
-        memcpy(ip8, &ip32, sizeof ip8);
+        if (!i.raw_v4bytes(ip8)) return false;
         iplist.append(ip8, 4);
     }
     if (!iplist.size()) return false;
@@ -324,9 +326,15 @@ bool D4Listener::iplist_option(dhcpmsg &reply, std::string &iplist, uint8_t code
     return true;
 }
 
+static nk::ip_address u32_ipaddr(uint32_t v)
+{
+    nk::ip_address ret;
+    ret.from_v4bytes(&v);
+    return ret;
+}
+
 bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do_assign)
 {
-    using aia4 = asio::ip::address_v4;
     uint32_t dynamic_lifetime;
     if (!query_use_dynamic_v4(ifname_, dynamic_lifetime))
         return false;
@@ -341,8 +349,11 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     const auto expire_time = get_current_ts() + dynamic_lifetime;
 
     auto v4a = dynlease_query_refresh(ifname_, hwaddr, expire_time);
-    if (v4a != asio::ip::address_v4::any()) {
-        reply.yiaddr = htonl(v4a.to_ulong());
+    if (v4a != nk::ip_address(nk::ip_address::any{})) {
+        if (!v4a.raw_v4bytes(&reply.yiaddr)) {
+            log_line("dhcp4: allot_dynamic_ip - bad address");
+            return false;
+        }
         add_u32_option(&reply, DCODE_LEASET, htonl(dynamic_lifetime));
         log_line("dhcp4: Assigned existing dynamic IP: %s", v4a.to_string().c_str());
         return true;
@@ -350,8 +361,11 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     log_line("dhcp4: Selecting an unused dynamic IP.");
 
     // IP is randomly selected from the dynamic range.
-    const auto al = dr->first.to_ulong();
-    const auto ah = dr->second.to_ulong();
+    uint32_t al, ah;
+    if (!dr->first.raw_v4bytes(&al)) suicide("dhcp4: allot_dynamic_ip - al failed");
+    if (!dr->second.raw_v4bytes(&ah)) suicide("dhcp4: allot_dynamic_ip - ah failed");
+    al = ntohl(al);
+    ah = ntohl(ah);
     const uint64_t ar = ah > al ? ah - al : al - ah;
     std::uniform_int_distribution<uint64_t> dist(0, ar);
     random_u64_wrapper r64w;
@@ -362,18 +376,20 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     // So we scan from [rqs, ah], taking the first empty slot.
     // If no success, scan from [al, rqs), taking the first empty slot.
     // If no success, then all IPs are taken, so return false.
-    for (unsigned long i = al + rqs; i <= ah; ++i) {
-        const auto matched = do_assign ? dynlease_add(ifname_, aia4(i), hwaddr, expire_time)
-                                       : dynlease_exists(ifname_, aia4(i), hwaddr);
+    for (uint32_t i = al + rqs; i <= ah; ++i) {
+        auto iaddr = u32_ipaddr(htonl(i));
+        const auto matched = do_assign ? dynlease_add(ifname_, iaddr, hwaddr, expire_time)
+                                       : dynlease_exists(ifname_, iaddr, hwaddr);
         if (matched) {
             reply.yiaddr = htonl(i);
             add_u32_option(&reply, DCODE_LEASET, htonl(dynamic_lifetime));
             return true;
         }
     }
-    for (unsigned long i = al; i < al + rqs; ++i) {
-        const auto matched = do_assign ? dynlease_add(ifname_, aia4(i), hwaddr, expire_time)
-                                       : dynlease_exists(ifname_, aia4(i), hwaddr);
+    for (uint32_t i = al; i < al + rqs; ++i) {
+        auto iaddr = u32_ipaddr(htonl(i));
+        const auto matched = do_assign ? dynlease_add(ifname_, iaddr, hwaddr, expire_time)
+                                       : dynlease_exists(ifname_, iaddr, hwaddr);
         if (matched) {
             reply.yiaddr = htonl(i);
             add_u32_option(&reply, DCODE_LEASET, htonl(dynamic_lifetime));
@@ -390,15 +406,21 @@ bool D4Listener::create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_ass
         if (!allot_dynamic_ip(reply, hwaddr, do_assign))
             return false;
     } else {
-        reply.yiaddr = htonl(dv4s->address.to_ulong());
+        if (!dv4s->address.raw_v4bytes(&reply.yiaddr))
+            return false;
         add_u32_option(&reply, DCODE_LEASET, htonl(dv4s->lifetime));
     }
     const auto subnet = query_subnet(ifname_);
     if (!subnet) return false;
-    add_option_subnet_mask(&reply, htonl(subnet->to_ulong()));
+    uint32_t subnet_addr;
+    if (!subnet->raw_v4bytes(&subnet_addr)) return false;
+    add_option_subnet_mask(&reply, subnet_addr);
+
     const auto broadcast = query_broadcast(ifname_);
     if (!broadcast) return false;
-    add_option_broadcast(&reply, htonl(broadcast->to_ulong()));
+    uint32_t broadcast_addr;
+    if (!broadcast->raw_v4bytes(&broadcast_addr)) return false;
+    add_option_broadcast(&reply, broadcast_addr);
 
     log_line("dhcp4: Sending reply %u.%u.%u.%u", reply.yiaddr & 255, (reply.yiaddr >> 8) & 255, (reply.yiaddr >> 16) & 255, (reply.yiaddr >> 24) & 255);
 
@@ -437,7 +459,7 @@ void D4Listener::reply_request()
     client_states_v4->stateKill(dhcpmsg_.xid, dhcpmsg_.chaddr);
 }
 
-static asio::ip::address_v4 zero_v4(0lu);
+static nk::ip_address zero_v4;
 void D4Listener::reply_inform()
 {
     log_line("dhcp4: Got DHCP4 inform message");
@@ -467,15 +489,14 @@ void D4Listener::reply_inform()
 }
 
 void D4Listener::do_release() {
-    using aia4 = asio::ip::address_v4;
-    auto valid = dynlease_exists(ifname_, aia4(ntohl(dhcpmsg_.ciaddr)), dhcpmsg_.chaddr);
+    auto valid = dynlease_exists(ifname_, u32_ipaddr(dhcpmsg_.ciaddr), dhcpmsg_.chaddr);
     if (!valid) {
         char buf[32] = "invalid ip";
         ip4_to_string(buf, sizeof buf, dhcpmsg_.ciaddr);
         log_line("dhcp4: do_release: ignoring spoofed release request for %s.", buf);
         return;
     }
-    dynlease_del(ifname_, aia4(ntohl(dhcpmsg_.ciaddr)), dhcpmsg_.chaddr);
+    dynlease_del(ifname_, u32_ipaddr(dhcpmsg_.ciaddr), dhcpmsg_.chaddr);
 }
 
 std::string D4Listener::getChaddr(const struct dhcpmsg &dm) const

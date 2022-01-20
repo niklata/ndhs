@@ -1,6 +1,8 @@
 #include <unordered_map>
 #include <optional>
-#include <asio.hpp>
+#include <memory>
+#include <string>
+#include <cassert>
 #include "dhcp_state.hpp"
 extern "C" {
 #include "nk/log.h"
@@ -13,19 +15,19 @@ struct interface_data
           use_dynamic_v4(false), use_dynamic_v6(false) {}
     std::unordered_multimap<std::string, std::unique_ptr<dhcpv6_entry>> duid_mapping;
     std::unordered_map<std::string, std::unique_ptr<dhcpv4_entry>> macaddr_mapping;
-    std::vector<asio::ip::address_v4> gateway;
-    std::vector<asio::ip::address_v6> dns6_servers;
-    std::vector<asio::ip::address_v4> dns4_servers;
-    std::vector<asio::ip::address_v6> ntp6_servers;
-    std::vector<asio::ip::address_v4> ntp4_servers;
-    std::vector<asio::ip::address_v6> ntp6_multicasts;
+    std::vector<nk::ip_address> gateway;
+    std::vector<nk::ip_address> dns6_servers;
+    std::vector<nk::ip_address> dns4_servers;
+    std::vector<nk::ip_address> ntp6_servers;
+    std::vector<nk::ip_address> ntp4_servers;
+    std::vector<nk::ip_address> ntp6_multicasts;
     std::vector<std::string> dns_search;
     std::vector<std::string> ntp6_fqdns;
-    asio::ip::address_v4 subnet;
-    asio::ip::address_v4 broadcast;
+    nk::ip_address subnet;
+    nk::ip_address broadcast;
     std::vector<uint8_t> dns_search_blob;
     std::vector<uint8_t> ntp6_fqdns_blob;
-    std::pair<asio::ip::address_v4, asio::ip::address_v4> dynamic_range;
+    std::pair<nk::ip_address, nk::ip_address> dynamic_range;
     uint32_t dynamic_lifetime;
     uint8_t preference;
     bool use_dhcpv4:1;
@@ -182,15 +184,14 @@ bool emplace_dhcp_state(size_t linenum, const std::string &interface, std::strin
         log_line("No interface specified at line %zu", linenum);
         return false;
     }
-    std::error_code ec;
-    auto v6a = asio::ip::address_v6::from_string(v6_addr, ec);
-    if (ec) {
+    nk::ip_address ipa;
+    if (!ipa.from_string(v6_addr)) {
         log_line("Bad IPv6 address at line %zu: %s", linenum, v6_addr.c_str());
         return false;
     }
     si->second.duid_mapping.emplace
         (std::make_pair(std::move(duid),
-                        std::make_unique<dhcpv6_entry>(iaid, v6a, default_lifetime)));
+                        std::make_unique<dhcpv6_entry>(iaid, ipa, default_lifetime)));
     return true;
 }
 
@@ -202,9 +203,8 @@ bool emplace_dhcp_state(size_t linenum, const std::string &interface, const std:
         log_line("No interface specified at line %zu", linenum);
         return false;
     }
-    std::error_code ec;
-    auto v4a = asio::ip::address_v4::from_string(v4_addr, ec);
-    if (ec) {
+    nk::ip_address ipa;
+    if (!ipa.from_string(v4_addr) || !ipa.is_v4()) {
         log_line("Bad IPv4 address at line %zu: %s", linenum, v4_addr.c_str());
         return false;
     }
@@ -213,7 +213,7 @@ bool emplace_dhcp_state(size_t linenum, const std::string &interface, const std:
         buf[i] = strtol(macaddr.c_str() + 3*i, nullptr, 16);
     si->second.macaddr_mapping.emplace
         (std::make_pair(std::string{reinterpret_cast<char *>(buf), 6},
-                        std::make_unique<dhcpv4_entry>(v4a, default_lifetime)));
+                        std::make_unique<dhcpv4_entry>(ipa, default_lifetime)));
     return true;
 }
 
@@ -230,23 +230,22 @@ bool emplace_dns_server(size_t linenum, const std::string &interface,
     }
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
-    std::error_code ec;
+    nk::ip_address ipa;
+    auto bad_addr = !ipa.from_string(addr);
     if (atype == addr_type::v4) {
-        auto v4a = asio::ip::address_v4::from_string(addr, ec);
-        if (!ec) {
-            si->second.dns4_servers.emplace_back(std::move(v4a));
-            return true;
-        } else
+        if (bad_addr || !ipa.is_v4()) {
             log_line("Bad IPv4 address at line %zu: %s", linenum, addr.c_str());
+            return false;
+        }
+        si->second.dns4_servers.emplace_back(std::move(ipa));
     } else {
-        auto v6a = asio::ip::address_v6::from_string(addr, ec);
-        if (!ec) {
-            si->second.dns6_servers.emplace_back(std::move(v6a));
-            return true;
-        } else
+        if (bad_addr || ipa.is_v4()) {
             log_line("Bad IPv6 address at line %zu: %s", linenum, addr.c_str());
+            return false;
+        }
+        si->second.dns6_servers.emplace_back(std::move(ipa));
     }
-    return false;
+    return true;
 }
 
 bool emplace_ntp_server(size_t linenum, const std::string &interface,
@@ -262,23 +261,22 @@ bool emplace_ntp_server(size_t linenum, const std::string &interface,
     }
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
-    std::error_code ec;
+    nk::ip_address ipa;
+    auto bad_addr = !ipa.from_string(addr);
     if (atype == addr_type::v4) {
-        auto v4a = asio::ip::address_v4::from_string(addr, ec);
-        if (!ec) {
-            si->second.ntp4_servers.emplace_back(std::move(v4a));
-            return true;
-        } else
+        if (bad_addr || !ipa.is_v4()) {
             log_line("Bad IPv4 address at line %zu: %s", linenum, addr.c_str());
+            return false;
+        }
+        si->second.ntp4_servers.emplace_back(std::move(ipa));
     } else {
-        auto v6a = asio::ip::address_v6::from_string(addr, ec);
-        if (!ec) {
-            si->second.ntp6_servers.emplace_back(std::move(v6a));
-            return true;
-        } else
+        if (bad_addr || ipa.is_v4()) {
             log_line("Bad IPv6 address at line %zu: %s", linenum, addr.c_str());
+            return false;
+        }
+        si->second.ntp6_servers.emplace_back(std::move(ipa));
     }
-    return false;
+    return true;
 }
 
 bool emplace_subnet(size_t linenum, const std::string &interface, const std::string &addr)
@@ -289,14 +287,13 @@ bool emplace_subnet(size_t linenum, const std::string &interface, const std::str
     }
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
-    std::error_code ec;
-    auto v4a = asio::ip::address_v4::from_string(addr, ec);
-    if (!ec) {
-        si->second.subnet = std::move(v4a);
-        return true;
-    } else
-        log_line("Bad IPv4 address at line %zu: %s", linenum, addr.c_str());
-    return false;
+    nk::ip_address ipa;
+    if (!ipa.from_string(addr) || !ipa.is_v4()) {
+        log_line("Bad IP address at line %zu: %s", linenum, addr.c_str());
+        return false;
+    }
+    si->second.subnet = std::move(ipa);
+    return true;
 }
 
 bool emplace_gateway(size_t linenum, const std::string &interface, const std::string &addr)
@@ -307,14 +304,13 @@ bool emplace_gateway(size_t linenum, const std::string &interface, const std::st
     }
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
-    std::error_code ec;
-    auto v4a = asio::ip::address_v4::from_string(addr, ec);
-    if (!ec) {
-        si->second.gateway.emplace_back(std::move(v4a));
-        return true;
-    } else
+    nk::ip_address ipa;
+    if (!ipa.from_string(addr) || !ipa.is_v4()) {
         log_line("Bad IPv4 address at line %zu: %s", linenum, addr.c_str());
-    return false;
+        return false;
+    }
+    si->second.gateway.emplace_back(std::move(ipa));
+    return true;
 }
 
 bool emplace_broadcast(size_t linenum, const std::string &interface, const std::string &addr)
@@ -325,14 +321,13 @@ bool emplace_broadcast(size_t linenum, const std::string &interface, const std::
     }
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
-    std::error_code ec;
-    auto v4a = asio::ip::address_v4::from_string(addr, ec);
-    if (!ec) {
-        si->second.broadcast = std::move(v4a);
-        return true;
-    } else
+    nk::ip_address ipa;
+    if (!ipa.from_string(addr) || !ipa.is_v4()) {
         log_line("Bad IPv4 address at line %zu: %s", linenum, addr.c_str());
-    return false;
+        return false;
+    }
+    si->second.broadcast = std::move(ipa);
+    return true;
 }
 
 bool emplace_dynamic_range(size_t linenum, const std::string &interface,
@@ -345,20 +340,18 @@ bool emplace_dynamic_range(size_t linenum, const std::string &interface,
     }
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return false;
-    std::error_code ec;
-    auto v4a_lo = asio::ip::address_v4::from_string(lo_addr, ec);
-    if (ec) {
+    nk::ip_address lo_ipa, hi_ipa;
+    if (!lo_ipa.from_string(lo_addr) || !lo_ipa.is_v4()) {
         log_line("Bad IPv4 address at line %zu: %s", linenum, lo_addr.c_str());
         return false;
     }
-    auto v4a_hi = asio::ip::address_v4::from_string(hi_addr, ec);
-    if (ec) {
+    if (!hi_ipa.from_string(hi_addr) || !hi_ipa.is_v4()) {
         log_line("Bad IPv4 address at line %zu: %s", linenum, hi_addr.c_str());
         return false;
     }
-    if (v4a_lo > v4a_hi)
-        std::swap(v4a_lo, v4a_hi);
-    si->second.dynamic_range = std::make_pair(std::move(v4a_lo), std::move(v4a_hi));
+    if (lo_ipa > hi_ipa)
+        std::swap(lo_ipa, hi_ipa);
+    si->second.dynamic_range = std::make_pair(std::move(lo_ipa), std::move(hi_ipa));
     si->second.dynamic_lifetime = dynamic_lifetime;
     si->second.use_dynamic_v4 = true;
     return true;
@@ -409,14 +402,14 @@ const dhcpv4_entry* query_dhcp_state(const std::string &interface, const uint8_t
     return f != si->second.macaddr_mapping.end() ? f->second.get() : nullptr;
 }
 
-const std::vector<asio::ip::address_v6> *query_dns6_servers(const std::string &interface)
+const std::vector<nk::ip_address> *query_dns6_servers(const std::string &interface)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     return &si->second.dns6_servers;
 }
 
-const std::vector<asio::ip::address_v4> *query_dns4_servers(const std::string &interface)
+const std::vector<nk::ip_address> *query_dns4_servers(const std::string &interface)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
@@ -430,14 +423,14 @@ const std::vector<uint8_t> *query_dns6_search_blob(const std::string &interface)
     return &si->second.dns_search_blob;
 }
 
-const std::vector<asio::ip::address_v6> *query_ntp6_servers(const std::string &interface)
+const std::vector<nk::ip_address> *query_ntp6_servers(const std::string &interface)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     return &si->second.ntp6_servers;
 }
 
-const std::vector<asio::ip::address_v4> *query_ntp4_servers(const std::string &interface)
+const std::vector<nk::ip_address> *query_ntp4_servers(const std::string &interface)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
@@ -451,35 +444,35 @@ const std::vector<uint8_t> *query_ntp6_fqdns_blob(const std::string &interface)
     return &si->second.ntp6_fqdns_blob;
 }
 
-const std::vector<asio::ip::address_v6> *query_ntp6_multicasts(const std::string &interface)
+const std::vector<nk::ip_address> *query_ntp6_multicasts(const std::string &interface)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     return &si->second.ntp6_multicasts;
 }
 
-const std::vector<asio::ip::address_v4> *query_gateway(const std::string &interface)
+const std::vector<nk::ip_address> *query_gateway(const std::string &interface)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     return &si->second.gateway;
 }
 
-const asio::ip::address_v4 *query_subnet(const std::string &interface)
+const nk::ip_address *query_subnet(const std::string &interface)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     return &si->second.subnet;
 }
 
-const asio::ip::address_v4 *query_broadcast(const std::string &interface)
+const nk::ip_address *query_broadcast(const std::string &interface)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     return &si->second.broadcast;
 }
 
-const std::pair<asio::ip::address_v4, asio::ip::address_v4> *
+const std::pair<nk::ip_address, nk::ip_address> *
 query_dynamic_range(const std::string &interface)
 {
     auto si = interface_state.find(interface);
@@ -510,7 +503,7 @@ bool query_use_dynamic_v6(const std::string &interface, uint32_t &dynamic_lifeti
     return si->second.use_dynamic_v6;
 }
 
-bool query_unused_addr(const std::string &interface, const asio::ip::address_v6 &addr)
+bool query_unused_addr(const std::string &interface, const nk::ip_address &addr)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return true;

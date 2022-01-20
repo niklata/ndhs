@@ -4,7 +4,7 @@
 #include <string>
 #include <stdint.h>
 #include <iterator>
-#include <asio.hpp>
+#include <nk/net/ip_address.hpp>
 #include <nk/netbits.hpp>
 #include <nk/sys/posix/handle.hpp>
 #include "dhcp_state.hpp"
@@ -121,7 +121,7 @@ struct dhcp6_opt_serverid
 };
 
 struct d6_ia_addr {
-    asio::ip::address_v6 addr;
+    nk::ip_address addr;
     uint32_t prefer_lifetime;
     uint32_t valid_lifetime;
     static const std::size_t size = 24;
@@ -129,9 +129,7 @@ struct d6_ia_addr {
     bool read(sbufs &rbuf)
     {
         if (rbuf.brem() < size) return false;
-        asio::ip::address_v6::bytes_type addrbytes;
-        memcpy(&addrbytes, rbuf.si, 16);
-        addr = asio::ip::address_v6(addrbytes);
+        addr.from_v6bytes(rbuf.si);
         prefer_lifetime = decode32be(rbuf.si + 16);
         valid_lifetime = decode32be(rbuf.si + 20);
         rbuf.si += size;
@@ -140,8 +138,7 @@ struct d6_ia_addr {
     bool write(sbufs &sbuf) const
     {
         if (sbuf.brem() < size) return false;
-        const auto bytes = addr.to_bytes();
-        memcpy(sbuf.si, bytes.data(), 16);
+        addr.raw_v6bytes(sbuf.si);
         encode32be(prefer_lifetime, sbuf.si + 16);
         encode32be(valid_lifetime, sbuf.si + 20);
         sbuf.si += size;
@@ -261,9 +258,9 @@ private:
     void process_receive(char *buf, std::size_t buflen,
                          const sockaddr_storage &sai, socklen_t sailen);
 
-    asio::ip::address_v6 local_ip_;
-    asio::ip::address_v6 local_ip_prefix_;
-    asio::ip::address_v6 link_local_ip_;
+    nk::ip_address local_ip_;
+    nk::ip_address local_ip_prefix_;
+    nk::ip_address link_local_ip_;
     std::string ifname_;
     nk::sys::handle fd_;
     bool using_bpf_:1;

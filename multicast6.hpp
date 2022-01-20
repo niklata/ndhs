@@ -2,7 +2,9 @@
 #define NK_NRAD6_MULTICAST6_HPP_
 
 #include <string>
-#include <asio.hpp>
+#include <memory>
+#include <net/if.h>
+#include <nk/net/ip_address.hpp>
 #include "nlsocket.hpp"
 extern "C" {
 #include "nk/log.h"
@@ -48,12 +50,12 @@ extern std::unique_ptr<NLSocket> nl_socket;
     return true;
 }
 
-[[nodiscard]] static inline bool attach_multicast(int fd, const std::string &ifname, asio::ip::address_v6 &mc6addr)
+[[nodiscard]] static inline bool attach_multicast(int fd, const std::string &ifname, nk::ip_address &mc6addr)
 {
     sockaddr_in6 sai;
     memset(&sai, 0, sizeof sai);
     sai.sin6_family = AF_INET6;
-    memcpy(&sai.sin6_addr, mc6addr.to_bytes().data(), sizeof sai.sin6_addr);
+    mc6addr.raw_v6bytes(&sai.sin6_addr);
     return attach_multicast(fd, ifname, sai);
 }
 #endif

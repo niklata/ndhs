@@ -35,7 +35,7 @@
 #include <map>
 #include <optional>
 #include <nk/sys/posix/handle.hpp>
-#include <asio.hpp>
+#include <nk/net/ip_address.hpp>
 extern "C" {
 #include "nl.h"
 }
@@ -52,10 +52,10 @@ struct netif_addr
 
     std::string if_name;
     int if_index;
-    asio::ip::address address;
-    asio::ip::address peer_address;
-    asio::ip::address broadcast_address;
-    asio::ip::address anycast_address;
+    nk::ip_address address;
+    nk::ip_address peer_address;
+    nk::ip_address broadcast_address;
+    nk::ip_address anycast_address;
     unsigned char addr_type;
     unsigned char prefixlen;
     unsigned char flags;

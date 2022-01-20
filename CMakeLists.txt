@@ -72,6 +72,7 @@ add_executable(ndhs ${RAGEL_CFG} ${RAGEL_DYNLEASE})
 target_sources(ndhs PRIVATE
   "rng.cpp"
   "attach_bpf.c"
+  "ip_address.cpp"
   "dhcp6.cpp"
   "duid.cpp"
   "nl.c"

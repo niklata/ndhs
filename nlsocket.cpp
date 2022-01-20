@@ -26,6 +26,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <poll.h>
+#include <arpa/inet.h>
+#include <net/if.h>
 #include "rng.hpp"
 #include "nlsocket.hpp"
 #include "dhcp_state.hpp"
@@ -108,17 +111,13 @@ void NLSocket::request_addrs(int ifidx)
         suicide("nlsocket: failed to get initial rtaddr state");
 }
 
-static void parse_raw_address6(asio::ip::address &addr, struct rtattr *tb[], size_t type, int index)
+static void parse_raw_address6(nk::ip_address &addr, struct rtattr *tb[], size_t type)
 {
-    asio::ip::address_v6::bytes_type bytes;
-    memcpy(&bytes, RTA_DATA(tb[type]), sizeof bytes);
-    addr = asio::ip::address_v6(bytes, index);
+    addr.from_v6bytes(RTA_DATA(tb[type]));
 }
-static void parse_raw_address4(asio::ip::address &addr, struct rtattr *tb[], size_t type)
+static void parse_raw_address4(nk::ip_address &addr, struct rtattr *tb[], size_t type)
 {
-    asio::ip::address_v4::bytes_type bytes;
-    memcpy(&bytes, RTA_DATA(tb[type]), sizeof bytes);
-    addr = asio::ip::address_v4(bytes);
+    addr.from_v4bytes(RTA_DATA(tb[type]));
 }
 
 void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
@@ -145,13 +144,13 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
     }
     if (tb[IFA_ADDRESS]) {
         if (nia.addr_type == AF_INET6)
-            parse_raw_address6(nia.address, tb, IFA_ADDRESS, ifa->ifa_index);
+            parse_raw_address6(nia.address, tb, IFA_ADDRESS);
         else
             parse_raw_address4(nia.address, tb, IFA_ADDRESS);
     }
     if (tb[IFA_LOCAL]) {
         if (nia.addr_type == AF_INET6)
-            parse_raw_address6(nia.peer_address, tb, IFA_LOCAL, ifa->ifa_index);
+            parse_raw_address6(nia.peer_address, tb, IFA_LOCAL);
         else
             parse_raw_address4(nia.peer_address, tb, IFA_LOCAL);
     }
@@ -161,13 +160,13 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
     }
     if (tb[IFA_BROADCAST]) {
         if (nia.addr_type == AF_INET6)
-            parse_raw_address6(nia.broadcast_address, tb, IFA_BROADCAST, ifa->ifa_index);
+            parse_raw_address6(nia.broadcast_address, tb, IFA_BROADCAST);
         else
             parse_raw_address4(nia.broadcast_address, tb, IFA_BROADCAST);
     }
     if (tb[IFA_ANYCAST]) {
         if (nia.addr_type == AF_INET6)
-            parse_raw_address6(nia.anycast_address, tb, IFA_ANYCAST, ifa->ifa_index);
+            parse_raw_address6(nia.anycast_address, tb, IFA_ANYCAST);
         else
             parse_raw_address4(nia.anycast_address, tb, IFA_ANYCAST);
     }

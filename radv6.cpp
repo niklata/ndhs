@@ -107,17 +107,17 @@ public:
     uint8_t hop_limit() const {
         return data_[7];
     }
-    asio::ip::address_v6 source_address() const
+    nk::ip_address source_address() const
     {
-        asio::ip::address_v6::bytes_type bytes;
-        memcpy(&bytes, data_ + 8, 16);
-        return asio::ip::address_v6(bytes);
+        nk::ip_address ret;
+        ret.from_v6bytes(data_ + 8);
+        return ret;
     }
-    asio::ip::address_v6 destination_address() const
+    nk::ip_address destination_address() const
     {
-        asio::ip::address_v6::bytes_type bytes;
-        memcpy(&bytes, data_ + 24, 16);
-        return asio::ip::address_v6(bytes);
+        nk::ip_address ret;
+        ret.from_v6bytes(data_ + 24);
+        return ret;
     }
     static const std::size_t size = 40;
 
@@ -281,22 +281,21 @@ public:
     bool router_addr_flag() const { return data_[3] & (1 << 5); }
     uint32_t valid_lifetime() const { return decode32be(data_ + 4); }
     uint32_t preferred_lifetime() const { return decode32be(data_ + 8); }
-    asio::ip::address_v6 prefix() const
+    nk::ip_address prefix() const
     {
-        asio::ip::address_v6::bytes_type bytes;
-        memcpy(&bytes, data_ + 16, 16);
-        return asio::ip::address_v6(bytes);
+        nk::ip_address ret;
+        ret.from_v6bytes(data_ + 16);
+        return ret;
     }
     void on_link(bool v) { toggle_bit(v, data_, 3, 1 << 7); }
     void auto_addr_cfg(bool v) { toggle_bit(v, data_, 3, 1 << 6); }
     void router_addr_flag(bool v) { toggle_bit(v, data_, 3, 1 << 5); }
     void valid_lifetime(uint32_t v) { encode32be(v, data_ + 4); }
     void preferred_lifetime(uint32_t v) { encode32be(v, data_ + 8); }
-    void prefix(const asio::ip::address_v6 &v, uint8_t pl) {
+    void prefix(const nk::ip_address &v, uint8_t pl) {
         uint8_t a6[16];
         data_[2] = pl;
-        auto bytes = v.to_bytes();
-        memcpy(a6, bytes.data(), 16);
+        v.raw_v6bytes(a6);
         uint8_t keep_bytes = pl / 8;
         uint8_t keep_bits = pl % 8;
         if (keep_bits == 0)
@@ -489,9 +488,9 @@ bool RA6Listener::send_advert()
 
         // Prefix Information
         for (const auto &i: ifinfo->addrs) {
-            if (i.scope == netif_addr::Scope::Global && i.address.is_v6()) {
+            if (i.scope == netif_addr::Scope::Global && !i.address.is_v4()) {
                 ra6_prefix_info_opt ra6_pfxi;
-                ra6_pfxi.prefix(i.address.to_v6(), i.prefixlen);
+                ra6_pfxi.prefix(i.address, i.prefixlen);
                 ra6_pfxi.on_link(true);
                 ra6_pfxi.auto_addr_cfg(false);
                 ra6_pfxi.router_addr_flag(true);
@@ -506,7 +505,7 @@ bool RA6Listener::send_advert()
         }
     }
 
-    const std::vector<asio::ip::address_v6> *dns6_servers{nullptr};
+    const std::vector<nk::ip_address> *dns6_servers{nullptr};
     const std::vector<uint8_t> *dns_search_blob{nullptr};
     dns6_servers = query_dns6_servers(ifname_);
     dns_search_blob = query_dns6_search_blob(ifname_);
@@ -537,8 +536,7 @@ bool RA6Listener::send_advert()
     csum = net_checksum16_add(csum, net_checksum16(&icmp_nexthdr, 1));
     if (dns6_servers) {
         for (const auto &i: *dns6_servers) {
-            auto db = i.to_bytes();
-            csum = net_checksum16_add(csum, net_checksum16(&db, sizeof db));
+            csum = net_checksum16_add(csum, net_checksum16(&i.native_type(), sizeof i.native_type()));
         }
     }
     icmp_hdr.checksum(csum);
@@ -555,7 +553,8 @@ bool RA6Listener::send_advert()
     if (dns6_servers && dns6_servers->size()) {
         if (!ra6_dns.write(ss)) return false;
         for (const auto &i: *dns6_servers) {
-            auto b6 = i.to_bytes();
+            std::array<char, 16> b6;
+            i.raw_v6bytes(b6.data());
             for (const auto &j: b6) {
                 if (ss.si == ss.se) return false;
                 *ss.si++ = j;
