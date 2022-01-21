@@ -418,7 +418,7 @@ static inline std::string lc_string(const char *s, size_t slen)
 
     action V4EntryEn {
         emplace_dynlease_state(linenum, std::move(cps.interface), std::move(cps.v4_addr),
-                               cps.macaddr, cps.expire_time);
+                               std::move(cps.macaddr), cps.expire_time);
     }
     action V6EntryEn {
         emplace_dynlease_state(linenum, std::move(cps.interface), std::move(cps.v6_addr),
