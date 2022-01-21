@@ -46,7 +46,13 @@ bool ip_address::from_string(std::string_view s)
 std::string ip_address::to_string() const
 {
     char b[48]; b[0] = 0;
-    inet_ntop(AF_INET6, (void *)&addr_, b, sizeof b);
+    if (is_v4()) {
+        // So that we don't print v4 with the ::ffff: mapped prefix
+        in_addr a4;
+        auto c = reinterpret_cast<const char *>(&addr_);
+        memcpy(&a4, c + 12, 4);
+        inet_ntop(AF_INET, &a4, b, sizeof b);
+    } else inet_ntop(AF_INET6, (void *)&addr_, b, sizeof b);
     return std::string{ b };
 }
 
