@@ -3,6 +3,7 @@ if(${CMAKE_VERSION} VERSION_LESS 3.12)
   cmake_policy(VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION})
 else()
   cmake_policy(VERSION 3.12)
+  cmake_policy(SET CMP0118 NEW)
 endif()
 
 project (ndhs DESCRIPTION "dhcp[46] and ipv6 router advertisement server" LANGUAGES CXX C)
@@ -51,7 +52,6 @@ add_custom_command(
   COMMENT "Compiling Ragel state machine: cfg.rl"
   VERBATIM
   )
-set_property(SOURCE ${RAGEL_CFG} APPEND PROPERTY GENERATED TRUE)
 if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
   set_property(SOURCE ${RAGEL_CFG} APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-unused-const-variable")
 endif()
@@ -63,7 +63,6 @@ add_custom_command(
   COMMENT "Compiling Ragel state machine: dynlease.rl"
   VERBATIM
   )
-set_property(SOURCE ${RAGEL_DYNLEASE} APPEND PROPERTY GENERATED TRUE)
 if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
   set_property(SOURCE ${RAGEL_DYNLEASE} APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-unused-const-variable")
 endif()
