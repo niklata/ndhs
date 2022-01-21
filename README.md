@@ -1,5 +1,5 @@
 # ndhs
-Copyright 2011-2017 Nicholas J. Kain.
+Copyright 2011-2022 Nicholas J. Kain.
 
 License: Two-clause BSD.
 
@@ -21,22 +21,17 @@ for correctness.
 * GCC or Clang
 * CMake
 * [Ragel 6](https://www.colm.net/open-source/ragel)
-* [ASIO 1.11](https://think-async.com)
 * [ncmlib](https://github.com/niklata/ncmlib)
-* [fmtlib](https://github.com/fmtlib/fmt)
 
 ## Standard Usage
 
 Install dependencies.  In the ndhs directory, symlinks should be created.
-Assuming that asio, ncmlib, and fmtlib live in the same directory as
-the ndhs directory:
+Assuming that ncmlib lives in the same directory as the ndhs directory:
 ```
 $ ls
-asio fmt ncmlib ndhs
+ncmlib ndhs
 $ cd ndhs
-$ ln -s ../asio/include asio
 $ ln -s ../ncmlib .
-$ ln -s ../fmt/format.[ch]pp fmt/
 ```
 Compile and install ndhs.
 * Create a build directory: `mkdir build && cd build`
@@ -73,9 +68,8 @@ $ su -
 Set up a configure file.  See below for more information.  The default
 location for a configure file is `/etc/ndhs.conf`.
 
-Run ndhs.  Use `ndhs --help` to see all possible options.
-I strongly suggest running ndhs under some sort of process
-supervision, such as [runit](http://smarden.org/runit) or
+Run ndhs.  Use `ndhs --help` to see all possible options.  I strongly suggest
+running ndhs under some sort of process supervision, such as
 [s6](http://www.skarnet.org/software/s6).  This will allow for reliable
 functioning in the case of unforseen or unrecoverable errors.
 
@@ -223,8 +217,7 @@ ndhs has simple needs.  A Ragel-generated parser will be small, fast,
 and is easy to verify to behave correctly.
 
 Both of these changes also greatly reduced the executable size and runtime
-memory consumption of ndhs.  Standalone ASIO is also used so that there
-is no longer a dependency on boost.
+memory consumption of ndhs.
 
 ## Remarks on IPv4 and IPv6 differences
 
