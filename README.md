@@ -21,18 +21,9 @@ for correctness.
 * GCC or Clang
 * CMake
 * [Ragel 6](https://www.colm.net/open-source/ragel)
-* [ncmlib](https://github.com/niklata/ncmlib)
 
 ## Standard Usage
 
-Install dependencies.  In the ndhs directory, symlinks should be created.
-Assuming that ncmlib lives in the same directory as the ndhs directory:
-```
-$ ls
-ncmlib ndhs
-$ cd ndhs
-$ ln -s ../ncmlib .
-```
 Compile and install ndhs.
 * Create a build directory: `mkdir build && cd build`
 * Create the makefiles: `cmake ..`

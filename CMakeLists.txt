@@ -40,8 +40,6 @@ else()
   return()
 endif()
 
-add_subdirectory(ncmlib)
-
 find_package(Threads)
 
 set(RAGEL_CFG ${CMAKE_CURRENT_BINARY_DIR}/cfg.cpp)
@@ -73,9 +71,12 @@ endif()
 
 add_executable(ndhs ${RAGEL_CFG} ${RAGEL_DYNLEASE})
 target_sources(ndhs PRIVATE
+  "nk/io.c"
+  "nk/privs.c"
+  "nk/hwrng.c"
+  "nk/ip_address.cpp"
   "rng.cpp"
   "attach_bpf.c"
-  "ip_address.cpp"
   "dhcp6.cpp"
   "duid.cpp"
   "nl.c"
@@ -88,7 +89,6 @@ target_sources(ndhs PRIVATE
 )
 target_include_directories(ndhs PRIVATE
   "${PROJECT_SOURCE_DIR}"
-  "${PROJECT_SOURCE_DIR}/ncmlib"
 )
-target_link_libraries(ndhs PUBLIC ${CMAKE_THREAD_LIBS_INIT} ncmlib)
+target_link_libraries(ndhs PUBLIC ${CMAKE_THREAD_LIBS_INIT})
 
