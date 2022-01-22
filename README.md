@@ -19,16 +19,13 @@ for correctness.
 
 * Linux kernel
 * GCC or Clang
-* CMake
-* [Ragel](https://www.colm.net/open-source/ragel)
+* For developers: [Ragel](https://www.colm.net/open-source/ragel)
 
 ## Standard Usage
 
 Compile and install ndhs.
-* Create a build directory: `mkdir build && cd build`
-* Create the makefiles: `cmake ..`
 * Build ndhs: `make`
-* Install the `ndhs/ndhs` executable in a normal place.  I would
+* Install the `ndhs` executable in a normal place.  I would
   suggest `/usr/sbin` or `/usr/local/sbin`.
 
 Set up the user account and chroot directory for ndhs.  Example:
