@@ -20,7 +20,7 @@ for correctness.
 * Linux kernel
 * GCC or Clang
 * CMake
-* [Ragel 6](https://www.colm.net/open-source/ragel)
+* [Ragel](https://www.colm.net/open-source/ragel)
 
 ## Standard Usage
 
@@ -187,28 +187,6 @@ dns_search example.net.invalid
 ntp_server 192.168.2.1
 dynamic_range 192.168.2.100 192.168.2.254
 ```
-
-## Changes from Legacy version
-
-Older versions of ndhs are available in the `-legacy` branch.  Those
-versions only supported dhcp4 and were configured by writing Lua scripts.
-Lease information in those versions was stored in an SQLite database.
-
-The current version of ndhs was developed by extending my nrad6 router
-advertisement and dhcp6 inform server.  The dhcp4 code was taken and
-modified from the legacy ndhs, but most of the other code was discarded.
-
-I discarded scriptability because it is generally not very useful for
-a dhcp server, and it made configuration much more challenging than a
-simple declarative format.  Further, runtime-mutable code makes it more
-difficult to assure security.
-
-I switched from SQLite for lease storage to a custom text format because
-ndhs has simple needs.  A Ragel-generated parser will be small, fast,
-and is easy to verify to behave correctly.
-
-Both of these changes also greatly reduced the executable size and runtime
-memory consumption of ndhs.
 
 ## Remarks on IPv4 and IPv6 differences
 
