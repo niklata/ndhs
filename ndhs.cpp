@@ -1,6 +1,6 @@
 /* ndhs.c - DHCPv4/DHCPv6 and IPv6 router advertisement server
  *
- * Copyright 2014-2020 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2014-2022 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -222,8 +222,8 @@ static void setup_signals_ndhs()
 static void usage()
 {
     printf("ndhs " NDHS_VERSION ", DHCPv4/DHCPv6 and IPv6 Router Advertisement server.\n");
-    printf("Copyright 2014-2020 Nicholas J. Kain\n");
-    printf("ndhs [options] [configfile]...\n\nOptions:");
+    printf("Copyright 2014-2022 Nicholas J. Kain\n");
+    printf("ndhs [options] [configfile]...\n\nOptions:\n");
     printf("--config          -c []  Path to configuration file.\n");
     printf("--version         -v     Print version and exit.\n");
     printf("--help            -h     Print this help and exit.\n");
@@ -232,7 +232,7 @@ static void usage()
 static void print_version()
 {
     log_line("ndhs " NDHS_VERSION ", ipv6 router advertisment and dhcp server.\n"
-             "Copyright 2014-2020 Nicholas J. Kain\n"
+             "Copyright 2014-2022 Nicholas J. Kain\n"
              "All rights reserved.\n\n"
              "Redistribution and use in source and binary forms, with or without\n"
              "modification, are permitted provided that the following conditions are met:\n\n"
@@ -263,7 +263,7 @@ static void process_options(int ac, char *av[])
         {(const char *)0, 0, (int *)0, 0 }
     };
     for (;;) {
-        auto c = getopt_long(ac, av, "qc:vh", long_options, (int *)0);
+        auto c = getopt_long(ac, av, "c:vh", long_options, (int *)0);
         if (c == -1) break;
         switch (c) {
             case 'c': configfile = optarg; break;
