@@ -1,3 +1,5 @@
+// Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
+// SPDX-License-Identifier: MIT
 #ifndef NK_NRAD6_DHCP6_HPP_
 #define NK_NRAD6_DHCP6_HPP_
 
@@ -271,4 +273,3 @@ private:
 };
 
 #endif
-

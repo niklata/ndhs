@@ -1,3 +1,5 @@
+// Copyright 2020-2022 Nicholas J. Kain <njkain at gmail dot com>
+// SPDX-License-Identifier: MIT
 #ifndef NDHS_RNG_HPP_
 #define NDHS_RNG_HPP_
 
@@ -14,4 +16,3 @@ struct random_u64_wrapper
 };
 
 #endif
-

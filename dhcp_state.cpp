@@ -1,3 +1,5 @@
+// Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
+// SPDX-License-Identifier: MIT
 #include <unordered_map>
 #include <optional>
 #include <memory>

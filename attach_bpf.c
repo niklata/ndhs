@@ -1,3 +1,5 @@
+// Copyright 2016 Nicholas J. Kain <njkain at gmail dot com>
+// SPDX-License-Identifier: MIT
 #include <stdbool.h>
 #include <string.h>
 #include <errno.h>

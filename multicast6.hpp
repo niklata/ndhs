@@ -1,3 +1,5 @@
+// Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
+// SPDX-License-Identifier: MIT
 #ifndef NK_NRAD6_MULTICAST6_HPP_
 #define NK_NRAD6_MULTICAST6_HPP_
 
@@ -59,4 +61,3 @@ extern std::unique_ptr<NLSocket> nl_socket;
     return attach_multicast(fd, ifname, sai);
 }
 #endif
-

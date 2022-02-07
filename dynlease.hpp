@@ -1,3 +1,5 @@
+// Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
+// SPDX-License-Identifier: MIT
 #ifndef NRAD6_DYNLEASE_HPP_
 #define NRAD6_DYNLEASE_HPP_
 

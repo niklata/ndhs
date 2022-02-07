@@ -1,3 +1,5 @@
+// Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
+// SPDX-License-Identifier: MIT
 #ifndef NK_NRAD6_DHCP_STATE_HPP_
 #define NK_NRAD6_DHCP_STATE_HPP_
 
@@ -64,4 +66,3 @@ std::vector<std::string> bound_interfaces_names();
 void bound_interfaces_foreach(std::function<void(const std::string&, bool, bool, uint8_t)> fn);
 
 #endif
-

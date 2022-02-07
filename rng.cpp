@@ -1,3 +1,5 @@
+// Copyright 2020 Nicholas J. Kain <njkain at gmail dot com>
+// SPDX-License-Identifier: MIT
 #include "rng.hpp"
 #include <nk/prng.hpp>
 
