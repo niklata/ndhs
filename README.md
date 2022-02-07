@@ -1,7 +1,6 @@
 # ndhs
 Copyright 2011-2022 Nicholas J. Kain.
-
-License: Two-clause BSD.
+See LICENSE for licensing information.
 
 ## Introduction
 
