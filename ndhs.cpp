@@ -30,6 +30,7 @@
 extern "C" {
 #include "nk/log.h"
 #include "nk/privs.h"
+#include "nk/io.h"
 }
 #include "nlsocket.hpp"
 #include "dhcp6.hpp"
@@ -57,6 +58,7 @@ static std::string configfile{"/etc/ndhs.conf"};
 static std::string chroot_path;
 static uid_t ndhs_uid;
 static gid_t ndhs_gid;
+static std::optional<int> s6_notify_fd;
 
 std::unique_ptr<NLSocket> nl_socket;
 
@@ -150,6 +152,10 @@ void set_user_runas(size_t /* linenum */, std::string &&username)
 void set_chroot_path(size_t /* linenum */, std::string &&path)
 {
     chroot_path = std::move(path);
+}
+void set_s6_notify_fd(size_t /* linenum */, int fd)
+{
+    s6_notify_fd = fd;
 }
 
 static volatile sig_atomic_t l_signal_exit;
@@ -264,6 +270,12 @@ static void process_options(int ac, char *av[])
     duid_load_from_file();
     dynlease_deserialize(LEASEFILE_PATH);
     nk_set_uidgid(ndhs_uid, ndhs_gid, nullptr, 0);
+
+    if (s6_notify_fd) {
+        char buf[] = "\n";
+        safe_write(*s6_notify_fd, buf, 1);
+        close(*s6_notify_fd);
+    }
 }
 
 int main(int ac, char *av[])

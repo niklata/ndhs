@@ -11,6 +11,7 @@ extern "C" {
 }
 extern void set_user_runas(size_t linenum, std::string &&username);
 extern void set_chroot_path(size_t linenum, std::string &&path);
+extern void set_s6_notify_fd(size_t linenum, int fd);
 
 #define MAX_LINE 2048
 
@@ -51,19 +52,19 @@ static inline std::string lc_string(const char *s, size_t slen)
 }
 
 
-#line 154 "cfg.rl"
+#line 162 "cfg.rl"
 
 
 
-#line 59 "cfg.cpp"
-static const int cfg_line_m_start = 151;
-static const int cfg_line_m_first_final = 151;
+#line 60 "cfg.cpp"
+static const int cfg_line_m_start = 161;
+static const int cfg_line_m_first_final = 161;
 static const int cfg_line_m_error = 0;
 
-static const int cfg_line_m_en_main = 151;
+static const int cfg_line_m_en_main = 161;
 
 
-#line 156 "cfg.rl"
+#line 164 "cfg.rl"
 
 
 static int do_parse_cfg_line(cfg_parse_state &cps, const char *p, size_t plen,
@@ -73,25 +74,25 @@ const size_t linenum)
 	const char *eof = pe;
 	
 	
-#line 77 "cfg.cpp"
+#line 78 "cfg.cpp"
 	{
 		cps.cs = (int)cfg_line_m_start;
 	}
 	
-#line 164 "cfg.rl"
+#line 172 "cfg.rl"
 	
 	
-#line 85 "cfg.cpp"
+#line 86 "cfg.cpp"
 	{
 		switch ( cps.cs ) {
-			case 151:
-			goto st_case_151;
+			case 161:
+			goto st_case_161;
 			case 0:
 			goto st_case_0;
 			case 1:
 			goto st_case_1;
-			case 152:
-			goto st_case_152;
+			case 162:
+			goto st_case_162;
 			case 2:
 			goto st_case_2;
 			case 3:
@@ -104,16 +105,16 @@ const size_t linenum)
 			goto st_case_6;
 			case 7:
 			goto st_case_7;
-			case 153:
-			goto st_case_153;
+			case 163:
+			goto st_case_163;
 			case 8:
 			goto st_case_8;
 			case 9:
 			goto st_case_9;
 			case 10:
 			goto st_case_10;
-			case 154:
-			goto st_case_154;
+			case 164:
+			goto st_case_164;
 			case 11:
 			goto st_case_11;
 			case 12:
@@ -130,8 +131,8 @@ const size_t linenum)
 			goto st_case_17;
 			case 18:
 			goto st_case_18;
-			case 155:
-			goto st_case_155;
+			case 165:
+			goto st_case_165;
 			case 19:
 			goto st_case_19;
 			case 20:
@@ -168,8 +169,8 @@ const size_t linenum)
 			goto st_case_35;
 			case 36:
 			goto st_case_36;
-			case 156:
-			goto st_case_156;
+			case 166:
+			goto st_case_166;
 			case 37:
 			goto st_case_37;
 			case 38:
@@ -192,8 +193,8 @@ const size_t linenum)
 			goto st_case_46;
 			case 47:
 			goto st_case_47;
-			case 157:
-			goto st_case_157;
+			case 167:
+			goto st_case_167;
 			case 48:
 			goto st_case_48;
 			case 49:
@@ -214,16 +215,16 @@ const size_t linenum)
 			goto st_case_56;
 			case 57:
 			goto st_case_57;
-			case 158:
-			goto st_case_158;
+			case 168:
+			goto st_case_168;
 			case 58:
 			goto st_case_58;
-			case 159:
-			goto st_case_159;
-			case 160:
-			goto st_case_160;
-			case 161:
-			goto st_case_161;
+			case 169:
+			goto st_case_169;
+			case 170:
+			goto st_case_170;
+			case 171:
+			goto st_case_171;
 			case 59:
 			goto st_case_59;
 			case 60:
@@ -234,14 +235,14 @@ const size_t linenum)
 			goto st_case_62;
 			case 63:
 			goto st_case_63;
-			case 162:
-			goto st_case_162;
+			case 172:
+			goto st_case_172;
 			case 64:
 			goto st_case_64;
-			case 163:
-			goto st_case_163;
-			case 164:
-			goto st_case_164;
+			case 173:
+			goto st_case_173;
+			case 174:
+			goto st_case_174;
 			case 65:
 			goto st_case_65;
 			case 66:
@@ -272,12 +273,12 @@ const size_t linenum)
 			goto st_case_78;
 			case 79:
 			goto st_case_79;
-			case 165:
-			goto st_case_165;
+			case 175:
+			goto st_case_175;
 			case 80:
 			goto st_case_80;
-			case 166:
-			goto st_case_166;
+			case 176:
+			goto st_case_176;
 			case 81:
 			goto st_case_81;
 			case 82:
@@ -294,8 +295,8 @@ const size_t linenum)
 			goto st_case_87;
 			case 88:
 			goto st_case_88;
-			case 167:
-			goto st_case_167;
+			case 177:
+			goto st_case_177;
 			case 89:
 			goto st_case_89;
 			case 90:
@@ -316,8 +317,8 @@ const size_t linenum)
 			goto st_case_97;
 			case 98:
 			goto st_case_98;
-			case 168:
-			goto st_case_168;
+			case 178:
+			goto st_case_178;
 			case 99:
 			goto st_case_99;
 			case 100:
@@ -340,14 +341,14 @@ const size_t linenum)
 			goto st_case_108;
 			case 109:
 			goto st_case_109;
-			case 169:
-			goto st_case_169;
+			case 179:
+			goto st_case_179;
 			case 110:
 			goto st_case_110;
-			case 170:
-			goto st_case_170;
-			case 171:
-			goto st_case_171;
+			case 180:
+			goto st_case_180;
+			case 181:
+			goto st_case_181;
 			case 111:
 			goto st_case_111;
 			case 112:
@@ -358,8 +359,6 @@ const size_t linenum)
 			goto st_case_114;
 			case 115:
 			goto st_case_115;
-			case 172:
-			goto st_case_172;
 			case 116:
 			goto st_case_116;
 			case 117:
@@ -370,6 +369,8 @@ const size_t linenum)
 			goto st_case_119;
 			case 120:
 			goto st_case_120;
+			case 182:
+			goto st_case_182;
 			case 121:
 			goto st_case_121;
 			case 122:
@@ -380,6 +381,8 @@ const size_t linenum)
 			goto st_case_124;
 			case 125:
 			goto st_case_125;
+			case 183:
+			goto st_case_183;
 			case 126:
 			goto st_case_126;
 			case 127:
@@ -402,14 +405,10 @@ const size_t linenum)
 			goto st_case_135;
 			case 136:
 			goto st_case_136;
-			case 173:
-			goto st_case_173;
 			case 137:
 			goto st_case_137;
 			case 138:
 			goto st_case_138;
-			case 174:
-			goto st_case_174;
 			case 139:
 			goto st_case_139;
 			case 140:
@@ -422,36 +421,60 @@ const size_t linenum)
 			goto st_case_143;
 			case 144:
 			goto st_case_144;
-			case 175:
-			goto st_case_175;
 			case 145:
 			goto st_case_145;
 			case 146:
 			goto st_case_146;
-			case 176:
-			goto st_case_176;
+			case 184:
+			goto st_case_184;
 			case 147:
 			goto st_case_147;
 			case 148:
 			goto st_case_148;
+			case 185:
+			goto st_case_185;
 			case 149:
 			goto st_case_149;
 			case 150:
 			goto st_case_150;
+			case 151:
+			goto st_case_151;
+			case 152:
+			goto st_case_152;
+			case 153:
+			goto st_case_153;
+			case 154:
+			goto st_case_154;
+			case 186:
+			goto st_case_186;
+			case 155:
+			goto st_case_155;
+			case 156:
+			goto st_case_156;
+			case 187:
+			goto st_case_187;
+			case 157:
+			goto st_case_157;
+			case 158:
+			goto st_case_158;
+			case 159:
+			goto st_case_159;
+			case 160:
+			goto st_case_160;
 		}
-		_st151:
+		_st161:
 		if ( p == eof )
-			goto _out151;
+			goto _out161;
 		p+= 1;
-		st_case_151:
+		st_case_161:
 		if ( p == pe && p != eof )
-			goto _out151;
+			goto _out161;
 		if ( p == eof ) {
-			goto _st151;}
+			goto _st161;}
 		else {
 			switch( ( (*( p))) ) {
 				case 32: {
-					goto _st151;
+					goto _st161;
 				}
 				case 47: {
 					goto _st1;
@@ -474,15 +497,18 @@ const size_t linenum)
 				case 110: {
 					goto _st99;
 				}
-				case 117: {
+				case 115: {
 					goto _st111;
 				}
+				case 117: {
+					goto _st121;
+				}
 				case 118: {
-					goto _st116;
+					goto _st126;
 				}
 			}
 			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-				goto _st151;
+				goto _st161;
 			}
 			goto _st0;
 		}
@@ -502,21 +528,21 @@ const size_t linenum)
 			goto _st1;}
 		else {
 			if ( ( (*( p))) == 47 ) {
-				goto _st152;
+				goto _st162;
 			}
 			goto _st0;
 		}
-		_st152:
+		_st162:
 		if ( p == eof )
-			goto _out152;
+			goto _out162;
 		p+= 1;
-		st_case_152:
+		st_case_162:
 		if ( p == pe && p != eof )
-			goto _out152;
+			goto _out162;
 		if ( p == eof ) {
-			goto _st152;}
+			goto _st162;}
 		else {
-			goto _st152;
+			goto _st162;
 		}
 		_st2:
 		if ( p == eof )
@@ -633,56 +659,56 @@ const size_t linenum)
 		}
 		_ctr10:
 		{
-#line 56 "cfg.rl"
+#line 57 "cfg.rl"
 			cps.st = p; }
 		
-#line 640 "cfg.cpp"
+#line 666 "cfg.cpp"
 		
-		goto _st153;
-		_ctr183:
+		goto _st163;
+		_ctr194:
 		{
-#line 69 "cfg.rl"
+#line 70 "cfg.rl"
 			emplace_bind(linenum, std::string(cps.st, p - cps.st), true); }
 		
-#line 648 "cfg.cpp"
+#line 674 "cfg.cpp"
 		
-		goto _st153;
-		_st153:
+		goto _st163;
+		_st163:
 		if ( p == eof )
-			goto _out153;
+			goto _out163;
 		p+= 1;
-		st_case_153:
+		st_case_163:
 		if ( p == pe && p != eof )
-			goto _out153;
+			goto _out163;
 		if ( p == eof ) {
-			goto _ctr183;}
+			goto _ctr194;}
 		else {
 			if ( ( (*( p))) == 32 ) {
-				goto _ctr184;
+				goto _ctr195;
 			}
 			if ( ( (*( p))) < 48 ) {
 				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _ctr184;
+					goto _ctr195;
 				}
 			} else if ( ( (*( p))) > 57 ) {
 				if ( ( (*( p))) > 90 ) {
 					if ( 97 <= ( (*( p))) && ( (*( p))) <= 122 ) {
-						goto _st153;
+						goto _st163;
 					}
 				} else if ( ( (*( p))) >= 65 ) {
-					goto _st153;
+					goto _st163;
 				}
 			} else {
-				goto _st153;
+				goto _st163;
 			}
 			goto _st0;
 		}
-		_ctr184:
+		_ctr195:
 		{
-#line 69 "cfg.rl"
+#line 70 "cfg.rl"
 			emplace_bind(linenum, std::string(cps.st, p - cps.st), true); }
 		
-#line 686 "cfg.cpp"
+#line 712 "cfg.cpp"
 		
 		goto _st8;
 		_st8:
@@ -770,56 +796,56 @@ const size_t linenum)
 		}
 		_ctr13:
 		{
-#line 56 "cfg.rl"
+#line 57 "cfg.rl"
 			cps.st = p; }
 		
-#line 777 "cfg.cpp"
+#line 803 "cfg.cpp"
 		
-		goto _st154;
-		_ctr186:
+		goto _st164;
+		_ctr197:
 		{
-#line 70 "cfg.rl"
+#line 71 "cfg.rl"
 			emplace_bind(linenum, std::string(cps.st, p - cps.st), false); }
 		
-#line 785 "cfg.cpp"
+#line 811 "cfg.cpp"
 		
-		goto _st154;
-		_st154:
+		goto _st164;
+		_st164:
 		if ( p == eof )
-			goto _out154;
+			goto _out164;
 		p+= 1;
-		st_case_154:
+		st_case_164:
 		if ( p == pe && p != eof )
-			goto _out154;
+			goto _out164;
 		if ( p == eof ) {
-			goto _ctr186;}
+			goto _ctr197;}
 		else {
 			if ( ( (*( p))) == 32 ) {
-				goto _ctr187;
+				goto _ctr198;
 			}
 			if ( ( (*( p))) < 48 ) {
 				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _ctr187;
+					goto _ctr198;
 				}
 			} else if ( ( (*( p))) > 57 ) {
 				if ( ( (*( p))) > 90 ) {
 					if ( 97 <= ( (*( p))) && ( (*( p))) <= 122 ) {
-						goto _st154;
+						goto _st164;
 					}
 				} else if ( ( (*( p))) >= 65 ) {
-					goto _st154;
+					goto _st164;
 				}
 			} else {
-				goto _st154;
+				goto _st164;
 			}
 			goto _st0;
 		}
-		_ctr187:
+		_ctr198:
 		{
-#line 70 "cfg.rl"
+#line 71 "cfg.rl"
 			emplace_bind(linenum, std::string(cps.st, p - cps.st), false); }
 		
-#line 823 "cfg.cpp"
+#line 849 "cfg.cpp"
 		
 		goto _st11;
 		_st11:
@@ -974,53 +1000,53 @@ const size_t linenum)
 		}
 		_ctr22:
 		{
-#line 56 "cfg.rl"
+#line 57 "cfg.rl"
 			cps.st = p; }
 		
-#line 981 "cfg.cpp"
+#line 1007 "cfg.cpp"
 		
-		goto _st155;
-		_ctr189:
+		goto _st165;
+		_ctr200:
 		{
-#line 72 "cfg.rl"
+#line 73 "cfg.rl"
 			set_chroot_path(linenum, std::string(cps.st, p - cps.st)); }
 		
-#line 989 "cfg.cpp"
+#line 1015 "cfg.cpp"
 		
-		goto _st155;
-		_st155:
+		goto _st165;
+		_st165:
 		if ( p == eof )
-			goto _out155;
+			goto _out165;
 		p+= 1;
-		st_case_155:
+		st_case_165:
 		if ( p == pe && p != eof )
-			goto _out155;
+			goto _out165;
 		if ( p == eof ) {
-			goto _ctr189;}
+			goto _ctr200;}
 		else {
 			if ( ( (*( p))) == 32 ) {
-				goto _ctr190;
+				goto _ctr201;
 			}
 			if ( ( (*( p))) > 13 ) {
 				if ( 33 <= ( (*( p))) && ( (*( p))) <= 126 ) {
-					goto _st155;
+					goto _st165;
 				}
 			} else if ( ( (*( p))) >= 9 ) {
-				goto _ctr190;
+				goto _ctr201;
 			}
 			goto _st0;
 		}
-		_ctr190:
-		{
-#line 72 "cfg.rl"
-			set_chroot_path(linenum, std::string(cps.st, p - cps.st)); }
-		
-#line 1019 "cfg.cpp"
-		
-		goto _st19;
-		_ctr193:
+		_ctr201:
 		{
 #line 73 "cfg.rl"
+			set_chroot_path(linenum, std::string(cps.st, p - cps.st)); }
+		
+#line 1045 "cfg.cpp"
+		
+		goto _st19;
+		_ctr204:
+		{
+#line 80 "cfg.rl"
 			
 			if (auto t = nk::from_string<uint32_t>(cps.st, p - cps.st)) cps.default_lifetime = *t; else {
 				cps.parse_error = true;
@@ -1028,12 +1054,12 @@ const size_t linenum)
 			}
 		}
 		
-#line 1032 "cfg.cpp"
+#line 1058 "cfg.cpp"
 		
 		goto _st19;
-		_ctr196:
+		_ctr207:
 		{
-#line 79 "cfg.rl"
+#line 86 "cfg.rl"
 			
 			if (auto t = nk::from_string<uint8_t>(cps.st, p - cps.st)) cps.default_preference = *t; else {
 				log_line("default_preference on line %zu out of range [0,255]: %s",
@@ -1043,75 +1069,88 @@ const size_t linenum)
 			}
 		}
 		
-#line 1047 "cfg.cpp"
+#line 1073 "cfg.cpp"
 		
 		goto _st19;
-		_ctr217:
+		_ctr228:
 		{
-#line 61 "cfg.rl"
+#line 62 "cfg.rl"
 			
 			cps.ipaddr = lc_string(cps.st, p - cps.st);
 			cps.last_addr = addr_type::v4;
 		}
 		
-#line 1058 "cfg.cpp"
+#line 1084 "cfg.cpp"
 		
 		{
-#line 106 "cfg.rl"
+#line 113 "cfg.rl"
 			
 			emplace_dynamic_range(linenum, cps.interface, cps.ipaddr2, cps.ipaddr,
 			cps.default_lifetime);
 		}
 		
-#line 1067 "cfg.cpp"
+#line 1093 "cfg.cpp"
 		
 		goto _st19;
-		_ctr220:
+		_ctr231:
 		{
-#line 110 "cfg.rl"
+#line 117 "cfg.rl"
 			
 			emplace_dynamic_v6(linenum, cps.interface);
 		}
 		
-#line 1077 "cfg.cpp"
+#line 1103 "cfg.cpp"
 		
 		goto _st19;
-		_ctr222:
+		_ctr233:
 		{
-#line 61 "cfg.rl"
+#line 62 "cfg.rl"
 			
 			cps.ipaddr = lc_string(cps.st, p - cps.st);
 			cps.last_addr = addr_type::v4;
 		}
 		
-#line 1088 "cfg.cpp"
+#line 1114 "cfg.cpp"
 		
 		{
-#line 100 "cfg.rl"
+#line 107 "cfg.rl"
 			
 			emplace_gateway(linenum, cps.interface, cps.ipaddr);
 		}
 		
-#line 1096 "cfg.cpp"
+#line 1122 "cfg.cpp"
 		
 		goto _st19;
-		_ctr225:
+		_ctr236:
 		{
-#line 87 "cfg.rl"
+#line 94 "cfg.rl"
 			
 			cps.interface = std::string(cps.st, p - cps.st);
 			emplace_interface(linenum, cps.interface, cps.default_preference);
 		}
 		
-#line 1107 "cfg.cpp"
+#line 1133 "cfg.cpp"
 		
 		goto _st19;
-		_ctr237:
+		_ctr248:
 		{
-#line 71 "cfg.rl"
+#line 74 "cfg.rl"
+			
+			if (auto t = nk::from_string<int>(cps.st, p - cps.st)) set_s6_notify_fd(linenum, *t); else {
+				cps.parse_error = true;
+				{p+= 1; cps.cs = 19; goto _out;}
+			}
+		}
+		
+#line 1146 "cfg.cpp"
+		
+		goto _st19;
+		_ctr251:
+		{
+#line 72 "cfg.rl"
 			set_user_runas(linenum, std::string(cps.st, p - cps.st)); }
 		
-#line 1115 "cfg.cpp"
+#line 1154 "cfg.cpp"
 		
 		goto _st19;
 		_st19:
@@ -1417,44 +1456,44 @@ const size_t linenum)
 		}
 		_ctr44:
 		{
-#line 56 "cfg.rl"
+#line 57 "cfg.rl"
 			cps.st = p; }
 		
-#line 1424 "cfg.cpp"
+#line 1463 "cfg.cpp"
 		
-		goto _st156;
-		_ctr192:
+		goto _st166;
+		_ctr203:
 		{
-#line 73 "cfg.rl"
+#line 80 "cfg.rl"
 			
 			if (auto t = nk::from_string<uint32_t>(cps.st, p - cps.st)) cps.default_lifetime = *t; else {
 				cps.parse_error = true;
-				{p+= 1; cps.cs = 156; goto _out;}
+				{p+= 1; cps.cs = 166; goto _out;}
 			}
 		}
 		
-#line 1437 "cfg.cpp"
+#line 1476 "cfg.cpp"
 		
-		goto _st156;
-		_st156:
+		goto _st166;
+		_st166:
 		if ( p == eof )
-			goto _out156;
+			goto _out166;
 		p+= 1;
-		st_case_156:
+		st_case_166:
 		if ( p == pe && p != eof )
-			goto _out156;
+			goto _out166;
 		if ( p == eof ) {
-			goto _ctr192;}
+			goto _ctr203;}
 		else {
 			if ( ( (*( p))) == 32 ) {
-				goto _ctr193;
+				goto _ctr204;
 			}
 			if ( ( (*( p))) > 13 ) {
 				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st156;
+					goto _st166;
 				}
 			} else if ( ( (*( p))) >= 9 ) {
-				goto _ctr193;
+				goto _ctr204;
 			}
 			goto _st0;
 		}
@@ -1635,46 +1674,46 @@ const size_t linenum)
 		}
 		_ctr55:
 		{
-#line 56 "cfg.rl"
+#line 57 "cfg.rl"
 			cps.st = p; }
 		
-#line 1642 "cfg.cpp"
+#line 1681 "cfg.cpp"
 		
-		goto _st157;
-		_ctr195:
+		goto _st167;
+		_ctr206:
 		{
-#line 79 "cfg.rl"
+#line 86 "cfg.rl"
 			
 			if (auto t = nk::from_string<uint8_t>(cps.st, p - cps.st)) cps.default_preference = *t; else {
 				log_line("default_preference on line %zu out of range [0,255]: %s",
 				linenum, std::string(cps.st, p - cps.st).c_str());
 				cps.parse_error = true;
-				{p+= 1; cps.cs = 157; goto _out;}
+				{p+= 1; cps.cs = 167; goto _out;}
 			}
 		}
 		
-#line 1657 "cfg.cpp"
+#line 1696 "cfg.cpp"
 		
-		goto _st157;
-		_st157:
+		goto _st167;
+		_st167:
 		if ( p == eof )
-			goto _out157;
+			goto _out167;
 		p+= 1;
-		st_case_157:
+		st_case_167:
 		if ( p == pe && p != eof )
-			goto _out157;
+			goto _out167;
 		if ( p == eof ) {
-			goto _ctr195;}
+			goto _ctr206;}
 		else {
 			if ( ( (*( p))) == 32 ) {
-				goto _ctr196;
+				goto _ctr207;
 			}
 			if ( ( (*( p))) > 13 ) {
 				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st157;
+					goto _st167;
 				}
 			} else if ( ( (*( p))) >= 9 ) {
-				goto _ctr196;
+				goto _ctr207;
 			}
 			goto _st0;
 		}
@@ -1845,52 +1884,52 @@ const size_t linenum)
 		}
 		_ctr66:
 		{
-#line 56 "cfg.rl"
+#line 57 "cfg.rl"
 			cps.st = p; }
 		
-#line 1852 "cfg.cpp"
+#line 1891 "cfg.cpp"
 		
-		goto _st158;
-		_ctr198:
+		goto _st168;
+		_ctr209:
 		{
-#line 94 "cfg.rl"
+#line 101 "cfg.rl"
 			
 			emplace_dns_search(linenum, cps.interface, std::string(cps.st, p - cps.st));
 		}
 		
-#line 1862 "cfg.cpp"
+#line 1901 "cfg.cpp"
 		
-		goto _st158;
-		_st158:
+		goto _st168;
+		_st168:
 		if ( p == eof )
-			goto _out158;
+			goto _out168;
 		p+= 1;
-		st_case_158:
+		st_case_168:
 		if ( p == pe && p != eof )
-			goto _out158;
+			goto _out168;
 		if ( p == eof ) {
-			goto _ctr198;}
+			goto _ctr209;}
 		else {
 			if ( ( (*( p))) == 32 ) {
-				goto _ctr199;
+				goto _ctr210;
 			}
 			if ( ( (*( p))) > 13 ) {
 				if ( 33 <= ( (*( p))) && ( (*( p))) <= 126 ) {
-					goto _st158;
+					goto _st168;
 				}
 			} else if ( ( (*( p))) >= 9 ) {
-				goto _ctr199;
+				goto _ctr210;
 			}
 			goto _st0;
 		}
-		_ctr199:
+		_ctr210:
 		{
-#line 94 "cfg.rl"
+#line 101 "cfg.rl"
 			
 			emplace_dns_search(linenum, cps.interface, std::string(cps.st, p - cps.st));
 		}
 		
-#line 1894 "cfg.cpp"
+#line 1933 "cfg.cpp"
 		
 		goto _st58;
 		_st58:
@@ -1922,120 +1961,120 @@ const size_t linenum)
 		}
 		_ctr68:
 		{
-#line 56 "cfg.rl"
+#line 57 "cfg.rl"
 			cps.st = p; }
 		
-#line 1929 "cfg.cpp"
+#line 1968 "cfg.cpp"
 		
-		goto _st159;
-		_ctr201:
+		goto _st169;
+		_ctr212:
 		{
-#line 94 "cfg.rl"
+#line 101 "cfg.rl"
 			
 			emplace_dns_search(linenum, cps.interface, std::string(cps.st, p - cps.st));
 		}
 		
-#line 1939 "cfg.cpp"
+#line 1978 "cfg.cpp"
 		
-		goto _st159;
-		_st159:
+		goto _st169;
+		_st169:
 		if ( p == eof )
-			goto _out159;
+			goto _out169;
 		p+= 1;
-		st_case_159:
+		st_case_169:
 		if ( p == pe && p != eof )
-			goto _out159;
+			goto _out169;
 		if ( p == eof ) {
-			goto _ctr201;}
+			goto _ctr212;}
 		else {
 			switch( ( (*( p))) ) {
 				case 32: {
-					goto _ctr199;
+					goto _ctr210;
 				}
 				case 47: {
-					goto _st160;
+					goto _st170;
 				}
 			}
 			if ( ( (*( p))) > 13 ) {
 				if ( 33 <= ( (*( p))) && ( (*( p))) <= 126 ) {
-					goto _st158;
+					goto _st168;
 				}
 			} else if ( ( (*( p))) >= 9 ) {
-				goto _ctr199;
+				goto _ctr210;
 			}
 			goto _st0;
 		}
-		_ctr206:
+		_ctr217:
 		{
-#line 56 "cfg.rl"
+#line 57 "cfg.rl"
 			cps.st = p; }
 		
-#line 1974 "cfg.cpp"
+#line 2013 "cfg.cpp"
 		
-		goto _st160;
-		_ctr203:
+		goto _st170;
+		_ctr214:
 		{
-#line 94 "cfg.rl"
+#line 101 "cfg.rl"
 			
 			emplace_dns_search(linenum, cps.interface, std::string(cps.st, p - cps.st));
 		}
 		
-#line 1984 "cfg.cpp"
+#line 2023 "cfg.cpp"
 		
-		goto _st160;
-		_st160:
+		goto _st170;
+		_st170:
 		if ( p == eof )
-			goto _out160;
+			goto _out170;
 		p+= 1;
-		st_case_160:
+		st_case_170:
 		if ( p == pe && p != eof )
-			goto _out160;
+			goto _out170;
 		if ( p == eof ) {
-			goto _ctr203;}
+			goto _ctr214;}
 		else {
 			if ( ( (*( p))) == 32 ) {
-				goto _ctr204;
+				goto _ctr215;
 			}
 			if ( ( (*( p))) > 13 ) {
 				if ( 33 <= ( (*( p))) && ( (*( p))) <= 126 ) {
-					goto _st160;
+					goto _st170;
 				}
 			} else if ( ( (*( p))) >= 9 ) {
-				goto _ctr204;
+				goto _ctr215;
 			}
-			goto _st152;
+			goto _st162;
 		}
-		_ctr204:
+		_ctr215:
 		{
-#line 94 "cfg.rl"
+#line 101 "cfg.rl"
 			
 			emplace_dns_search(linenum, cps.interface, std::string(cps.st, p - cps.st));
 		}
 		
-#line 2016 "cfg.cpp"
+#line 2055 "cfg.cpp"
 		
-		goto _st161;
-		_st161:
+		goto _st171;
+		_st171:
 		if ( p == eof )
-			goto _out161;
+			goto _out171;
 		p+= 1;
-		st_case_161:
+		st_case_171:
 		if ( p == pe && p != eof )
-			goto _out161;
+			goto _out171;
 		if ( p == eof ) {
-			goto _st161;}
+			goto _st171;}
 		else {
 			if ( ( (*( p))) == 32 ) {
-				goto _st161;
+				goto _st171;
 			}
 			if ( ( (*( p))) > 13 ) {
 				if ( 33 <= ( (*( p))) && ( (*( p))) <= 126 ) {
-					goto _ctr206;
+					goto _ctr217;
 				}
 			} else if ( ( (*( p))) >= 9 ) {
-				goto _st161;
+				goto _st171;
 			}
-			goto _st152;
+			goto _st162;
 		}
 		_st59:
 		if ( p == eof )
@@ -2140,122 +2179,122 @@ const size_t linenum)
 		}
 		_ctr73:
 		{
-#line 56 "cfg.rl"
+#line 57 "cfg.rl"
 			cps.st = p; }
 		
-#line 2147 "cfg.cpp"
+#line 2186 "cfg.cpp"
 		
-		goto _st162;
-		_ctr207:
+		goto _st172;
+		_ctr218:
 		{
-#line 61 "cfg.rl"
+#line 62 "cfg.rl"
 			
 			cps.ipaddr = lc_string(cps.st, p - cps.st);
 			cps.last_addr = addr_type::v4;
 		}
 		
-#line 2158 "cfg.cpp"
+#line 2197 "cfg.cpp"
 		
 		{
-#line 91 "cfg.rl"
+#line 98 "cfg.rl"
 			
 			emplace_dns_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
 		}
 		
-#line 2166 "cfg.cpp"
+#line 2205 "cfg.cpp"
 		
-		goto _st162;
-		_st162:
+		goto _st172;
+		_st172:
 		if ( p == eof )
-			goto _out162;
+			goto _out172;
 		p+= 1;
-		st_case_162:
+		st_case_172:
 		if ( p == pe && p != eof )
-			goto _out162;
+			goto _out172;
 		if ( p == eof ) {
-			goto _ctr207;}
+			goto _ctr218;}
 		else {
 			switch( ( (*( p))) ) {
 				case 32: {
-					goto _ctr208;
+					goto _ctr219;
 				}
 				case 46: {
-					goto _st162;
+					goto _st172;
 				}
 			}
 			if ( ( (*( p))) > 13 ) {
 				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st162;
+					goto _st172;
 				}
 			} else if ( ( (*( p))) >= 9 ) {
-				goto _ctr208;
+				goto _ctr219;
 			}
 			goto _st0;
 		}
-		_ctr208:
+		_ctr219:
 		{
-#line 61 "cfg.rl"
+#line 62 "cfg.rl"
 			
 			cps.ipaddr = lc_string(cps.st, p - cps.st);
 			cps.last_addr = addr_type::v4;
 		}
 		
-#line 2204 "cfg.cpp"
+#line 2243 "cfg.cpp"
 		
 		{
-#line 91 "cfg.rl"
+#line 98 "cfg.rl"
 			
 			emplace_dns_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
-		}
-		
-#line 2212 "cfg.cpp"
-		
-		goto _st64;
-		_ctr211:
-		{
-#line 61 "cfg.rl"
-			
-			cps.ipaddr = lc_string(cps.st, p - cps.st);
-			cps.last_addr = addr_type::v4;
-		}
-		
-#line 2223 "cfg.cpp"
-		
-		{
-#line 65 "cfg.rl"
-			
-			cps.ipaddr = lc_string(cps.st, p - cps.st);
-			cps.last_addr = addr_type::v6;
-		}
-		
-#line 2232 "cfg.cpp"
-		
-		{
-#line 91 "cfg.rl"
-			
-			emplace_dns_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
-		}
-		
-#line 2240 "cfg.cpp"
-		
-		goto _st64;
-		_ctr215:
-		{
-#line 65 "cfg.rl"
-			
-			cps.ipaddr = lc_string(cps.st, p - cps.st);
-			cps.last_addr = addr_type::v6;
 		}
 		
 #line 2251 "cfg.cpp"
 		
+		goto _st64;
+		_ctr222:
 		{
-#line 91 "cfg.rl"
+#line 62 "cfg.rl"
+			
+			cps.ipaddr = lc_string(cps.st, p - cps.st);
+			cps.last_addr = addr_type::v4;
+		}
+		
+#line 2262 "cfg.cpp"
+		
+		{
+#line 66 "cfg.rl"
+			
+			cps.ipaddr = lc_string(cps.st, p - cps.st);
+			cps.last_addr = addr_type::v6;
+		}
+		
+#line 2271 "cfg.cpp"
+		
+		{
+#line 98 "cfg.rl"
 			
 			emplace_dns_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
 		}
 		
-#line 2259 "cfg.cpp"
+#line 2279 "cfg.cpp"
+		
+		goto _st64;
+		_ctr226:
+		{
+#line 66 "cfg.rl"
+			
+			cps.ipaddr = lc_string(cps.st, p - cps.st);
+			cps.last_addr = addr_type::v6;
+		}
+		
+#line 2290 "cfg.cpp"
+		
+		{
+#line 98 "cfg.rl"
+			
+			emplace_dns_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
+		}
+		
+#line 2298 "cfg.cpp"
 		
 		goto _st64;
 		_st64:
@@ -2301,132 +2340,132 @@ const size_t linenum)
 		}
 		_ctr74:
 		{
-#line 56 "cfg.rl"
+#line 57 "cfg.rl"
 			cps.st = p; }
 		
-#line 2308 "cfg.cpp"
+#line 2347 "cfg.cpp"
 		
-		goto _st163;
-		_ctr210:
+		goto _st173;
+		_ctr221:
 		{
-#line 61 "cfg.rl"
+#line 62 "cfg.rl"
 			
 			cps.ipaddr = lc_string(cps.st, p - cps.st);
 			cps.last_addr = addr_type::v4;
 		}
 		
-#line 2319 "cfg.cpp"
+#line 2358 "cfg.cpp"
 		
 		{
-#line 65 "cfg.rl"
+#line 66 "cfg.rl"
 			
 			cps.ipaddr = lc_string(cps.st, p - cps.st);
 			cps.last_addr = addr_type::v6;
 		}
 		
-#line 2328 "cfg.cpp"
+#line 2367 "cfg.cpp"
 		
 		{
-#line 91 "cfg.rl"
+#line 98 "cfg.rl"
 			
 			emplace_dns_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
 		}
 		
-#line 2336 "cfg.cpp"
+#line 2375 "cfg.cpp"
 		
-		goto _st163;
-		_st163:
+		goto _st173;
+		_st173:
 		if ( p == eof )
-			goto _out163;
+			goto _out173;
 		p+= 1;
-		st_case_163:
+		st_case_173:
 		if ( p == pe && p != eof )
-			goto _out163;
+			goto _out173;
 		if ( p == eof ) {
-			goto _ctr210;}
+			goto _ctr221;}
 		else {
 			switch( ( (*( p))) ) {
 				case 32: {
-					goto _ctr211;
+					goto _ctr222;
 				}
 				case 46: {
-					goto _st162;
+					goto _st172;
 				}
 				case 58: {
-					goto _st164;
+					goto _st174;
 				}
 			}
 			if ( ( (*( p))) < 48 ) {
 				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _ctr211;
+					goto _ctr222;
 				}
 			} else if ( ( (*( p))) > 57 ) {
 				if ( ( (*( p))) > 70 ) {
 					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-						goto _st164;
+						goto _st174;
 					}
 				} else if ( ( (*( p))) >= 65 ) {
-					goto _st164;
+					goto _st174;
 				}
 			} else {
-				goto _st163;
+				goto _st173;
 			}
 			goto _st0;
 		}
 		_ctr75:
 		{
-#line 56 "cfg.rl"
+#line 57 "cfg.rl"
 			cps.st = p; }
 		
-#line 2382 "cfg.cpp"
+#line 2421 "cfg.cpp"
 		
-		goto _st164;
-		_ctr214:
+		goto _st174;
+		_ctr225:
 		{
-#line 65 "cfg.rl"
+#line 66 "cfg.rl"
 			
 			cps.ipaddr = lc_string(cps.st, p - cps.st);
 			cps.last_addr = addr_type::v6;
 		}
 		
-#line 2393 "cfg.cpp"
+#line 2432 "cfg.cpp"
 		
 		{
-#line 91 "cfg.rl"
+#line 98 "cfg.rl"
 			
 			emplace_dns_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
 		}
 		
-#line 2401 "cfg.cpp"
+#line 2440 "cfg.cpp"
 		
-		goto _st164;
-		_st164:
+		goto _st174;
+		_st174:
 		if ( p == eof )
-			goto _out164;
+			goto _out174;
 		p+= 1;
-		st_case_164:
+		st_case_174:
 		if ( p == pe && p != eof )
-			goto _out164;
+			goto _out174;
 		if ( p == eof ) {
-			goto _ctr214;}
+			goto _ctr225;}
 		else {
 			if ( ( (*( p))) == 32 ) {
-				goto _ctr215;
+				goto _ctr226;
 			}
 			if ( ( (*( p))) < 48 ) {
 				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _ctr215;
+					goto _ctr226;
 				}
 			} else if ( ( (*( p))) > 58 ) {
 				if ( ( (*( p))) > 70 ) {
 					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-						goto _st164;
+						goto _st174;
 					}
 				} else if ( ( (*( p))) >= 65 ) {
-					goto _st164;
+					goto _st174;
 				}
 			} else {
-				goto _st164;
+				goto _st174;
 			}
 			goto _st0;
 		}
@@ -2647,10 +2686,10 @@ const size_t linenum)
 		}
 		_ctr90:
 		{
-#line 56 "cfg.rl"
+#line 57 "cfg.rl"
 			cps.st = p; }
 		
-#line 2654 "cfg.cpp"
+#line 2693 "cfg.cpp"
 		
 		goto _st78;
 		_st78:
@@ -2682,21 +2721,21 @@ const size_t linenum)
 		}
 		_ctr92:
 		{
-#line 61 "cfg.rl"
+#line 62 "cfg.rl"
 			
 			cps.ipaddr = lc_string(cps.st, p - cps.st);
 			cps.last_addr = addr_type::v4;
 		}
 		
-#line 2692 "cfg.cpp"
+#line 2731 "cfg.cpp"
 		
 		{
-#line 103 "cfg.rl"
+#line 110 "cfg.rl"
 			
 			cps.ipaddr2 = std::move(cps.ipaddr);
 		}
 		
-#line 2700 "cfg.cpp"
+#line 2739 "cfg.cpp"
 		
 		goto _st79;
 		_st79:
@@ -2728,56 +2767,56 @@ const size_t linenum)
 		}
 		_ctr94:
 		{
-#line 56 "cfg.rl"
+#line 57 "cfg.rl"
 			cps.st = p; }
 		
-#line 2735 "cfg.cpp"
+#line 2774 "cfg.cpp"
 		
-		goto _st165;
-		_ctr216:
+		goto _st175;
+		_ctr227:
 		{
-#line 61 "cfg.rl"
+#line 62 "cfg.rl"
 			
 			cps.ipaddr = lc_string(cps.st, p - cps.st);
 			cps.last_addr = addr_type::v4;
 		}
 		
-#line 2746 "cfg.cpp"
+#line 2785 "cfg.cpp"
 		
 		{
-#line 106 "cfg.rl"
+#line 113 "cfg.rl"
 			
 			emplace_dynamic_range(linenum, cps.interface, cps.ipaddr2, cps.ipaddr,
 			cps.default_lifetime);
 		}
 		
-#line 2755 "cfg.cpp"
+#line 2794 "cfg.cpp"
 		
-		goto _st165;
-		_st165:
+		goto _st175;
+		_st175:
 		if ( p == eof )
-			goto _out165;
+			goto _out175;
 		p+= 1;
-		st_case_165:
+		st_case_175:
 		if ( p == pe && p != eof )
-			goto _out165;
+			goto _out175;
 		if ( p == eof ) {
-			goto _ctr216;}
+			goto _ctr227;}
 		else {
 			switch( ( (*( p))) ) {
 				case 32: {
-					goto _ctr217;
+					goto _ctr228;
 				}
 				case 46: {
-					goto _st165;
+					goto _st175;
 				}
 			}
 			if ( ( (*( p))) > 13 ) {
 				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st165;
+					goto _st175;
 				}
 			} else if ( ( (*( p))) >= 9 ) {
-				goto _ctr217;
+				goto _ctr228;
 			}
 			goto _st0;
 		}
@@ -2792,35 +2831,35 @@ const size_t linenum)
 			goto _st80;}
 		else {
 			if ( ( (*( p))) == 54 ) {
-				goto _st166;
+				goto _st176;
 			}
 			goto _st0;
 		}
-		_ctr219:
+		_ctr230:
 		{
-#line 110 "cfg.rl"
+#line 117 "cfg.rl"
 			
 			emplace_dynamic_v6(linenum, cps.interface);
 		}
 		
-#line 2807 "cfg.cpp"
+#line 2846 "cfg.cpp"
 		
-		goto _st166;
-		_st166:
+		goto _st176;
+		_st176:
 		if ( p == eof )
-			goto _out166;
+			goto _out176;
 		p+= 1;
-		st_case_166:
+		st_case_176:
 		if ( p == pe && p != eof )
-			goto _out166;
+			goto _out176;
 		if ( p == eof ) {
-			goto _ctr219;}
+			goto _ctr230;}
 		else {
 			if ( ( (*( p))) == 32 ) {
-				goto _ctr220;
+				goto _ctr231;
 			}
 			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-				goto _ctr220;
+				goto _ctr231;
 			}
 			goto _st0;
 		}
@@ -2961,55 +3000,55 @@ const size_t linenum)
 		}
 		_ctr104:
 		{
-#line 56 "cfg.rl"
+#line 57 "cfg.rl"
 			cps.st = p; }
 		
-#line 2968 "cfg.cpp"
+#line 3007 "cfg.cpp"
 		
-		goto _st167;
-		_ctr221:
+		goto _st177;
+		_ctr232:
 		{
-#line 61 "cfg.rl"
+#line 62 "cfg.rl"
 			
 			cps.ipaddr = lc_string(cps.st, p - cps.st);
 			cps.last_addr = addr_type::v4;
 		}
 		
-#line 2979 "cfg.cpp"
+#line 3018 "cfg.cpp"
 		
 		{
-#line 100 "cfg.rl"
+#line 107 "cfg.rl"
 			
 			emplace_gateway(linenum, cps.interface, cps.ipaddr);
 		}
 		
-#line 2987 "cfg.cpp"
+#line 3026 "cfg.cpp"
 		
-		goto _st167;
-		_st167:
+		goto _st177;
+		_st177:
 		if ( p == eof )
-			goto _out167;
+			goto _out177;
 		p+= 1;
-		st_case_167:
+		st_case_177:
 		if ( p == pe && p != eof )
-			goto _out167;
+			goto _out177;
 		if ( p == eof ) {
-			goto _ctr221;}
+			goto _ctr232;}
 		else {
 			switch( ( (*( p))) ) {
 				case 32: {
-					goto _ctr222;
+					goto _ctr233;
 				}
 				case 46: {
-					goto _st167;
+					goto _st177;
 				}
 			}
 			if ( ( (*( p))) > 13 ) {
 				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st167;
+					goto _st177;
 				}
 			} else if ( ( (*( p))) >= 9 ) {
-				goto _ctr222;
+				goto _ctr233;
 			}
 			goto _st0;
 		}
@@ -3183,50 +3222,50 @@ const size_t linenum)
 		}
 		_ctr115:
 		{
-#line 56 "cfg.rl"
+#line 57 "cfg.rl"
 			cps.st = p; }
 		
-#line 3190 "cfg.cpp"
+#line 3229 "cfg.cpp"
 		
-		goto _st168;
-		_ctr224:
+		goto _st178;
+		_ctr235:
 		{
-#line 87 "cfg.rl"
+#line 94 "cfg.rl"
 			
 			cps.interface = std::string(cps.st, p - cps.st);
 			emplace_interface(linenum, cps.interface, cps.default_preference);
 		}
 		
-#line 3201 "cfg.cpp"
+#line 3240 "cfg.cpp"
 		
-		goto _st168;
-		_st168:
+		goto _st178;
+		_st178:
 		if ( p == eof )
-			goto _out168;
+			goto _out178;
 		p+= 1;
-		st_case_168:
+		st_case_178:
 		if ( p == pe && p != eof )
-			goto _out168;
+			goto _out178;
 		if ( p == eof ) {
-			goto _ctr224;}
+			goto _ctr235;}
 		else {
 			if ( ( (*( p))) == 32 ) {
-				goto _ctr225;
+				goto _ctr236;
 			}
 			if ( ( (*( p))) < 48 ) {
 				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _ctr225;
+					goto _ctr236;
 				}
 			} else if ( ( (*( p))) > 57 ) {
 				if ( ( (*( p))) > 90 ) {
 					if ( 97 <= ( (*( p))) && ( (*( p))) <= 122 ) {
-						goto _st168;
+						goto _st178;
 					}
 				} else if ( ( (*( p))) >= 65 ) {
-					goto _st168;
+					goto _st178;
 				}
 			} else {
-				goto _st168;
+				goto _st178;
 			}
 			goto _st0;
 		}
@@ -3423,122 +3462,122 @@ const size_t linenum)
 		}
 		_ctr127:
 		{
-#line 56 "cfg.rl"
+#line 57 "cfg.rl"
 			cps.st = p; }
 		
-#line 3430 "cfg.cpp"
+#line 3469 "cfg.cpp"
 		
-		goto _st169;
-		_ctr227:
+		goto _st179;
+		_ctr238:
 		{
-#line 61 "cfg.rl"
+#line 62 "cfg.rl"
 			
 			cps.ipaddr = lc_string(cps.st, p - cps.st);
 			cps.last_addr = addr_type::v4;
 		}
 		
-#line 3441 "cfg.cpp"
+#line 3480 "cfg.cpp"
 		
 		{
-#line 97 "cfg.rl"
+#line 104 "cfg.rl"
 			
 			emplace_ntp_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
 		}
 		
-#line 3449 "cfg.cpp"
+#line 3488 "cfg.cpp"
 		
-		goto _st169;
-		_st169:
+		goto _st179;
+		_st179:
 		if ( p == eof )
-			goto _out169;
+			goto _out179;
 		p+= 1;
-		st_case_169:
+		st_case_179:
 		if ( p == pe && p != eof )
-			goto _out169;
+			goto _out179;
 		if ( p == eof ) {
-			goto _ctr227;}
+			goto _ctr238;}
 		else {
 			switch( ( (*( p))) ) {
 				case 32: {
-					goto _ctr228;
+					goto _ctr239;
 				}
 				case 46: {
-					goto _st169;
+					goto _st179;
 				}
 			}
 			if ( ( (*( p))) > 13 ) {
 				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st169;
+					goto _st179;
 				}
 			} else if ( ( (*( p))) >= 9 ) {
-				goto _ctr228;
+				goto _ctr239;
 			}
 			goto _st0;
 		}
-		_ctr228:
+		_ctr239:
 		{
-#line 61 "cfg.rl"
+#line 62 "cfg.rl"
 			
 			cps.ipaddr = lc_string(cps.st, p - cps.st);
 			cps.last_addr = addr_type::v4;
 		}
 		
-#line 3487 "cfg.cpp"
+#line 3526 "cfg.cpp"
 		
 		{
-#line 97 "cfg.rl"
+#line 104 "cfg.rl"
 			
 			emplace_ntp_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
-		}
-		
-#line 3495 "cfg.cpp"
-		
-		goto _st110;
-		_ctr231:
-		{
-#line 61 "cfg.rl"
-			
-			cps.ipaddr = lc_string(cps.st, p - cps.st);
-			cps.last_addr = addr_type::v4;
-		}
-		
-#line 3506 "cfg.cpp"
-		
-		{
-#line 65 "cfg.rl"
-			
-			cps.ipaddr = lc_string(cps.st, p - cps.st);
-			cps.last_addr = addr_type::v6;
-		}
-		
-#line 3515 "cfg.cpp"
-		
-		{
-#line 97 "cfg.rl"
-			
-			emplace_ntp_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
-		}
-		
-#line 3523 "cfg.cpp"
-		
-		goto _st110;
-		_ctr235:
-		{
-#line 65 "cfg.rl"
-			
-			cps.ipaddr = lc_string(cps.st, p - cps.st);
-			cps.last_addr = addr_type::v6;
 		}
 		
 #line 3534 "cfg.cpp"
 		
+		goto _st110;
+		_ctr242:
 		{
-#line 97 "cfg.rl"
+#line 62 "cfg.rl"
+			
+			cps.ipaddr = lc_string(cps.st, p - cps.st);
+			cps.last_addr = addr_type::v4;
+		}
+		
+#line 3545 "cfg.cpp"
+		
+		{
+#line 66 "cfg.rl"
+			
+			cps.ipaddr = lc_string(cps.st, p - cps.st);
+			cps.last_addr = addr_type::v6;
+		}
+		
+#line 3554 "cfg.cpp"
+		
+		{
+#line 104 "cfg.rl"
 			
 			emplace_ntp_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
 		}
 		
-#line 3542 "cfg.cpp"
+#line 3562 "cfg.cpp"
+		
+		goto _st110;
+		_ctr246:
+		{
+#line 66 "cfg.rl"
+			
+			cps.ipaddr = lc_string(cps.st, p - cps.st);
+			cps.last_addr = addr_type::v6;
+		}
+		
+#line 3573 "cfg.cpp"
+		
+		{
+#line 104 "cfg.rl"
+			
+			emplace_ntp_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
+		}
+		
+#line 3581 "cfg.cpp"
 		
 		goto _st110;
 		_st110:
@@ -3584,132 +3623,132 @@ const size_t linenum)
 		}
 		_ctr128:
 		{
-#line 56 "cfg.rl"
+#line 57 "cfg.rl"
 			cps.st = p; }
 		
-#line 3591 "cfg.cpp"
+#line 3630 "cfg.cpp"
 		
-		goto _st170;
-		_ctr230:
+		goto _st180;
+		_ctr241:
 		{
-#line 61 "cfg.rl"
+#line 62 "cfg.rl"
 			
 			cps.ipaddr = lc_string(cps.st, p - cps.st);
 			cps.last_addr = addr_type::v4;
 		}
 		
-#line 3602 "cfg.cpp"
+#line 3641 "cfg.cpp"
 		
 		{
-#line 65 "cfg.rl"
+#line 66 "cfg.rl"
 			
 			cps.ipaddr = lc_string(cps.st, p - cps.st);
 			cps.last_addr = addr_type::v6;
 		}
 		
-#line 3611 "cfg.cpp"
+#line 3650 "cfg.cpp"
 		
 		{
-#line 97 "cfg.rl"
+#line 104 "cfg.rl"
 			
 			emplace_ntp_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
 		}
 		
-#line 3619 "cfg.cpp"
+#line 3658 "cfg.cpp"
 		
-		goto _st170;
-		_st170:
+		goto _st180;
+		_st180:
 		if ( p == eof )
-			goto _out170;
+			goto _out180;
 		p+= 1;
-		st_case_170:
+		st_case_180:
 		if ( p == pe && p != eof )
-			goto _out170;
+			goto _out180;
 		if ( p == eof ) {
-			goto _ctr230;}
+			goto _ctr241;}
 		else {
 			switch( ( (*( p))) ) {
 				case 32: {
-					goto _ctr231;
+					goto _ctr242;
 				}
 				case 46: {
-					goto _st169;
+					goto _st179;
 				}
 				case 58: {
-					goto _st171;
+					goto _st181;
 				}
 			}
 			if ( ( (*( p))) < 48 ) {
 				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _ctr231;
+					goto _ctr242;
 				}
 			} else if ( ( (*( p))) > 57 ) {
 				if ( ( (*( p))) > 70 ) {
 					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-						goto _st171;
+						goto _st181;
 					}
 				} else if ( ( (*( p))) >= 65 ) {
-					goto _st171;
+					goto _st181;
 				}
 			} else {
-				goto _st170;
+				goto _st180;
 			}
 			goto _st0;
 		}
 		_ctr129:
 		{
-#line 56 "cfg.rl"
+#line 57 "cfg.rl"
 			cps.st = p; }
 		
-#line 3665 "cfg.cpp"
+#line 3704 "cfg.cpp"
 		
-		goto _st171;
-		_ctr234:
+		goto _st181;
+		_ctr245:
 		{
-#line 65 "cfg.rl"
+#line 66 "cfg.rl"
 			
 			cps.ipaddr = lc_string(cps.st, p - cps.st);
 			cps.last_addr = addr_type::v6;
 		}
 		
-#line 3676 "cfg.cpp"
+#line 3715 "cfg.cpp"
 		
 		{
-#line 97 "cfg.rl"
+#line 104 "cfg.rl"
 			
 			emplace_ntp_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
 		}
 		
-#line 3684 "cfg.cpp"
+#line 3723 "cfg.cpp"
 		
-		goto _st171;
-		_st171:
+		goto _st181;
+		_st181:
 		if ( p == eof )
-			goto _out171;
+			goto _out181;
 		p+= 1;
-		st_case_171:
+		st_case_181:
 		if ( p == pe && p != eof )
-			goto _out171;
+			goto _out181;
 		if ( p == eof ) {
-			goto _ctr234;}
+			goto _ctr245;}
 		else {
 			if ( ( (*( p))) == 32 ) {
-				goto _ctr235;
+				goto _ctr246;
 			}
 			if ( ( (*( p))) < 48 ) {
 				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _ctr235;
+					goto _ctr246;
 				}
 			} else if ( ( (*( p))) > 58 ) {
 				if ( ( (*( p))) > 70 ) {
 					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-						goto _st171;
+						goto _st181;
 					}
 				} else if ( ( (*( p))) >= 65 ) {
-					goto _st171;
+					goto _st181;
 				}
 			} else {
-				goto _st171;
+				goto _st181;
 			}
 			goto _st0;
 		}
@@ -3723,7 +3762,7 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st111;}
 		else {
-			if ( ( (*( p))) == 115 ) {
+			if ( ( (*( p))) == 54 ) {
 				goto _st112;
 			}
 			goto _st0;
@@ -3738,7 +3777,7 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st112;}
 		else {
-			if ( ( (*( p))) == 101 ) {
+			if ( ( (*( p))) == 95 ) {
 				goto _st113;
 			}
 			goto _st0;
@@ -3753,7 +3792,7 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st113;}
 		else {
-			if ( ( (*( p))) == 114 ) {
+			if ( ( (*( p))) == 110 ) {
 				goto _st114;
 			}
 			goto _st0;
@@ -3768,10 +3807,7 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st114;}
 		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st115;
-			}
-			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
+			if ( ( (*( p))) == 111 ) {
 				goto _st115;
 			}
 			goto _st0;
@@ -3786,53 +3822,8 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st115;}
 		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st115;
-			}
-			if ( ( (*( p))) > 13 ) {
-				if ( 33 <= ( (*( p))) && ( (*( p))) <= 126 ) {
-					goto _ctr136;
-				}
-			} else if ( ( (*( p))) >= 9 ) {
-				goto _st115;
-			}
-			goto _st0;
-		}
-		_ctr136:
-		{
-#line 56 "cfg.rl"
-			cps.st = p; }
-		
-#line 3807 "cfg.cpp"
-		
-		goto _st172;
-		_ctr236:
-		{
-#line 71 "cfg.rl"
-			set_user_runas(linenum, std::string(cps.st, p - cps.st)); }
-		
-#line 3815 "cfg.cpp"
-		
-		goto _st172;
-		_st172:
-		if ( p == eof )
-			goto _out172;
-		p+= 1;
-		st_case_172:
-		if ( p == pe && p != eof )
-			goto _out172;
-		if ( p == eof ) {
-			goto _ctr236;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _ctr237;
-			}
-			if ( ( (*( p))) > 13 ) {
-				if ( 33 <= ( (*( p))) && ( (*( p))) <= 126 ) {
-					goto _st172;
-				}
-			} else if ( ( (*( p))) >= 9 ) {
-				goto _ctr237;
+			if ( ( (*( p))) == 116 ) {
+				goto _st116;
 			}
 			goto _st0;
 		}
@@ -3846,13 +3837,8 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st116;}
 		else {
-			switch( ( (*( p))) ) {
-				case 52: {
-					goto _st117;
-				}
-				case 54: {
-					goto _st139;
-				}
+			if ( ( (*( p))) == 105 ) {
+				goto _st117;
 			}
 			goto _st0;
 		}
@@ -3866,10 +3852,7 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st117;}
 		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st118;
-			}
-			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
+			if ( ( (*( p))) == 102 ) {
 				goto _st118;
 			}
 			goto _st0;
@@ -3884,34 +3867,11 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st118;}
 		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st118;
-			}
-			if ( ( (*( p))) < 48 ) {
-				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _st118;
-				}
-			} else if ( ( (*( p))) > 57 ) {
-				if ( ( (*( p))) > 70 ) {
-					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-						goto _ctr141;
-					}
-				} else if ( ( (*( p))) >= 65 ) {
-					goto _ctr141;
-				}
-			} else {
-				goto _ctr141;
+			if ( ( (*( p))) == 121 ) {
+				goto _st119;
 			}
 			goto _st0;
 		}
-		_ctr141:
-		{
-#line 56 "cfg.rl"
-			cps.st = p; }
-		
-#line 3913 "cfg.cpp"
-		
-		goto _st119;
 		_st119:
 		if ( p == eof )
 			goto _out119;
@@ -3922,15 +3882,10 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st119;}
 		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st120;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st120;
-				}
-			} else {
+			if ( ( (*( p))) == 32 ) {
+				goto _st120;
+			}
+			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
 				goto _st120;
 			}
 			goto _st0;
@@ -3945,8 +3900,58 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st120;}
 		else {
-			if ( ( (*( p))) == 58 ) {
-				goto _st121;
+			if ( ( (*( p))) == 32 ) {
+				goto _st120;
+			}
+			if ( ( (*( p))) > 13 ) {
+				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
+					goto _ctr141;
+				}
+			} else if ( ( (*( p))) >= 9 ) {
+				goto _st120;
+			}
+			goto _st0;
+		}
+		_ctr141:
+		{
+#line 57 "cfg.rl"
+			cps.st = p; }
+		
+#line 3921 "cfg.cpp"
+		
+		goto _st182;
+		_ctr247:
+		{
+#line 74 "cfg.rl"
+			
+			if (auto t = nk::from_string<int>(cps.st, p - cps.st)) set_s6_notify_fd(linenum, *t); else {
+				cps.parse_error = true;
+				{p+= 1; cps.cs = 182; goto _out;}
+			}
+		}
+		
+#line 3934 "cfg.cpp"
+		
+		goto _st182;
+		_st182:
+		if ( p == eof )
+			goto _out182;
+		p+= 1;
+		st_case_182:
+		if ( p == pe && p != eof )
+			goto _out182;
+		if ( p == eof ) {
+			goto _ctr247;}
+		else {
+			if ( ( (*( p))) == 32 ) {
+				goto _ctr248;
+			}
+			if ( ( (*( p))) > 13 ) {
+				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
+					goto _st182;
+				}
+			} else if ( ( (*( p))) >= 9 ) {
+				goto _ctr248;
 			}
 			goto _st0;
 		}
@@ -3960,15 +3965,7 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st121;}
 		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st122;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st122;
-				}
-			} else {
+			if ( ( (*( p))) == 115 ) {
 				goto _st122;
 			}
 			goto _st0;
@@ -3983,15 +3980,7 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st122;}
 		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st123;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st123;
-				}
-			} else {
+			if ( ( (*( p))) == 101 ) {
 				goto _st123;
 			}
 			goto _st0;
@@ -4006,7 +3995,7 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st123;}
 		else {
-			if ( ( (*( p))) == 58 ) {
+			if ( ( (*( p))) == 114 ) {
 				goto _st124;
 			}
 			goto _st0;
@@ -4021,15 +4010,10 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st124;}
 		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st125;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st125;
-				}
-			} else {
+			if ( ( (*( p))) == 32 ) {
+				goto _st125;
+			}
+			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
 				goto _st125;
 			}
 			goto _st0;
@@ -4044,16 +4028,53 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st125;}
 		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st126;
+			if ( ( (*( p))) == 32 ) {
+				goto _st125;
+			}
+			if ( ( (*( p))) > 13 ) {
+				if ( 33 <= ( (*( p))) && ( (*( p))) <= 126 ) {
+					goto _ctr147;
 				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st126;
+			} else if ( ( (*( p))) >= 9 ) {
+				goto _st125;
+			}
+			goto _st0;
+		}
+		_ctr147:
+		{
+#line 57 "cfg.rl"
+			cps.st = p; }
+		
+#line 4049 "cfg.cpp"
+		
+		goto _st183;
+		_ctr250:
+		{
+#line 72 "cfg.rl"
+			set_user_runas(linenum, std::string(cps.st, p - cps.st)); }
+		
+#line 4057 "cfg.cpp"
+		
+		goto _st183;
+		_st183:
+		if ( p == eof )
+			goto _out183;
+		p+= 1;
+		st_case_183:
+		if ( p == pe && p != eof )
+			goto _out183;
+		if ( p == eof ) {
+			goto _ctr250;}
+		else {
+			if ( ( (*( p))) == 32 ) {
+				goto _ctr251;
+			}
+			if ( ( (*( p))) > 13 ) {
+				if ( 33 <= ( (*( p))) && ( (*( p))) <= 126 ) {
+					goto _st183;
 				}
-			} else {
-				goto _st126;
+			} else if ( ( (*( p))) >= 9 ) {
+				goto _ctr251;
 			}
 			goto _st0;
 		}
@@ -4067,8 +4088,13 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st126;}
 		else {
-			if ( ( (*( p))) == 58 ) {
-				goto _st127;
+			switch( ( (*( p))) ) {
+				case 52: {
+					goto _st127;
+				}
+				case 54: {
+					goto _st149;
+				}
 			}
 			goto _st0;
 		}
@@ -4082,15 +4108,10 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st127;}
 		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st128;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st128;
-				}
-			} else {
+			if ( ( (*( p))) == 32 ) {
+				goto _st128;
+			}
+			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
 				goto _st128;
 			}
 			goto _st0;
@@ -4105,19 +4126,34 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st128;}
 		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st129;
+			if ( ( (*( p))) == 32 ) {
+				goto _st128;
+			}
+			if ( ( (*( p))) < 48 ) {
+				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
+					goto _st128;
 				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st129;
+			} else if ( ( (*( p))) > 57 ) {
+				if ( ( (*( p))) > 70 ) {
+					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
+						goto _ctr152;
+					}
+				} else if ( ( (*( p))) >= 65 ) {
+					goto _ctr152;
 				}
 			} else {
-				goto _st129;
+				goto _ctr152;
 			}
 			goto _st0;
 		}
+		_ctr152:
+		{
+#line 57 "cfg.rl"
+			cps.st = p; }
+		
+#line 4155 "cfg.cpp"
+		
+		goto _st129;
 		_st129:
 		if ( p == eof )
 			goto _out129;
@@ -4128,7 +4164,15 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st129;}
 		else {
-			if ( ( (*( p))) == 58 ) {
+			if ( ( (*( p))) < 65 ) {
+				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
+					goto _st130;
+				}
+			} else if ( ( (*( p))) > 70 ) {
+				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
+					goto _st130;
+				}
+			} else {
 				goto _st130;
 			}
 			goto _st0;
@@ -4143,15 +4187,7 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st130;}
 		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st131;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st131;
-				}
-			} else {
+			if ( ( (*( p))) == 58 ) {
 				goto _st131;
 			}
 			goto _st0;
@@ -4189,7 +4225,15 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st132;}
 		else {
-			if ( ( (*( p))) == 58 ) {
+			if ( ( (*( p))) < 65 ) {
+				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
+					goto _st133;
+				}
+			} else if ( ( (*( p))) > 70 ) {
+				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
+					goto _st133;
+				}
+			} else {
 				goto _st133;
 			}
 			goto _st0;
@@ -4204,15 +4248,7 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st133;}
 		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st134;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st134;
-				}
-			} else {
+			if ( ( (*( p))) == 58 ) {
 				goto _st134;
 			}
 			goto _st0;
@@ -4250,22 +4286,19 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st135;}
 		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _ctr159;
-			}
-			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-				goto _ctr159;
+			if ( ( (*( p))) < 65 ) {
+				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
+					goto _st136;
+				}
+			} else if ( ( (*( p))) > 70 ) {
+				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
+					goto _st136;
+				}
+			} else {
+				goto _st136;
 			}
 			goto _st0;
 		}
-		_ctr159:
-		{
-#line 60 "cfg.rl"
-			cps.macaddr = lc_string(cps.st, p - cps.st); }
-		
-#line 4267 "cfg.cpp"
-		
-		goto _st136;
 		_st136:
 		if ( p == eof )
 			goto _out136;
@@ -4276,89 +4309,11 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st136;}
 		else {
-			switch( ( (*( p))) ) {
-				case 32: {
-					goto _st136;
-				}
-				case 46: {
-					goto _ctr161;
-				}
-			}
-			if ( ( (*( p))) > 13 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _ctr161;
-				}
-			} else if ( ( (*( p))) >= 9 ) {
-				goto _st136;
+			if ( ( (*( p))) == 58 ) {
+				goto _st137;
 			}
 			goto _st0;
 		}
-		_ctr161:
-		{
-#line 56 "cfg.rl"
-			cps.st = p; }
-		
-#line 4302 "cfg.cpp"
-		
-		goto _st173;
-		_ctr239:
-		{
-#line 61 "cfg.rl"
-			
-			cps.ipaddr = lc_string(cps.st, p - cps.st);
-			cps.last_addr = addr_type::v4;
-		}
-		
-#line 4313 "cfg.cpp"
-		
-		{
-#line 113 "cfg.rl"
-			
-			emplace_dhcp_state(linenum, cps.interface, cps.macaddr, cps.ipaddr,
-			cps.default_lifetime);
-		}
-		
-#line 4322 "cfg.cpp"
-		
-		goto _st173;
-		_st173:
-		if ( p == eof )
-			goto _out173;
-		p+= 1;
-		st_case_173:
-		if ( p == pe && p != eof )
-			goto _out173;
-		if ( p == eof ) {
-			goto _ctr239;}
-		else {
-			switch( ( (*( p))) ) {
-				case 32: {
-					goto _ctr240;
-				}
-				case 46: {
-					goto _st173;
-				}
-			}
-			if ( ( (*( p))) > 13 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st173;
-				}
-			} else if ( ( (*( p))) >= 9 ) {
-				goto _ctr240;
-			}
-			goto _st0;
-		}
-		_ctr240:
-		{
-#line 61 "cfg.rl"
-			
-			cps.ipaddr = lc_string(cps.st, p - cps.st);
-			cps.last_addr = addr_type::v4;
-		}
-		
-#line 4360 "cfg.cpp"
-		
-		goto _st137;
 		_st137:
 		if ( p == eof )
 			goto _out137;
@@ -4369,16 +4324,16 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st137;}
 		else {
-			switch( ( (*( p))) ) {
-				case 32: {
-					goto _st137;
-				}
-				case 47: {
+			if ( ( (*( p))) < 65 ) {
+				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
 					goto _st138;
 				}
-			}
-			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-				goto _st137;
+			} else if ( ( (*( p))) > 70 ) {
+				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
+					goto _st138;
+				}
+			} else {
+				goto _st138;
 			}
 			goto _st0;
 		}
@@ -4392,33 +4347,18 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st138;}
 		else {
-			if ( ( (*( p))) == 47 ) {
-				goto _st174;
+			if ( ( (*( p))) < 65 ) {
+				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
+					goto _st139;
+				}
+			} else if ( ( (*( p))) > 70 ) {
+				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
+					goto _st139;
+				}
+			} else {
+				goto _st139;
 			}
 			goto _st0;
-		}
-		_ctr242:
-		{
-#line 113 "cfg.rl"
-			
-			emplace_dhcp_state(linenum, cps.interface, cps.macaddr, cps.ipaddr,
-			cps.default_lifetime);
-		}
-		
-#line 4409 "cfg.cpp"
-		
-		goto _st174;
-		_st174:
-		if ( p == eof )
-			goto _out174;
-		p+= 1;
-		st_case_174:
-		if ( p == pe && p != eof )
-			goto _out174;
-		if ( p == eof ) {
-			goto _ctr242;}
-		else {
-			goto _st174;
 		}
 		_st139:
 		if ( p == eof )
@@ -4430,10 +4370,7 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st139;}
 		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st140;
-			}
-			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
+			if ( ( (*( p))) == 58 ) {
 				goto _st140;
 			}
 			goto _st0;
@@ -4448,34 +4385,19 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st140;}
 		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st140;
-			}
-			if ( ( (*( p))) < 48 ) {
-				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _st140;
+			if ( ( (*( p))) < 65 ) {
+				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
+					goto _st141;
 				}
-			} else if ( ( (*( p))) > 57 ) {
-				if ( ( (*( p))) > 70 ) {
-					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-						goto _ctr166;
-					}
-				} else if ( ( (*( p))) >= 65 ) {
-					goto _ctr166;
+			} else if ( ( (*( p))) > 70 ) {
+				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
+					goto _st141;
 				}
 			} else {
-				goto _ctr166;
+				goto _st141;
 			}
 			goto _st0;
 		}
-		_ctr166:
-		{
-#line 56 "cfg.rl"
-			cps.st = p; }
-		
-#line 4477 "cfg.cpp"
-		
-		goto _st141;
 		_st141:
 		if ( p == eof )
 			goto _out141;
@@ -4486,34 +4408,19 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st141;}
 		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _ctr168;
-			}
-			if ( ( (*( p))) < 48 ) {
-				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _ctr168;
+			if ( ( (*( p))) < 65 ) {
+				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
+					goto _st142;
 				}
-			} else if ( ( (*( p))) > 57 ) {
-				if ( ( (*( p))) > 70 ) {
-					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-						goto _st147;
-					}
-				} else if ( ( (*( p))) >= 65 ) {
-					goto _st147;
+			} else if ( ( (*( p))) > 70 ) {
+				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
+					goto _st142;
 				}
 			} else {
-				goto _st147;
+				goto _st142;
 			}
 			goto _st0;
 		}
-		_ctr168:
-		{
-#line 58 "cfg.rl"
-			cps.duid = lc_string(cps.st, p - cps.st); }
-		
-#line 4515 "cfg.cpp"
-		
-		goto _st142;
 		_st142:
 		if ( p == eof )
 			goto _out142;
@@ -4524,26 +4431,11 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st142;}
 		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st142;
-			}
-			if ( ( (*( p))) > 13 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _ctr171;
-				}
-			} else if ( ( (*( p))) >= 9 ) {
-				goto _st142;
+			if ( ( (*( p))) == 58 ) {
+				goto _st143;
 			}
 			goto _st0;
 		}
-		_ctr171:
-		{
-#line 56 "cfg.rl"
-			cps.st = p; }
-		
-#line 4545 "cfg.cpp"
-		
-		goto _st143;
 		_st143:
 		if ( p == eof )
 			goto _out143;
@@ -4554,26 +4446,19 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st143;}
 		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _ctr173;
-			}
-			if ( ( (*( p))) > 13 ) {
+			if ( ( (*( p))) < 65 ) {
 				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st143;
+					goto _st144;
 				}
-			} else if ( ( (*( p))) >= 9 ) {
-				goto _ctr173;
+			} else if ( ( (*( p))) > 70 ) {
+				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
+					goto _st144;
+				}
+			} else {
+				goto _st144;
 			}
 			goto _st0;
 		}
-		_ctr173:
-		{
-#line 59 "cfg.rl"
-			cps.iaid = lc_string(cps.st, p - cps.st); }
-		
-#line 4575 "cfg.cpp"
-		
-		goto _st144;
 		_st144:
 		if ( p == eof )
 			goto _out144;
@@ -4584,100 +4469,19 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st144;}
 		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st144;
-			}
-			if ( ( (*( p))) < 48 ) {
-				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _st144;
+			if ( ( (*( p))) < 65 ) {
+				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
+					goto _st145;
 				}
-			} else if ( ( (*( p))) > 58 ) {
-				if ( ( (*( p))) > 70 ) {
-					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-						goto _ctr175;
-					}
-				} else if ( ( (*( p))) >= 65 ) {
-					goto _ctr175;
+			} else if ( ( (*( p))) > 70 ) {
+				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
+					goto _st145;
 				}
 			} else {
-				goto _ctr175;
+				goto _st145;
 			}
 			goto _st0;
 		}
-		_ctr175:
-		{
-#line 56 "cfg.rl"
-			cps.st = p; }
-		
-#line 4613 "cfg.cpp"
-		
-		goto _st175;
-		_ctr243:
-		{
-#line 65 "cfg.rl"
-			
-			cps.ipaddr = lc_string(cps.st, p - cps.st);
-			cps.last_addr = addr_type::v6;
-		}
-		
-#line 4624 "cfg.cpp"
-		
-		{
-#line 117 "cfg.rl"
-			
-			if (auto iaid = nk::from_string<uint32_t>(cps.iaid)) {
-				emplace_dhcp_state(linenum, cps.interface, std::move(cps.duid),
-				*iaid, cps.ipaddr, cps.default_lifetime);
-			} else {
-				cps.parse_error = true;
-				{p+= 1; cps.cs = 175; goto _out;}
-			}
-		}
-		
-#line 4638 "cfg.cpp"
-		
-		goto _st175;
-		_st175:
-		if ( p == eof )
-			goto _out175;
-		p+= 1;
-		st_case_175:
-		if ( p == pe && p != eof )
-			goto _out175;
-		if ( p == eof ) {
-			goto _ctr243;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _ctr244;
-			}
-			if ( ( (*( p))) < 48 ) {
-				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _ctr244;
-				}
-			} else if ( ( (*( p))) > 58 ) {
-				if ( ( (*( p))) > 70 ) {
-					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-						goto _st175;
-					}
-				} else if ( ( (*( p))) >= 65 ) {
-					goto _st175;
-				}
-			} else {
-				goto _st175;
-			}
-			goto _st0;
-		}
-		_ctr244:
-		{
-#line 65 "cfg.rl"
-			
-			cps.ipaddr = lc_string(cps.st, p - cps.st);
-			cps.last_addr = addr_type::v6;
-		}
-		
-#line 4679 "cfg.cpp"
-		
-		goto _st145;
 		_st145:
 		if ( p == eof )
 			goto _out145;
@@ -4688,19 +4492,22 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st145;}
 		else {
-			switch( ( (*( p))) ) {
-				case 32: {
-					goto _st145;
-				}
-				case 47: {
-					goto _st146;
-				}
+			if ( ( (*( p))) == 32 ) {
+				goto _ctr170;
 			}
 			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-				goto _st145;
+				goto _ctr170;
 			}
 			goto _st0;
 		}
+		_ctr170:
+		{
+#line 61 "cfg.rl"
+			cps.macaddr = lc_string(cps.st, p - cps.st); }
+		
+#line 4509 "cfg.cpp"
+		
+		goto _st146;
 		_st146:
 		if ( p == eof )
 			goto _out146;
@@ -4711,39 +4518,89 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st146;}
 		else {
-			if ( ( (*( p))) == 47 ) {
-				goto _st176;
+			switch( ( (*( p))) ) {
+				case 32: {
+					goto _st146;
+				}
+				case 46: {
+					goto _ctr172;
+				}
+			}
+			if ( ( (*( p))) > 13 ) {
+				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
+					goto _ctr172;
+				}
+			} else if ( ( (*( p))) >= 9 ) {
+				goto _st146;
 			}
 			goto _st0;
 		}
-		_ctr246:
+		_ctr172:
 		{
-#line 117 "cfg.rl"
+#line 57 "cfg.rl"
+			cps.st = p; }
+		
+#line 4544 "cfg.cpp"
+		
+		goto _st184;
+		_ctr253:
+		{
+#line 62 "cfg.rl"
 			
-			if (auto iaid = nk::from_string<uint32_t>(cps.iaid)) {
-				emplace_dhcp_state(linenum, cps.interface, std::move(cps.duid),
-				*iaid, cps.ipaddr, cps.default_lifetime);
-			} else {
-				cps.parse_error = true;
-				{p+= 1; cps.cs = 176; goto _out;}
-			}
+			cps.ipaddr = lc_string(cps.st, p - cps.st);
+			cps.last_addr = addr_type::v4;
 		}
 		
-#line 4733 "cfg.cpp"
+#line 4555 "cfg.cpp"
 		
-		goto _st176;
-		_st176:
+		{
+#line 120 "cfg.rl"
+			
+			emplace_dhcp_state(linenum, cps.interface, cps.macaddr, cps.ipaddr,
+			cps.default_lifetime);
+		}
+		
+#line 4564 "cfg.cpp"
+		
+		goto _st184;
+		_st184:
 		if ( p == eof )
-			goto _out176;
+			goto _out184;
 		p+= 1;
-		st_case_176:
+		st_case_184:
 		if ( p == pe && p != eof )
-			goto _out176;
+			goto _out184;
 		if ( p == eof ) {
-			goto _ctr246;}
+			goto _ctr253;}
 		else {
-			goto _st176;
+			switch( ( (*( p))) ) {
+				case 32: {
+					goto _ctr254;
+				}
+				case 46: {
+					goto _st184;
+				}
+			}
+			if ( ( (*( p))) > 13 ) {
+				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
+					goto _st184;
+				}
+			} else if ( ( (*( p))) >= 9 ) {
+				goto _ctr254;
+			}
+			goto _st0;
 		}
+		_ctr254:
+		{
+#line 62 "cfg.rl"
+			
+			cps.ipaddr = lc_string(cps.st, p - cps.st);
+			cps.last_addr = addr_type::v4;
+		}
+		
+#line 4602 "cfg.cpp"
+		
+		goto _st147;
 		_st147:
 		if ( p == eof )
 			goto _out147;
@@ -4756,26 +4613,14 @@ const size_t linenum)
 		else {
 			switch( ( (*( p))) ) {
 				case 32: {
-					goto _ctr168;
+					goto _st147;
 				}
-				case 45: {
+				case 47: {
 					goto _st148;
 				}
 			}
-			if ( ( (*( p))) < 48 ) {
-				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _ctr168;
-				}
-			} else if ( ( (*( p))) > 57 ) {
-				if ( ( (*( p))) > 70 ) {
-					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-						goto _st141;
-					}
-				} else if ( ( (*( p))) >= 65 ) {
-					goto _st141;
-				}
-			} else {
-				goto _st141;
+			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
+				goto _st147;
 			}
 			goto _st0;
 		}
@@ -4789,18 +4634,33 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st148;}
 		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st149;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st149;
-				}
-			} else {
-				goto _st149;
+			if ( ( (*( p))) == 47 ) {
+				goto _st185;
 			}
 			goto _st0;
+		}
+		_ctr256:
+		{
+#line 120 "cfg.rl"
+			
+			emplace_dhcp_state(linenum, cps.interface, cps.macaddr, cps.ipaddr,
+			cps.default_lifetime);
+		}
+		
+#line 4651 "cfg.cpp"
+		
+		goto _st185;
+		_st185:
+		if ( p == eof )
+			goto _out185;
+		p+= 1;
+		st_case_185:
+		if ( p == pe && p != eof )
+			goto _out185;
+		if ( p == eof ) {
+			goto _ctr256;}
+		else {
+			goto _st185;
 		}
 		_st149:
 		if ( p == eof )
@@ -4812,15 +4672,10 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st149;}
 		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st150;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st150;
-				}
-			} else {
+			if ( ( (*( p))) == 32 ) {
+				goto _st150;
+			}
+			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
 				goto _st150;
 			}
 			goto _st0;
@@ -4835,46 +4690,433 @@ const size_t linenum)
 		if ( p == eof ) {
 			goto _st150;}
 		else {
-			switch( ( (*( p))) ) {
-				case 32: {
-					goto _ctr168;
-				}
-				case 45: {
-					goto _st148;
-				}
+			if ( ( (*( p))) == 32 ) {
+				goto _st150;
 			}
 			if ( ( (*( p))) < 48 ) {
 				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _ctr168;
+					goto _st150;
 				}
 			} else if ( ( (*( p))) > 57 ) {
 				if ( ( (*( p))) > 70 ) {
 					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-						goto _st149;
+						goto _ctr177;
 					}
 				} else if ( ( (*( p))) >= 65 ) {
-					goto _st149;
+					goto _ctr177;
 				}
 			} else {
-				goto _st149;
+				goto _ctr177;
 			}
 			goto _st0;
 		}
-		_out151: cps.cs = 151; goto _out; 
+		_ctr177:
+		{
+#line 57 "cfg.rl"
+			cps.st = p; }
+		
+#line 4719 "cfg.cpp"
+		
+		goto _st151;
+		_st151:
+		if ( p == eof )
+			goto _out151;
+		p+= 1;
+		st_case_151:
+		if ( p == pe && p != eof )
+			goto _out151;
+		if ( p == eof ) {
+			goto _st151;}
+		else {
+			if ( ( (*( p))) == 32 ) {
+				goto _ctr179;
+			}
+			if ( ( (*( p))) < 48 ) {
+				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
+					goto _ctr179;
+				}
+			} else if ( ( (*( p))) > 57 ) {
+				if ( ( (*( p))) > 70 ) {
+					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
+						goto _st157;
+					}
+				} else if ( ( (*( p))) >= 65 ) {
+					goto _st157;
+				}
+			} else {
+				goto _st157;
+			}
+			goto _st0;
+		}
+		_ctr179:
+		{
+#line 59 "cfg.rl"
+			cps.duid = lc_string(cps.st, p - cps.st); }
+		
+#line 4757 "cfg.cpp"
+		
+		goto _st152;
+		_st152:
+		if ( p == eof )
+			goto _out152;
+		p+= 1;
+		st_case_152:
+		if ( p == pe && p != eof )
+			goto _out152;
+		if ( p == eof ) {
+			goto _st152;}
+		else {
+			if ( ( (*( p))) == 32 ) {
+				goto _st152;
+			}
+			if ( ( (*( p))) > 13 ) {
+				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
+					goto _ctr182;
+				}
+			} else if ( ( (*( p))) >= 9 ) {
+				goto _st152;
+			}
+			goto _st0;
+		}
+		_ctr182:
+		{
+#line 57 "cfg.rl"
+			cps.st = p; }
+		
+#line 4787 "cfg.cpp"
+		
+		goto _st153;
+		_st153:
+		if ( p == eof )
+			goto _out153;
+		p+= 1;
+		st_case_153:
+		if ( p == pe && p != eof )
+			goto _out153;
+		if ( p == eof ) {
+			goto _st153;}
+		else {
+			if ( ( (*( p))) == 32 ) {
+				goto _ctr184;
+			}
+			if ( ( (*( p))) > 13 ) {
+				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
+					goto _st153;
+				}
+			} else if ( ( (*( p))) >= 9 ) {
+				goto _ctr184;
+			}
+			goto _st0;
+		}
+		_ctr184:
+		{
+#line 60 "cfg.rl"
+			cps.iaid = lc_string(cps.st, p - cps.st); }
+		
+#line 4817 "cfg.cpp"
+		
+		goto _st154;
+		_st154:
+		if ( p == eof )
+			goto _out154;
+		p+= 1;
+		st_case_154:
+		if ( p == pe && p != eof )
+			goto _out154;
+		if ( p == eof ) {
+			goto _st154;}
+		else {
+			if ( ( (*( p))) == 32 ) {
+				goto _st154;
+			}
+			if ( ( (*( p))) < 48 ) {
+				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
+					goto _st154;
+				}
+			} else if ( ( (*( p))) > 58 ) {
+				if ( ( (*( p))) > 70 ) {
+					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
+						goto _ctr186;
+					}
+				} else if ( ( (*( p))) >= 65 ) {
+					goto _ctr186;
+				}
+			} else {
+				goto _ctr186;
+			}
+			goto _st0;
+		}
+		_ctr186:
+		{
+#line 57 "cfg.rl"
+			cps.st = p; }
+		
+#line 4855 "cfg.cpp"
+		
+		goto _st186;
+		_ctr257:
+		{
+#line 66 "cfg.rl"
+			
+			cps.ipaddr = lc_string(cps.st, p - cps.st);
+			cps.last_addr = addr_type::v6;
+		}
+		
+#line 4866 "cfg.cpp"
+		
+		{
+#line 124 "cfg.rl"
+			
+			if (auto iaid = nk::from_string<uint32_t>(cps.iaid)) {
+				emplace_dhcp_state(linenum, cps.interface, std::move(cps.duid),
+				*iaid, cps.ipaddr, cps.default_lifetime);
+			} else {
+				cps.parse_error = true;
+				{p+= 1; cps.cs = 186; goto _out;}
+			}
+		}
+		
+#line 4880 "cfg.cpp"
+		
+		goto _st186;
+		_st186:
+		if ( p == eof )
+			goto _out186;
+		p+= 1;
+		st_case_186:
+		if ( p == pe && p != eof )
+			goto _out186;
+		if ( p == eof ) {
+			goto _ctr257;}
+		else {
+			if ( ( (*( p))) == 32 ) {
+				goto _ctr258;
+			}
+			if ( ( (*( p))) < 48 ) {
+				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
+					goto _ctr258;
+				}
+			} else if ( ( (*( p))) > 58 ) {
+				if ( ( (*( p))) > 70 ) {
+					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
+						goto _st186;
+					}
+				} else if ( ( (*( p))) >= 65 ) {
+					goto _st186;
+				}
+			} else {
+				goto _st186;
+			}
+			goto _st0;
+		}
+		_ctr258:
+		{
+#line 66 "cfg.rl"
+			
+			cps.ipaddr = lc_string(cps.st, p - cps.st);
+			cps.last_addr = addr_type::v6;
+		}
+		
+#line 4921 "cfg.cpp"
+		
+		goto _st155;
+		_st155:
+		if ( p == eof )
+			goto _out155;
+		p+= 1;
+		st_case_155:
+		if ( p == pe && p != eof )
+			goto _out155;
+		if ( p == eof ) {
+			goto _st155;}
+		else {
+			switch( ( (*( p))) ) {
+				case 32: {
+					goto _st155;
+				}
+				case 47: {
+					goto _st156;
+				}
+			}
+			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
+				goto _st155;
+			}
+			goto _st0;
+		}
+		_st156:
+		if ( p == eof )
+			goto _out156;
+		p+= 1;
+		st_case_156:
+		if ( p == pe && p != eof )
+			goto _out156;
+		if ( p == eof ) {
+			goto _st156;}
+		else {
+			if ( ( (*( p))) == 47 ) {
+				goto _st187;
+			}
+			goto _st0;
+		}
+		_ctr260:
+		{
+#line 124 "cfg.rl"
+			
+			if (auto iaid = nk::from_string<uint32_t>(cps.iaid)) {
+				emplace_dhcp_state(linenum, cps.interface, std::move(cps.duid),
+				*iaid, cps.ipaddr, cps.default_lifetime);
+			} else {
+				cps.parse_error = true;
+				{p+= 1; cps.cs = 187; goto _out;}
+			}
+		}
+		
+#line 4975 "cfg.cpp"
+		
+		goto _st187;
+		_st187:
+		if ( p == eof )
+			goto _out187;
+		p+= 1;
+		st_case_187:
+		if ( p == pe && p != eof )
+			goto _out187;
+		if ( p == eof ) {
+			goto _ctr260;}
+		else {
+			goto _st187;
+		}
+		_st157:
+		if ( p == eof )
+			goto _out157;
+		p+= 1;
+		st_case_157:
+		if ( p == pe && p != eof )
+			goto _out157;
+		if ( p == eof ) {
+			goto _st157;}
+		else {
+			switch( ( (*( p))) ) {
+				case 32: {
+					goto _ctr179;
+				}
+				case 45: {
+					goto _st158;
+				}
+			}
+			if ( ( (*( p))) < 48 ) {
+				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
+					goto _ctr179;
+				}
+			} else if ( ( (*( p))) > 57 ) {
+				if ( ( (*( p))) > 70 ) {
+					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
+						goto _st151;
+					}
+				} else if ( ( (*( p))) >= 65 ) {
+					goto _st151;
+				}
+			} else {
+				goto _st151;
+			}
+			goto _st0;
+		}
+		_st158:
+		if ( p == eof )
+			goto _out158;
+		p+= 1;
+		st_case_158:
+		if ( p == pe && p != eof )
+			goto _out158;
+		if ( p == eof ) {
+			goto _st158;}
+		else {
+			if ( ( (*( p))) < 65 ) {
+				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
+					goto _st159;
+				}
+			} else if ( ( (*( p))) > 70 ) {
+				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
+					goto _st159;
+				}
+			} else {
+				goto _st159;
+			}
+			goto _st0;
+		}
+		_st159:
+		if ( p == eof )
+			goto _out159;
+		p+= 1;
+		st_case_159:
+		if ( p == pe && p != eof )
+			goto _out159;
+		if ( p == eof ) {
+			goto _st159;}
+		else {
+			if ( ( (*( p))) < 65 ) {
+				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
+					goto _st160;
+				}
+			} else if ( ( (*( p))) > 70 ) {
+				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
+					goto _st160;
+				}
+			} else {
+				goto _st160;
+			}
+			goto _st0;
+		}
+		_st160:
+		if ( p == eof )
+			goto _out160;
+		p+= 1;
+		st_case_160:
+		if ( p == pe && p != eof )
+			goto _out160;
+		if ( p == eof ) {
+			goto _st160;}
+		else {
+			switch( ( (*( p))) ) {
+				case 32: {
+					goto _ctr179;
+				}
+				case 45: {
+					goto _st158;
+				}
+			}
+			if ( ( (*( p))) < 48 ) {
+				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
+					goto _ctr179;
+				}
+			} else if ( ( (*( p))) > 57 ) {
+				if ( ( (*( p))) > 70 ) {
+					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
+						goto _st159;
+					}
+				} else if ( ( (*( p))) >= 65 ) {
+					goto _st159;
+				}
+			} else {
+				goto _st159;
+			}
+			goto _st0;
+		}
+		_out161: cps.cs = 161; goto _out; 
 		_out0: cps.cs = 0; goto _out; 
 		_out1: cps.cs = 1; goto _out; 
-		_out152: cps.cs = 152; goto _out; 
+		_out162: cps.cs = 162; goto _out; 
 		_out2: cps.cs = 2; goto _out; 
 		_out3: cps.cs = 3; goto _out; 
 		_out4: cps.cs = 4; goto _out; 
 		_out5: cps.cs = 5; goto _out; 
 		_out6: cps.cs = 6; goto _out; 
 		_out7: cps.cs = 7; goto _out; 
-		_out153: cps.cs = 153; goto _out; 
+		_out163: cps.cs = 163; goto _out; 
 		_out8: cps.cs = 8; goto _out; 
 		_out9: cps.cs = 9; goto _out; 
 		_out10: cps.cs = 10; goto _out; 
-		_out154: cps.cs = 154; goto _out; 
+		_out164: cps.cs = 164; goto _out; 
 		_out11: cps.cs = 11; goto _out; 
 		_out12: cps.cs = 12; goto _out; 
 		_out13: cps.cs = 13; goto _out; 
@@ -4883,7 +5125,7 @@ const size_t linenum)
 		_out16: cps.cs = 16; goto _out; 
 		_out17: cps.cs = 17; goto _out; 
 		_out18: cps.cs = 18; goto _out; 
-		_out155: cps.cs = 155; goto _out; 
+		_out165: cps.cs = 165; goto _out; 
 		_out19: cps.cs = 19; goto _out; 
 		_out20: cps.cs = 20; goto _out; 
 		_out21: cps.cs = 21; goto _out; 
@@ -4902,7 +5144,7 @@ const size_t linenum)
 		_out34: cps.cs = 34; goto _out; 
 		_out35: cps.cs = 35; goto _out; 
 		_out36: cps.cs = 36; goto _out; 
-		_out156: cps.cs = 156; goto _out; 
+		_out166: cps.cs = 166; goto _out; 
 		_out37: cps.cs = 37; goto _out; 
 		_out38: cps.cs = 38; goto _out; 
 		_out39: cps.cs = 39; goto _out; 
@@ -4914,7 +5156,7 @@ const size_t linenum)
 		_out45: cps.cs = 45; goto _out; 
 		_out46: cps.cs = 46; goto _out; 
 		_out47: cps.cs = 47; goto _out; 
-		_out157: cps.cs = 157; goto _out; 
+		_out167: cps.cs = 167; goto _out; 
 		_out48: cps.cs = 48; goto _out; 
 		_out49: cps.cs = 49; goto _out; 
 		_out50: cps.cs = 50; goto _out; 
@@ -4925,20 +5167,20 @@ const size_t linenum)
 		_out55: cps.cs = 55; goto _out; 
 		_out56: cps.cs = 56; goto _out; 
 		_out57: cps.cs = 57; goto _out; 
-		_out158: cps.cs = 158; goto _out; 
+		_out168: cps.cs = 168; goto _out; 
 		_out58: cps.cs = 58; goto _out; 
-		_out159: cps.cs = 159; goto _out; 
-		_out160: cps.cs = 160; goto _out; 
-		_out161: cps.cs = 161; goto _out; 
+		_out169: cps.cs = 169; goto _out; 
+		_out170: cps.cs = 170; goto _out; 
+		_out171: cps.cs = 171; goto _out; 
 		_out59: cps.cs = 59; goto _out; 
 		_out60: cps.cs = 60; goto _out; 
 		_out61: cps.cs = 61; goto _out; 
 		_out62: cps.cs = 62; goto _out; 
 		_out63: cps.cs = 63; goto _out; 
-		_out162: cps.cs = 162; goto _out; 
+		_out172: cps.cs = 172; goto _out; 
 		_out64: cps.cs = 64; goto _out; 
-		_out163: cps.cs = 163; goto _out; 
-		_out164: cps.cs = 164; goto _out; 
+		_out173: cps.cs = 173; goto _out; 
+		_out174: cps.cs = 174; goto _out; 
 		_out65: cps.cs = 65; goto _out; 
 		_out66: cps.cs = 66; goto _out; 
 		_out67: cps.cs = 67; goto _out; 
@@ -4954,9 +5196,9 @@ const size_t linenum)
 		_out77: cps.cs = 77; goto _out; 
 		_out78: cps.cs = 78; goto _out; 
 		_out79: cps.cs = 79; goto _out; 
-		_out165: cps.cs = 165; goto _out; 
+		_out175: cps.cs = 175; goto _out; 
 		_out80: cps.cs = 80; goto _out; 
-		_out166: cps.cs = 166; goto _out; 
+		_out176: cps.cs = 176; goto _out; 
 		_out81: cps.cs = 81; goto _out; 
 		_out82: cps.cs = 82; goto _out; 
 		_out83: cps.cs = 83; goto _out; 
@@ -4965,7 +5207,7 @@ const size_t linenum)
 		_out86: cps.cs = 86; goto _out; 
 		_out87: cps.cs = 87; goto _out; 
 		_out88: cps.cs = 88; goto _out; 
-		_out167: cps.cs = 167; goto _out; 
+		_out177: cps.cs = 177; goto _out; 
 		_out89: cps.cs = 89; goto _out; 
 		_out90: cps.cs = 90; goto _out; 
 		_out91: cps.cs = 91; goto _out; 
@@ -4976,7 +5218,7 @@ const size_t linenum)
 		_out96: cps.cs = 96; goto _out; 
 		_out97: cps.cs = 97; goto _out; 
 		_out98: cps.cs = 98; goto _out; 
-		_out168: cps.cs = 168; goto _out; 
+		_out178: cps.cs = 178; goto _out; 
 		_out99: cps.cs = 99; goto _out; 
 		_out100: cps.cs = 100; goto _out; 
 		_out101: cps.cs = 101; goto _out; 
@@ -4988,26 +5230,27 @@ const size_t linenum)
 		_out107: cps.cs = 107; goto _out; 
 		_out108: cps.cs = 108; goto _out; 
 		_out109: cps.cs = 109; goto _out; 
-		_out169: cps.cs = 169; goto _out; 
+		_out179: cps.cs = 179; goto _out; 
 		_out110: cps.cs = 110; goto _out; 
-		_out170: cps.cs = 170; goto _out; 
-		_out171: cps.cs = 171; goto _out; 
+		_out180: cps.cs = 180; goto _out; 
+		_out181: cps.cs = 181; goto _out; 
 		_out111: cps.cs = 111; goto _out; 
 		_out112: cps.cs = 112; goto _out; 
 		_out113: cps.cs = 113; goto _out; 
 		_out114: cps.cs = 114; goto _out; 
 		_out115: cps.cs = 115; goto _out; 
-		_out172: cps.cs = 172; goto _out; 
 		_out116: cps.cs = 116; goto _out; 
 		_out117: cps.cs = 117; goto _out; 
 		_out118: cps.cs = 118; goto _out; 
 		_out119: cps.cs = 119; goto _out; 
 		_out120: cps.cs = 120; goto _out; 
+		_out182: cps.cs = 182; goto _out; 
 		_out121: cps.cs = 121; goto _out; 
 		_out122: cps.cs = 122; goto _out; 
 		_out123: cps.cs = 123; goto _out; 
 		_out124: cps.cs = 124; goto _out; 
 		_out125: cps.cs = 125; goto _out; 
+		_out183: cps.cs = 183; goto _out; 
 		_out126: cps.cs = 126; goto _out; 
 		_out127: cps.cs = 127; goto _out; 
 		_out128: cps.cs = 128; goto _out; 
@@ -5019,28 +5262,38 @@ const size_t linenum)
 		_out134: cps.cs = 134; goto _out; 
 		_out135: cps.cs = 135; goto _out; 
 		_out136: cps.cs = 136; goto _out; 
-		_out173: cps.cs = 173; goto _out; 
 		_out137: cps.cs = 137; goto _out; 
 		_out138: cps.cs = 138; goto _out; 
-		_out174: cps.cs = 174; goto _out; 
 		_out139: cps.cs = 139; goto _out; 
 		_out140: cps.cs = 140; goto _out; 
 		_out141: cps.cs = 141; goto _out; 
 		_out142: cps.cs = 142; goto _out; 
 		_out143: cps.cs = 143; goto _out; 
 		_out144: cps.cs = 144; goto _out; 
-		_out175: cps.cs = 175; goto _out; 
 		_out145: cps.cs = 145; goto _out; 
 		_out146: cps.cs = 146; goto _out; 
-		_out176: cps.cs = 176; goto _out; 
+		_out184: cps.cs = 184; goto _out; 
 		_out147: cps.cs = 147; goto _out; 
 		_out148: cps.cs = 148; goto _out; 
+		_out185: cps.cs = 185; goto _out; 
 		_out149: cps.cs = 149; goto _out; 
 		_out150: cps.cs = 150; goto _out; 
+		_out151: cps.cs = 151; goto _out; 
+		_out152: cps.cs = 152; goto _out; 
+		_out153: cps.cs = 153; goto _out; 
+		_out154: cps.cs = 154; goto _out; 
+		_out186: cps.cs = 186; goto _out; 
+		_out155: cps.cs = 155; goto _out; 
+		_out156: cps.cs = 156; goto _out; 
+		_out187: cps.cs = 187; goto _out; 
+		_out157: cps.cs = 157; goto _out; 
+		_out158: cps.cs = 158; goto _out; 
+		_out159: cps.cs = 159; goto _out; 
+		_out160: cps.cs = 160; goto _out; 
 		_out: {}
 	}
 	
-#line 165 "cfg.rl"
+#line 173 "cfg.rl"
 	
 	
 	if (cps.parse_error) return -1;

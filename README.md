@@ -75,6 +75,7 @@ bind4 <interface_name>...
 bind6 <interface_name>...
 default_preference <value>
 default_lifetime <seconds>
+s6_notify <fdnum>
 ```
 
 `user` specifies the username of the account that ndhs will switch to
@@ -101,6 +102,9 @@ valid DHCP6 replies.  This statement takes effect for all subsequent
 
 `default_lifetime` specifies the duration in seconds for which dhcp
 leases will be valid.
+
+`s6_notify` specifies the file descriptor number to which a newline will be
+written after ndhs begins processing requests.
 
 ### Interface-specific Values
 ```
