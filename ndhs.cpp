@@ -161,15 +161,13 @@ void set_s6_notify_fd(size_t /* linenum */, int fd)
 static volatile sig_atomic_t l_signal_exit;
 static void signal_handler(int signo)
 {
-    switch (signo) {
-    case SIGCHLD: {
-        while (waitpid(-1, nullptr, WNOHANG) > -1);
-        break;
+    int serrno = errno;
+    if (signo == SIGINT || signo == SIGTERM) {
+        l_signal_exit = 1;
+    } else if (signo == SIGCHLD) {
+        while (waitpid(-1, NULL, WNOHANG) > 0);
     }
-    case SIGINT:
-    case SIGTERM: l_signal_exit = 1; break;
-    default: break;
-    }
+    errno = serrno;
 }
 
 static void setup_signals_ndhs()
@@ -191,7 +189,7 @@ static void setup_signals_ndhs()
     struct sigaction sa;
     memset(&sa, 0, sizeof sa);
     sa.sa_handler = signal_handler;
-    sa.sa_flags = SA_RESTART;
+    sa.sa_flags = SA_RESTART|SA_NOCLDWAIT;
     if (sigemptyset(&sa.sa_mask))
         suicide("sigemptyset failed");
     for (int i = 0; ss[i] != SIGKILL; ++i)
