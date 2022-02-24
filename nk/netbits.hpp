@@ -35,14 +35,5 @@ static inline uint16_t decode16be(const void *src)
          | (static_cast<uint16_t>(s[1]) & 0xff);
 }
 
-static inline void toggle_bit(bool v, void *data, std::size_t arrayidx, uint32_t bitidx)
-{
-    auto d = reinterpret_cast<char *>(data);
-    if (v)
-        d[arrayidx] |= bitidx;
-    else
-        d[arrayidx] &= ~bitidx;
-}
-
 #endif
 

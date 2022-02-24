@@ -60,7 +60,7 @@ public:
     auto& ifname() const { return ifname_; }
 private:
     bool create_dhcp4_socket();
-    void dhcpmsg_init(dhcpmsg &dm, char type, uint32_t xid) const;
+    void dhcpmsg_init(dhcpmsg &dm, uint8_t type, uint32_t xid) const;
     uint32_t local_ip() const;
     std::string ipStr(uint32_t ip) const;
 

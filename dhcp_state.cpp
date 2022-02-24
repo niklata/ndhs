@@ -85,7 +85,7 @@ static std::optional<std::vector<uint8_t>> dns_label(const std::string &ds)
             return {}; // label too long
         ret.push_back(len);
         for (size_t j = i.first; j < i.second; ++j)
-            ret.push_back(ds[j]);
+            ret.push_back(static_cast<uint8_t>(ds[j]));
     }
     // Terminating zero length label.
     if (ret.size())

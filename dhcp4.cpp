@@ -21,14 +21,16 @@ extern "C" {
 static std::string generateKey(uint32_t xid, uint8_t *hwaddr) {
     std::string ret;
     ret.resize(32);
-    int splen = snprintf(ret.data(), ret.size(), "%u%2.x%2.x%2.x%2.x%2.x%2.x",
-                         xid, hwaddr[0], hwaddr[1], hwaddr[2],
-                         hwaddr[3], hwaddr[4], hwaddr[5]);
-    if (splen < 0)
-        suicide("dhcp4: %s: snprintf failed; return=%d", __func__, splen);
-    if ((size_t)splen >= ret.size())
-        suicide("dhcp4: %s: snprintf dest buffer too small %d >= %zu",
-                __func__, splen, ret.size());
+    size_t splen;
+    {
+        auto t = snprintf(ret.data(), ret.size(), "%u%2.x%2.x%2.x%2.x%2.x%2.x",
+                          xid, hwaddr[0], hwaddr[1], hwaddr[2],
+                          hwaddr[3], hwaddr[4], hwaddr[5]);
+        if (t < 0) suicide("dhcp4: %s: snprintf failed; return=%d", __func__, t);
+        splen = static_cast<size_t>(t);
+    }
+    if (splen >= ret.size()) suicide("dhcp4: %s: snprintf dest buffer too small %zu >= %zu",
+                                     __func__, splen, ret.size());
     ret.resize(splen);
     return ret;
 }
@@ -184,17 +186,17 @@ void D4Listener::process_input()
         sockaddr_storage sai;
         socklen_t sailen = sizeof sai;
         auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, reinterpret_cast<sockaddr *>(&sai), &sailen);
-        if (buflen == -1) {
+        if (buflen < 0) {
             int err = errno;
             if (err == EINTR) continue;
             if (err == EAGAIN || err == EWOULDBLOCK) break;
             suicide("dhcp6: recvfrom failed on %s: %s", ifname_.c_str(), strerror(err));
         }
-        process_receive(buf, buflen);
+        process_receive(buf, static_cast<size_t>(buflen));
     }
 }
 
-void D4Listener::dhcpmsg_init(dhcpmsg &dm, char type, uint32_t xid) const
+void D4Listener::dhcpmsg_init(dhcpmsg &dm, uint8_t type, uint32_t xid) const
 {
     memset(&dm, 0, sizeof (struct dhcpmsg));
     dm.op = 2; // BOOTREPLY (server)
@@ -236,10 +238,8 @@ bool D4Listener::send_to(const void *buf, size_t len, uint32_t addr, int port)
 void D4Listener::send_reply_do(const dhcpmsg &dm, SendReplyType srt)
 {
     ssize_t endloc = get_end_option_idx(&dm);
-    if (endloc < 0)
-        return;
-
-    const auto dmlen = sizeof dm - (sizeof dm.options - 1 - endloc);
+    if (endloc < 0) return;
+    const auto dmlen = sizeof dm - (sizeof dm.options - 1 - static_cast<size_t>(endloc));
 
     switch (srt) {
     case SendReplyType::UnicastCi:

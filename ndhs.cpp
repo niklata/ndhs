@@ -73,13 +73,15 @@ extern void parse_config(const std::string &path);
 
 static void init_listeners()
 {
-    nl_socket = std::make_unique<NLSocket>(bound_interfaces_names());
-    struct pollfd pt;
-    pt.fd = nl_socket->fd();
-    pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
-    pt.revents = 0;
-    poll_vector.push_back(pt);
-    poll_meta.emplace_back(pfd_type::netlink, nl_socket.get());
+    {
+        nl_socket = std::make_unique<NLSocket>(bound_interfaces_names());
+        struct pollfd pt;
+        pt.fd = nl_socket->fd();
+        pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+        pt.revents = 0;
+        poll_vector.push_back(pt);
+        poll_meta.emplace_back(pfd_type::netlink, nl_socket.get());
+    }
 
     {
         auto bin = bound_interfaces_names();

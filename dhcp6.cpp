@@ -113,13 +113,13 @@ void D6Listener::process_input()
         sockaddr_storage sai;
         socklen_t sailen = sizeof sai;
         auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, reinterpret_cast<sockaddr *>(&sai), &sailen);
-        if (buflen == -1) {
+        if (buflen < 0) {
             int err = errno;
             if (err == EINTR) continue;
             if (err == EAGAIN || err == EWOULDBLOCK) break;
             suicide("dhcp6: recvfrom failed on %s: %s", ifname_.c_str(), strerror(err));
         }
-        process_receive(buf, buflen, sai, sailen);
+        process_receive(buf, static_cast<size_t>(buflen), sai, sailen);
     }
 }
 
@@ -275,7 +275,7 @@ bool D6Listener::write_response_header(const d6msg_state &d6s, sbufs &ss,
     if (!send_clientid.write(ss)) return false;
     for (const auto &i: d6s.client_duid_blob) {
         if (ss.si == ss.se) return false;
-        *ss.si++ = i;
+        *ss.si++ = static_cast<char>(i);
     }
 
     if (preference_ > 0) {
@@ -284,7 +284,7 @@ bool D6Listener::write_response_header(const d6msg_state &d6s, sbufs &ss,
         send_pref.length(1);
         if (!send_pref.write(ss)) return false;
         if (ss.si == ss.se) return false;
-        *ss.si++ = preference_;
+        *ss.si++ = static_cast<char>(preference_);
     }
     return true;
 }
@@ -383,7 +383,7 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
         if (!send_dns_search.write(ss)) return false;
         for (const auto &i: *dns6_search_blob) {
             if (ss.si == ss.se) return false;
-            *ss.si++ = i;
+            *ss.si++ = static_cast<char>(i);
         }
     }
     const auto ntp6_servers = query_ntp6_servers(ifname_);
@@ -428,7 +428,7 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
         }
         for (const auto &i: *ntp6_fqdns_blob) {
             if (ss.si == ss.se) return false;
-            *ss.si++ = i;
+            *ss.si++ = static_cast<char>(i);
         }
     }
     if (d6s.optreq_sntp) {
@@ -875,7 +875,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
      sockaddr_in6 sao;
      memcpy(&sao, &sai, sizeof sao);
      sao.sin6_port = htons(546);
-     const size_t slen = ss.si - sbuf;
+     size_t slen = ss.si > sbuf ? static_cast<size_t>(ss.si - sbuf) : 0;
      if (safe_sendto(fd_(), sbuf, slen, 0, reinterpret_cast<const sockaddr *>(&sao), sizeof sao) < 0) {
          log_line("dhcp6: sendto failed on %s: %s", ifname_.c_str(), strerror(errno));
          return;

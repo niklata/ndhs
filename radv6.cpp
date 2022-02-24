@@ -25,6 +25,13 @@ extern "C" {
 #include "nk/io.h"
 }
 
+static inline void toggle_bit(bool v, void *data, std::size_t arrayidx, unsigned char bitidx)
+{
+    auto d = reinterpret_cast<unsigned char *>(data);
+    if (v) d[arrayidx] |= bitidx;
+    else d[arrayidx] &= ~bitidx;
+}
+
 /* XXX: Configuration options:
  *
  * is_router = false :: Can we forward packets to/from the interface?
@@ -317,11 +324,11 @@ public:
     uint8_t type() const { return data_[0]; }
     uint8_t length() const { return data_[1] * 8; }
     uint32_t lifetime() const { return decode32be(data_ + 4); }
-    size_t length(size_t size) {
-        data_[1] = 1 + size / 8;
-        size_t slack = size % 8;
+    size_t length(size_t sz) {
+        data_[1] = 1 + sz / 8;
+        size_t slack = sz % 8;
         data_[1] += slack > 0 ? 1 : 0;
-        return 8 * data_[1] - (8 + size);
+        return 8 * data_[1] - (8 + sz);
     }
     void lifetime(uint32_t v) { encode32be(v, data_ + 4); }
     static const std::size_t size = 8;
@@ -388,13 +395,13 @@ void RA6Listener::process_input()
         sockaddr_storage sai;
         socklen_t sailen = sizeof sai;
         auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, reinterpret_cast<sockaddr *>(&sai), &sailen);
-        if (buflen == -1) {
+        if (buflen < 0) {
             int err = errno;
             if (err == EINTR) continue;
             if (err == EAGAIN || err == EWOULDBLOCK) break;
             suicide("ra6: recvfrom failed on %s: %s", ifname_.c_str(), strerror(err));
         }
-        process_receive(buf, buflen, sai, sailen);
+        process_receive(buf, static_cast<size_t>(buflen), sai, sailen);
     }
 }
 
@@ -413,7 +420,7 @@ void RA6Listener::set_advi_s_max(unsigned int v)
 void RA6Listener::set_next_advert_ts()
 {
     unsigned int advi_s_min = std::max(advi_s_max_ / 3, 3U);
-    std::uniform_int_distribution<> dist(advi_s_min, advi_s_max_);
+    std::uniform_int_distribution<unsigned> dist(advi_s_min, advi_s_max_);
     random_u64_wrapper r64w;
     auto advi_s = dist(r64w);
     advert_ts_ = std::chrono::steady_clock::now() + std::chrono::seconds(advi_s);
@@ -539,14 +546,14 @@ bool RA6Listener::send_advert()
         if (!ra6_dsrch.write(ss)) return false;
         for (const auto &i: *dns_search_blob) {
             if (ss.si == ss.se) return false;
-            *ss.si++ = i;
+            *ss.si++ = static_cast<char>(i);
         }
         for (size_t i = 0; i < dns_search_slack; ++i) {
             if (ss.si == ss.se) return false;
             *ss.si++ = 0;
         }
     }
-    const size_t slen = ss.si - sbuf;
+    const size_t slen = ss.si > sbuf ? static_cast<size_t>(ss.si - sbuf) : 0;
 
     if (safe_sendto(fd_(), sbuf, slen, 0, reinterpret_cast<const sockaddr *>(&mc6_allhosts), sizeof mc6_allhosts) < 0) {
         log_line("ra6: sendto failed on %s: %s", ifname_.c_str(), strerror(errno));
@@ -627,8 +634,8 @@ void RA6Listener::process_receive(char *buf, std::size_t buflen,
 
     // Only the source link-layer address option is defined.
     while (rs.se - rs.si >= 2) {
-        uint8_t opt_type = *rs.si++;
-        size_t opt_length = 8 * (*rs.si++);
+        auto opt_type = static_cast<uint8_t>(*rs.si++);
+        size_t opt_length = 8 * static_cast<uint8_t>(*rs.si++);
         // Discard if any included option has a length <= 0.
         if (opt_length <= 0) {
             log_line("ra6: Solicitation option length <= 0 on %s", ifname_.c_str());
@@ -646,7 +653,7 @@ void RA6Listener::process_receive(char *buf, std::size_t buflen,
                 }
                 got_macaddr = true;
                 for (size_t i = 0; i < sizeof macaddr; ++i) {
-                    macaddr[i] = *rs.si++;
+                    macaddr[i] = static_cast<uint8_t>(*rs.si++);
                 }
             } else {
                 log_line("ra6: Source Link-Layer Address is wrong size for ethernet on %s", ifname_.c_str());

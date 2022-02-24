@@ -61,13 +61,13 @@ void NLSocket::process_input()
     char buf[8192];
     for (;;) {
         auto buflen = recv(fd_(), buf, sizeof buf, MSG_DONTWAIT);
-        if (buflen == -1) {
+        if (buflen < 0) {
             int err = errno;
             if (err == EINTR) continue;
             if (err == EAGAIN || err == EWOULDBLOCK) break;
             suicide("nlsocket: recv failed: %s", strerror(err));
         }
-        process_receive(buf, buflen, 0, 0);
+        process_receive(buf, static_cast<size_t>(buflen), 0, 0);
     }
 }
 
@@ -81,7 +81,7 @@ void NLSocket::request_links()
 void NLSocket::request_addrs(int ifidx)
 {
     auto addr_seq = nlseq_++;
-    if (nl_sendgetaddr(fd_(), addr_seq, ifidx) < 0)
+    if (nl_sendgetaddr(fd_(), addr_seq, static_cast<uint32_t>(ifidx)) < 0)
         suicide("nlsocket: failed to get initial rtaddr state");
 }
 
@@ -107,7 +107,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
         return;
     nia.prefixlen = ifa->ifa_prefixlen;
     nia.flags = ifa->ifa_flags;
-    nia.if_index = ifa->ifa_index;
+    nia.if_index = static_cast<int>(ifa->ifa_index);
     switch (ifa->ifa_scope) {
     case RT_SCOPE_UNIVERSE: nia.scope = netif_addr::Scope::Global; break;
     case RT_SCOPE_SITE: nia.scope = netif_addr::Scope::Site; break;
@@ -153,8 +153,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
             log_line("nlsocket: Address for unknown interface %s", nia.if_name.c_str());
             return;
         }
-        const auto iend = ifelt->second.addrs.end();
-        for (auto i = ifelt->second.addrs.begin(); i != iend; ++i) {
+        for (auto i = ifelt->second.addrs.begin(), iend = ifelt->second.addrs.end(); i != iend; ++i) {
             if (i->address == nia.address) {
                 *i = std::move(nia);
                 return;
@@ -178,8 +177,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
         auto ifelt = interfaces_.find(nia.if_index);
         if (ifelt == interfaces_.end())
             return;
-        const auto iend = ifelt->second.addrs.end();
-        for (auto i = ifelt->second.addrs.begin(); i != iend; ++i) {
+        for (auto i = ifelt->second.addrs.begin(), iend = ifelt->second.addrs.end(); i != iend; ++i) {
             if (i->address == nia.address) {
                 ifelt->second.addrs.erase(i);
                 break;

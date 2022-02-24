@@ -43,6 +43,8 @@ struct cfg_parse_state {
     bool parse_error;
 };
 
+#define MARKED_STRING() cps.st, (p > cps.st ? static_cast<size_t>(p - cps.st) : 0)
+
 static inline std::string lc_string(const char *s, size_t slen)
 {
     auto r = std::string(s, slen);
@@ -56,50 +58,50 @@ static inline std::string lc_string(const char *s, size_t slen)
 
     action St { cps.st = p; }
 
-    action DuidEn { cps.duid = lc_string(cps.st, p - cps.st); }
-    action IaidEn { cps.iaid = lc_string(cps.st, p - cps.st); }
-    action MacAddrEn { cps.macaddr = lc_string(cps.st, p - cps.st); }
+    action DuidEn { cps.duid = lc_string(MARKED_STRING()); }
+    action IaidEn { cps.iaid = lc_string(MARKED_STRING()); }
+    action MacAddrEn { cps.macaddr = lc_string(MARKED_STRING()); }
     action V4AddrEn {
-        cps.ipaddr = lc_string(cps.st, p - cps.st);
+        cps.ipaddr = lc_string(MARKED_STRING());
         cps.last_addr = addr_type::v4;
     }
     action V6AddrEn {
-        cps.ipaddr = lc_string(cps.st, p - cps.st);
+        cps.ipaddr = lc_string(MARKED_STRING());
         cps.last_addr = addr_type::v6;
     }
-    action Bind4En { emplace_bind(linenum, std::string(cps.st, p - cps.st), true); }
-    action Bind6En { emplace_bind(linenum, std::string(cps.st, p - cps.st), false); }
-    action UserEn { set_user_runas(linenum, std::string(cps.st, p - cps.st)); }
-    action ChrootEn { set_chroot_path(linenum, std::string(cps.st, p - cps.st)); }
+    action Bind4En { emplace_bind(linenum, std::string(MARKED_STRING()), true); }
+    action Bind6En { emplace_bind(linenum, std::string(MARKED_STRING()), false); }
+    action UserEn { set_user_runas(linenum, std::string(MARKED_STRING())); }
+    action ChrootEn { set_chroot_path(linenum, std::string(MARKED_STRING())); }
     action S6NotifyEn {
-        if (auto t = nk::from_string<int>(cps.st, p - cps.st)) set_s6_notify_fd(linenum, *t); else {
+        if (auto t = nk::from_string<int>(MARKED_STRING())) set_s6_notify_fd(linenum, *t); else {
             cps.parse_error = true;
             fbreak;
         }
     }
     action DefLifeEn {
-        if (auto t = nk::from_string<uint32_t>(cps.st, p - cps.st)) cps.default_lifetime = *t; else {
+        if (auto t = nk::from_string<uint32_t>(MARKED_STRING())) cps.default_lifetime = *t; else {
             cps.parse_error = true;
             fbreak;
         }
     }
     action DefPrefEn {
-        if (auto t = nk::from_string<uint8_t>(cps.st, p - cps.st)) cps.default_preference = *t; else {
+        if (auto t = nk::from_string<uint8_t>(MARKED_STRING())) cps.default_preference = *t; else {
             log_line("default_preference on line %zu out of range [0,255]: %s",
-                     linenum, std::string(cps.st, p - cps.st).c_str());
+                     linenum, std::string(MARKED_STRING()).c_str());
             cps.parse_error = true;
             fbreak;
         }
     }
     action InterfaceEn {
-        cps.interface = std::string(cps.st, p - cps.st);
+        cps.interface = std::string(MARKED_STRING());
         emplace_interface(linenum, cps.interface, cps.default_preference);
     }
     action DnsServerEn {
         emplace_dns_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
     }
     action DnsSearchEn {
-        emplace_dns_search(linenum, cps.interface, std::string(cps.st, p - cps.st));
+        emplace_dns_search(linenum, cps.interface, std::string(MARKED_STRING()));
     }
     action NtpServerEn {
         emplace_ntp_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);

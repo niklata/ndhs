@@ -99,7 +99,7 @@ private:
     std::vector<std::string> ifnames_;
     std::optional<int> query_ifindex_;
     nk::sys::handle fd_;
-    int nlseq_;
+    uint32_t nlseq_;
     bool got_newlink_:1;
 };
 

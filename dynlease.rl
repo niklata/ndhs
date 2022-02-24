@@ -26,7 +26,7 @@ struct lease_state_v4
     {
         assert(ma.size() == 6);
         for (unsigned i = 0; i < 6; ++i)
-            macaddr[i] = ma[i];
+            macaddr[i] = static_cast<uint8_t>(ma[i]);
     }
     lease_state_v4(nk::ip_address &&addr_, const uint8_t *ma, int64_t et)
         : addr(std::move(addr_)), expire_time(et)
@@ -39,7 +39,7 @@ struct lease_state_v4
     {
         assert(ma.size() == 6);
         for (unsigned i = 0; i < 6; ++i)
-            macaddr[i] = ma[i];
+            macaddr[i] = static_cast<uint8_t>(ma[i]);
     }
     lease_state_v4(const nk::ip_address &addr_, const uint8_t *ma, int64_t et)
         : addr(addr_), expire_time(et)
@@ -296,17 +296,19 @@ bool dynlease_serialize(const std::string &path)
             if (get_current_ts() >= j.expire_time)
                 continue;
             char wbuf[1024];
-            int splen = snprintf(wbuf, sizeof wbuf, "v4 %s %s %2.x%2.x%2.x%2.x%2.x%2.x %zu\n",
+            size_t splen;
+            {
+                int t = snprintf(wbuf, sizeof wbuf, "v4 %s %s %2.x%2.x%2.x%2.x%2.x%2.x %zu\n",
                                  iface.c_str(), j.addr.to_string().c_str(),
                                  j.macaddr[0], j.macaddr[1], j.macaddr[2],
                                  j.macaddr[3], j.macaddr[4], j.macaddr[5], j.expire_time);
-            if (splen < 0)
-                suicide("%s: snprintf failed; return=%d", __func__, splen);
-            if ((size_t)splen >= sizeof wbuf)
-                suicide("%s: snprintf dest buffer too small %d >= %zu",
-                        __func__, splen, sizeof wbuf);
+                if (t < 0) suicide("%s: snprintf failed; return=%d", __func__, t);
+                splen = static_cast<size_t>(t);
+            }
+            if (splen >= sizeof wbuf)
+                suicide("%s: snprintf dest buffer too small %zu >= %zu", __func__, splen, sizeof wbuf);
             const auto fs = fwrite(wbuf, 1, splen, f);
-            if (fs != (size_t)splen) {
+            if (fs != splen) {
                 log_line("%s: short write %zd < %zu\n", __func__, fs, sizeof wbuf);
                 return false;
             }
@@ -387,6 +389,8 @@ struct cfg_parse_state {
     bool parse_error;
 };
 
+#define MARKED_STRING() cps.st, (p > cps.st ? static_cast<size_t>(p - cps.st) : 0)
+
 static inline std::string lc_string(const char *s, size_t slen)
 {
     auto r = std::string(s, slen);
@@ -400,19 +404,19 @@ static inline std::string lc_string(const char *s, size_t slen)
 
     action St { cps.st = p; }
 
-    action InterfaceEn { cps.interface = std::string(cps.st, p - cps.st); }
-    action DuidEn { cps.duid = lc_string(cps.st, p - cps.st); }
+    action InterfaceEn { cps.interface = std::string(MARKED_STRING()); }
+    action DuidEn { cps.duid = lc_string(MARKED_STRING()); }
     action IaidEn {
-        if (auto t = nk::from_string<uint32_t>(lc_string(cps.st, p - cps.st))) cps.iaid = *t; else {
+        if (auto t = nk::from_string<uint32_t>(lc_string(MARKED_STRING()))) cps.iaid = *t; else {
             cps.parse_error = true;
             fbreak;
         }
     }
-    action MacAddrEn { cps.macaddr = lc_string(cps.st, p - cps.st); }
-    action V4AddrEn { cps.v4_addr = lc_string(cps.st, p - cps.st); }
-    action V6AddrEn { cps.v6_addr = lc_string(cps.st, p - cps.st); }
+    action MacAddrEn { cps.macaddr = lc_string(MARKED_STRING()); }
+    action V4AddrEn { cps.v4_addr = lc_string(MARKED_STRING()); }
+    action V6AddrEn { cps.v6_addr = lc_string(MARKED_STRING()); }
     action ExpireTimeEn {
-        if (auto t = nk::from_string<int64_t>(std::string(cps.st, p - cps.st))) cps.expire_time = *t; else {
+        if (auto t = nk::from_string<int64_t>(std::string(MARKED_STRING()))) cps.expire_time = *t; else {
             cps.parse_error = true;
             fbreak;
         }

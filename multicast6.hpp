@@ -44,7 +44,7 @@ extern std::unique_ptr<NLSocket> nl_socket;
     }
     struct ipv6_mreq mr;
     memcpy(&mr.ipv6mr_multiaddr, &mc6addr.sin6_addr, sizeof mc6addr.sin6_addr);
-    mr.ipv6mr_interface = ifidx;
+    mr.ipv6mr_interface = static_cast<unsigned>(ifidx);
     if (setsockopt(fd, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &mr, sizeof mr) < 0) {
         log_line("failed to join router multicast group for socket: %s", strerror(errno));
         return false;

@@ -266,7 +266,7 @@ private:
     std::string ifname_;
     nk::sys::handle fd_;
     bool using_bpf_:1;
-    char prefixlen_;
+    unsigned char prefixlen_;
     uint8_t preference_;
 
     [[nodiscard]] bool options_consume(d6msg_state &d6s, size_t v);

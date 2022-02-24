@@ -15,7 +15,7 @@ struct sbufs {
     char *se;
 
     size_t brem() const {
-        return se >= si ? se - si : 0;
+        return se >= si ? static_cast<size_t>(se - si) : 0;
     }
 };
 
