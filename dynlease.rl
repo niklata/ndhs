@@ -296,17 +296,12 @@ bool dynlease_serialize(const std::string &path)
             if (get_current_ts() >= j.expire_time)
                 continue;
             char wbuf[1024];
-            size_t splen;
-            {
-                int t = snprintf(wbuf, sizeof wbuf, "v4 %s %s %2.x%2.x%2.x%2.x%2.x%2.x %zu\n",
-                                 iface.c_str(), j.addr.to_string().c_str(),
-                                 j.macaddr[0], j.macaddr[1], j.macaddr[2],
-                                 j.macaddr[3], j.macaddr[4], j.macaddr[5], j.expire_time);
-                if (t < 0) suicide("%s: snprintf failed; return=%d", __func__, t);
-                splen = static_cast<size_t>(t);
-            }
-            if (splen >= sizeof wbuf)
-                suicide("%s: snprintf dest buffer too small %zu >= %zu", __func__, splen, sizeof wbuf);
+            int t = snprintf(wbuf, sizeof wbuf, "v4 %s %s %2.x%2.x%2.x%2.x%2.x%2.x %zu\n",
+                             iface.c_str(), j.addr.to_string().c_str(),
+                             j.macaddr[0], j.macaddr[1], j.macaddr[2],
+                             j.macaddr[3], j.macaddr[4], j.macaddr[5], j.expire_time);
+            if (t < 0 || static_cast<size_t>(t) > sizeof wbuf) suicide("%s: snprintf failed; return=%d", __func__, t);
+            size_t splen = static_cast<size_t>(t);
             const auto fs = fwrite(wbuf, 1, splen, f);
             if (fs != splen) {
                 log_line("%s: short write %zd < %zu\n", __func__, fs, sizeof wbuf);

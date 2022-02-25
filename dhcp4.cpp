@@ -21,17 +21,12 @@ extern "C" {
 static std::string generateKey(uint32_t xid, uint8_t *hwaddr) {
     std::string ret;
     ret.resize(32);
-    size_t splen;
-    {
-        auto t = snprintf(ret.data(), ret.size(), "%u%2.x%2.x%2.x%2.x%2.x%2.x",
-                          xid, hwaddr[0], hwaddr[1], hwaddr[2],
-                          hwaddr[3], hwaddr[4], hwaddr[5]);
-        if (t < 0) suicide("dhcp4: %s: snprintf failed; return=%d", __func__, t);
-        splen = static_cast<size_t>(t);
-    }
-    if (splen >= ret.size()) suicide("dhcp4: %s: snprintf dest buffer too small %zu >= %zu",
-                                     __func__, splen, ret.size());
-    ret.resize(splen);
+    auto t = snprintf(ret.data(), ret.size(), "%u%2.x%2.x%2.x%2.x%2.x%2.x",
+                      xid, hwaddr[0], hwaddr[1], hwaddr[2],
+                      hwaddr[3], hwaddr[4], hwaddr[5]);
+    if (t < 0 || static_cast<size_t>(t) > ret.size())
+        suicide("dhcp4: %s: snprintf failed; return=%d", __func__, t);
+    ret.resize(static_cast<size_t>(t));
     return ret;
 }
 
