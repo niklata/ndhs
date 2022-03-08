@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include <nk/scopeguard.hpp>
 extern "C" {
+#include "nk/stb_sprintf.h"
 #include "nk/io.h"
 #include "nk/log.h"
 }
@@ -26,10 +27,10 @@ static void print_duid()
     std::string str;
     str.append("DUID is '");
     char tbuf[16] = {0};
-    snprintf(tbuf, sizeof tbuf, "%.2hhx", static_cast<uint8_t>(g_server_duid[0]));
+    stbsp_snprintf(tbuf, sizeof tbuf, "%.2hhx", static_cast<uint8_t>(g_server_duid[0]));
     str.append(tbuf);
     for (unsigned i = 1; i < g_server_duid_len; ++i) {
-        snprintf(tbuf, sizeof tbuf, "-%.2hhx", static_cast<uint8_t>(g_server_duid[i]));
+        stbsp_snprintf(tbuf, sizeof tbuf, "-%.2hhx", static_cast<uint8_t>(g_server_duid[i]));
         str.append(tbuf);
     }
     str.append("'");

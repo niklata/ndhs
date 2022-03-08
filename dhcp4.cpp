@@ -11,6 +11,7 @@
 #include "dynlease.hpp"
 #include "sbufs.h"
 extern "C" {
+#include "nk/stb_sprintf.h"
 #include "nk/log.h"
 #include "nk/io.h"
 #include "options.h"
@@ -21,9 +22,9 @@ extern "C" {
 static std::string generateKey(uint32_t xid, uint8_t *hwaddr) {
     std::string ret;
     ret.resize(32);
-    auto t = snprintf(ret.data(), ret.size(), "%u%2.x%2.x%2.x%2.x%2.x%2.x",
-                      xid, hwaddr[0], hwaddr[1], hwaddr[2],
-                      hwaddr[3], hwaddr[4], hwaddr[5]);
+    auto t = stbsp_snprintf(ret.data(), ret.size(), "%u%2.x%2.x%2.x%2.x%2.x%2.x",
+                            xid, hwaddr[0], hwaddr[1], hwaddr[2],
+                            hwaddr[3], hwaddr[4], hwaddr[5]);
     if (t < 0 || static_cast<size_t>(t) > ret.size())
         suicide("dhcp4: %s: snprintf failed; return=%d", __func__, t);
     ret.resize(static_cast<size_t>(t));

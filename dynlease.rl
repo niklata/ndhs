@@ -12,6 +12,7 @@
 #include <nk/from_string.hpp>
 #include <nk/net/ip_address.hpp>
 extern "C" {
+#include "nk/stb_sprintf.h"
 #include "nk/log.h"
 }
 
@@ -296,10 +297,10 @@ bool dynlease_serialize(const std::string &path)
             if (get_current_ts() >= j.expire_time)
                 continue;
             char wbuf[1024];
-            int t = snprintf(wbuf, sizeof wbuf, "v4 %s %s %2.x%2.x%2.x%2.x%2.x%2.x %zu\n",
-                             iface.c_str(), j.addr.to_string().c_str(),
-                             j.macaddr[0], j.macaddr[1], j.macaddr[2],
-                             j.macaddr[3], j.macaddr[4], j.macaddr[5], j.expire_time);
+            int t = stbsp_snprintf(wbuf, sizeof wbuf, "v4 %s %s %2.x%2.x%2.x%2.x%2.x%2.x %zu\n",
+                                   iface.c_str(), j.addr.to_string().c_str(),
+                                   j.macaddr[0], j.macaddr[1], j.macaddr[2],
+                                   j.macaddr[3], j.macaddr[4], j.macaddr[5], j.expire_time);
             if (t < 0 || static_cast<size_t>(t) > sizeof wbuf) suicide("%s: snprintf failed; return=%d", __func__, t);
             size_t splen = static_cast<size_t>(t);
             const auto fs = fwrite(wbuf, 1, splen, f);
@@ -325,7 +326,7 @@ bool dynlease_serialize(const std::string &path)
             wbuf.append(" ");
             for (const auto &k: j.duid) {
                 char tbuf[16];
-                snprintf(tbuf, sizeof tbuf, "%.2hhx", k);
+                stbsp_snprintf(tbuf, sizeof tbuf, "%.2hhx", k);
                 wbuf.append(tbuf);
             }
             wbuf.append(" ");
