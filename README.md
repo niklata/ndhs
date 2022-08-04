@@ -231,6 +231,7 @@ routing duties.
 ## Downloads
 
 * [GitLab](https://gitlab.com/niklata/ndhs)
+* [Codeberg](https://codeberg.org/niklata/ndhs)
 * [BitBucket](https://bitbucket.com/niklata/ndhs)
 * [GitHub](https://github.com/niklata/ndhs)
 
