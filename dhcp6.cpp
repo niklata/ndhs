@@ -8,7 +8,6 @@
 #include "attach_bpf.h"
 #include "duid.hpp"
 extern "C" {
-#include "nk/stb_sprintf.h"
 #include "nk/io.h"
 }
 
@@ -668,7 +667,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
                  memcpy(&c, rs.si++, 1);
                  d6s.client_duid_blob.push_back(c);
                  char tbuf[16];
-                 stbsp_snprintf(tbuf, sizeof tbuf, "%.2hhx", c); // fixed len, safe
+                 snprintf(tbuf, sizeof tbuf, "%.2hhx", c); // fixed len, safe
                  d6s.client_duid.append(tbuf);
                  OPTIONS_CONSUME(1);
              }
@@ -682,7 +681,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
                  memcpy(&c, rs.si++, 1);
                  d6s.server_duid_blob.push_back(c);
                  char tbuf[16];
-                 stbsp_snprintf(tbuf, sizeof tbuf, "%.2hhx", c); // fixed len, safe
+                 snprintf(tbuf, sizeof tbuf, "%.2hhx", c); // fixed len, safe
                  tmpstr.append(tbuf);
                  OPTIONS_CONSUME(1);
              }
