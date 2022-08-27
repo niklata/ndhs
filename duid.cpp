@@ -51,7 +51,7 @@ static void generate_duid()
     memcpy(g_server_duid + off, &r1, sizeof r1);
     off += sizeof r1;
 
-    const auto fd = open(DUID_PATH, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+    const auto fd = open(DUID_PATH, O_WRONLY|O_TRUNC|O_CREAT|O_CLOEXEC, 0644);
     if (fd < 0) suicide("%s: failed to open %s for write", __func__, DUID_PATH);
     SCOPE_EXIT { close(fd); };
     const auto r = safe_write(fd, g_server_duid, g_server_duid_len);
@@ -62,7 +62,7 @@ static void generate_duid()
 
 void duid_load_from_file()
 {
-    const auto fd = open(DUID_PATH, O_RDONLY, 0);
+    const auto fd = open(DUID_PATH, O_RDONLY|O_CLOEXEC, 0);
     if (fd < 0) {
         log_line("No DUID found.  Generating a DUID.");
         generate_duid();
