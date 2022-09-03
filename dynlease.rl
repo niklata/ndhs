@@ -17,6 +17,10 @@ extern "C" {
 
 #define MAX_LINE 2048
 
+#ifdef __GNUC__
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+#endif
+
 extern int64_t get_current_ts();
 
 struct lease_state_v4

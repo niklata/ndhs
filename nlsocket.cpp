@@ -11,6 +11,11 @@ extern "C" {
 #include "nl.h"
 }
 
+// The NLMSG_* macros include c-style casts.
+#ifdef __GNUC__
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+#endif
+
 NLSocket::NLSocket(std::vector<std::string> &&ifnames)
     : ifnames_(std::move(ifnames)), nlseq_(random_u64()), got_newlink_(false)
 {
@@ -270,7 +275,7 @@ void NLSocket::process_nlmsg(const struct nlmsghdr *nlh)
 void NLSocket::process_receive(const char *buf, std::size_t bytes_xferred,
                                unsigned seq, unsigned portid)
 {
-    const struct nlmsghdr *nlh = (const struct nlmsghdr *)buf;
+    auto nlh = reinterpret_cast<const struct nlmsghdr *>(buf);
     for (;NLMSG_OK(nlh, bytes_xferred); nlh = NLMSG_NEXT(nlh, bytes_xferred)) {
         // Should be 0 for messages from the kernel.
         if (nlh->nlmsg_pid && portid && nlh->nlmsg_pid != portid)

@@ -185,7 +185,7 @@ static void setup_signals_ndhs()
             suicide("sigdelset failed");
     if (sigaddset(&mask, SIGPIPE))
         suicide("sigaddset failed");
-    if (sigprocmask(SIG_SETMASK, &mask, static_cast<sigset_t *>(nullptr)) < 0)
+    if (sigprocmask(SIG_SETMASK, &mask, nullptr) < 0)
         suicide("sigprocmask failed");
 
     struct sigaction sa;
@@ -235,13 +235,13 @@ static void print_version()
 static void process_options(int ac, char *av[])
 {
     static struct option long_options[] = {
-        {"config", 1, (int *)0, 'c'},
-        {"version", 0, (int *)0, 'v'},
-        {"help", 0, (int *)0, 'h'},
-        {(const char *)0, 0, (int *)0, 0 }
+        {"config", 1, nullptr, 'c'},
+        {"version", 0, nullptr, 'v'},
+        {"help", 0, nullptr, 'h'},
+        {nullptr, 0, nullptr, 0 }
     };
     for (;;) {
-        auto c = getopt_long(ac, av, "c:vh", long_options, (int *)0);
+        auto c = getopt_long(ac, av, "c:vh", long_options, nullptr);
         if (c == -1) break;
         switch (c) {
             case 'c': configfile = optarg; break;

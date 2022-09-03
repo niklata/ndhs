@@ -222,7 +222,7 @@ bool D4Listener::send_to(const void *buf, size_t len, uint32_t addr, int port)
     sai.sin_family = AF_INET;
     sai.sin_port = htons(port);
     sai.sin_addr.s_addr = addr;
-    const auto r = safe_sendto(fd_(), (const char *)buf, len, 0, reinterpret_cast<const sockaddr *>(&sai), sizeof sai);
+    const auto r = safe_sendto(fd_(), static_cast<const char *>(buf), len, 0, reinterpret_cast<const sockaddr *>(&sai), sizeof sai);
     if (r < 0) {
         log_line("dhcp4: D4Listener sendto failed: %s", strerror(errno));
         return false;

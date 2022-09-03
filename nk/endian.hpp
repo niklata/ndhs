@@ -100,7 +100,7 @@ namespace nk {
     template<class T, std::size_t... N>
     constexpr T cexpr_bswap_impl(T i, std::index_sequence<N...>)
     {
-        return ((((i >> (N * CHAR_BIT)) & (T)(unsigned char)(-1)) << ((sizeof(T) - 1 - N) * CHAR_BIT)) | ...);
+        return ((((i >> (N * CHAR_BIT)) & static_cast<T>(static_cast<unsigned char>(-1))) << ((sizeof(T) - 1 - N) * CHAR_BIT)) | ...);
     }
     template<class T, class U = typename std::make_unsigned<T>::type>
     constexpr U cexpr_bswap(T i)

@@ -52,7 +52,7 @@ std::string ip_address::to_string() const
         auto c = reinterpret_cast<const char *>(&addr_);
         memcpy(&a4, c + 12, 4);
         inet_ntop(AF_INET, &a4, b, sizeof b);
-    } else inet_ntop(AF_INET6, (void *)&addr_, b, sizeof b);
+    } else inet_ntop(AF_INET6, &addr_, b, sizeof b);
     return std::string{ b };
 }
 

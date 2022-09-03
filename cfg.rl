@@ -14,6 +14,10 @@ extern void set_s6_notify_fd(size_t linenum, int fd);
 
 #define MAX_LINE 2048
 
+#ifdef __GNUC__
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+#endif
+
 extern void create_dns_search_blob();
 
 struct cfg_parse_state {

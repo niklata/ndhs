@@ -23,7 +23,7 @@ namespace detail {
     template <typename T>
     static inline T nk_get_hwrng_v() {
         T r;
-        nk_hwrng_bytes((char *)&r, sizeof r);
+        nk_hwrng_bytes(&r, sizeof r);
         return r;
     }
 }
