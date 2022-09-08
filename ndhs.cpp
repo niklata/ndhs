@@ -166,8 +166,6 @@ static void signal_handler(int signo)
     int serrno = errno;
     if (signo == SIGINT || signo == SIGTERM) {
         l_signal_exit = 1;
-    } else if (signo == SIGCHLD) {
-        while (waitpid(-1, NULL, WNOHANG) > 0);
     }
     errno = serrno;
 }
@@ -175,7 +173,7 @@ static void signal_handler(int signo)
 static void setup_signals_ndhs()
 {
     static const int ss[] = {
-        SIGCHLD, SIGINT, SIGTERM, SIGKILL
+        SIGINT, SIGTERM, SIGKILL
     };
     sigset_t mask;
     if (sigprocmask(0, 0, &mask) < 0)
@@ -191,12 +189,16 @@ static void setup_signals_ndhs()
     struct sigaction sa;
     memset(&sa, 0, sizeof sa);
     sa.sa_handler = signal_handler;
-    sa.sa_flags = SA_RESTART|SA_NOCLDWAIT;
+    sa.sa_flags = SA_RESTART;
     if (sigemptyset(&sa.sa_mask))
         suicide("sigemptyset failed");
     for (int i = 0; ss[i] != SIGKILL; ++i)
         if (sigaction(ss[i], &sa, NULL))
             suicide("sigaction failed");
+    sa.sa_handler = SIG_IGN;
+    sa.sa_flags = SA_NOCLDWAIT;
+    if (sigaction(SIGCHLD, &sa, NULL))
+        suicide("sigaction failed");
 }
 
 static void usage()
