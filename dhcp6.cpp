@@ -877,7 +877,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
      sao.sin6_port = htons(546);
      size_t slen = ss.si > sbuf ? static_cast<size_t>(ss.si - sbuf) : 0;
      if (safe_sendto(fd_(), sbuf, slen, 0, reinterpret_cast<const sockaddr *>(&sao), sizeof sao) < 0) {
-         log_line("dhcp6: sendto failed on %s: %s", ifname_.c_str(), strerror(errno));
+         log_line("dhcp6: sendto (%s) failed on %s: %s", sip_str, ifname_.c_str(), strerror(errno));
          return;
      }
 }
