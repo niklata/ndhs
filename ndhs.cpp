@@ -290,6 +290,7 @@ int main(int ac, char *av[])
             auto t = i->send_periodic_advert();
             timeout = std::min(timeout, t);
         }
+        dynlease_gc();
         if (poll(poll_vector.data(), poll_vector.size(), timeout > 0 ? timeout : 0) < 0) {
             if (errno != EINTR) suicide("poll failed");
         }

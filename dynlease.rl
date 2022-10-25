@@ -130,6 +130,16 @@ size_t dynlease6_count(const std::string &interface)
     return si->second.size();
 }
 
+void dynlease_gc()
+{
+    for (auto &i: dyn_leases_v4) {
+        std::erase_if(i.second, [](lease_state_v4 &x){ return x.expire_time < get_current_ts(); });
+    }
+    for (auto &i: dyn_leases_v6) {
+        std::erase_if(i.second, [](lease_state_v6 &x){ return x.expire_time < get_current_ts(); });
+    }
+}
+
 bool dynlease_add(const std::string &interface, const nk::ip_address &v4_addr, const uint8_t *macaddr,
                   int64_t expire_time)
 {

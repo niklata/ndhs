@@ -8,6 +8,7 @@
 
 size_t dynlease4_count(const std::string &interface);
 size_t dynlease6_count(const std::string &interface);
+void dynlease_gc();
 bool dynlease_add(const std::string &interface, const nk::ip_address &addr,
                   const uint8_t *macaddr, int64_t expire_time);
 bool dynlease_add(const std::string &interface, const nk::ip_address &addr,
