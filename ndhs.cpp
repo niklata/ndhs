@@ -20,7 +20,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <fcntl.h>
-#include <ctype.h>
 #include <pwd.h>
 #include <grp.h>
 #include <signal.h>
