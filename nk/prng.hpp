@@ -32,12 +32,9 @@ struct sfc64 final
 
     constexpr std::tuple<uint64_t, uint64_t, uint64_t, uint64_t> save() const { return std::make_tuple(s_[0], s_[1], s_[2], s_[3]); }
     constexpr void load(uint64_t a, uint64_t b, uint64_t c, uint64_t d) { s_[0] = a; s_[1] = b; s_[2] = c; s_[3] = d; }
-    // Modified to use a Weyl generator for the counter.
-    // This generator is also faster.
     constexpr inline uint64_t operator()()
     {
-        const auto t = (s_[0] + s_[1]) ^ s_[3];
-        s_[3] += 0x6a09e667a7541669ull;
+        const auto t = s_[0] + s_[1] + s_[3]++;
         s_[0] = s_[1] ^ (s_[1] >> 11);
         s_[1] = s_[2] + (s_[2] << 3);
         s_[2] = detail::rotl(s_[2], 24) + t;
