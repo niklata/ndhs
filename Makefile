@@ -1,5 +1,5 @@
-NDHS_C_SRCS = $(sort $(wildcard *.c) $(wildcard nk/*.c))
-NDHS_CXX_SRCS = $(sort $(wildcard *.cpp) $(wildcard nk/*.cpp) dynlease.cpp cfg.cpp)
+NDHS_C_SRCS = $(sort attach_bpf.c nl.c options.c nk/hwrng.c nk/io.c nk/privs.c)
+NDHS_CXX_SRCS = $(sort cfg.cpp dhcp4.cpp dhcp6.cpp dhcp_state.cpp duid.cpp dynlease.cpp ndhs.cpp nlsocket.cpp radv6.cpp rng.cpp nk/ip_address.cpp dynlease.cpp cfg.cpp)
 NDHS_OBJS = $(NDHS_C_SRCS:.c=.o) $(NDHS_CXX_SRCS:.cpp=.o)
 NDHS_DEP = $(NDHS_C_SRCS:.c=.d) $(NDHS_CXX_SRCS:.cpp=.d)
 INCL = -I.
@@ -21,10 +21,10 @@ clean:
 cleanragel:
 	rm -f dynlease.cpp cfg.cpp
 
-dynlease.cpp:
+dynlease.cpp: dynlease.rl
 	ragel -G2 -o dynlease.cpp dynlease.rl
 
-cfg.cpp:
+cfg.cpp: cfg.rl
 	ragel -G2 -o cfg.cpp cfg.rl
 
 ragel: dynlease.cpp cfg.cpp
