@@ -633,7 +633,7 @@ void RA6Listener::process_receive(char *buf, std::size_t buflen,
     bool got_macaddr(false);
 
     // Only the source link-layer address option is defined.
-    while (rs.se - rs.si >= 2) {
+    while (rs.se >= 2 + rs.si) {
         auto opt_type = static_cast<uint8_t>(*rs.si++);
         size_t opt_length = 8 * static_cast<uint8_t>(*rs.si++);
         // Discard if any included option has a length <= 0.
