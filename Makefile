@@ -25,7 +25,7 @@ dynlease.cpp: dynlease.rl
 	ragel -G2 -o dynlease.cpp dynlease.rl
 
 cfg.cpp: cfg.rl
-	ragel -G2 -o cfg.cpp cfg.rl
+	ragel -T0 -o cfg.cpp cfg.rl
 
 ragel: dynlease.cpp cfg.cpp
 
