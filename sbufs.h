@@ -29,7 +29,7 @@ static inline bool sa6_from_string(sockaddr_in6 *sin, const char *str)
     memset(sin, 0, sizeof(sockaddr_in6));
     sin->sin6_family = AF_INET6;
     if (inet_pton(AF_INET6, str, &sin->sin6_addr) != 1) {
-        log_line("inet_pton failed: %s", strerror(errno));
+        log_line("inet_pton failed: %s\n", strerror(errno));
         return false;
     }
     return true;

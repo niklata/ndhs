@@ -50,7 +50,7 @@ bool D6Listener::create_dhcp6_socket()
 {
     auto tfd = nk::sys::handle{ socket(AF_INET6, SOCK_DGRAM|SOCK_CLOEXEC, IPPROTO_UDP) };
     if (!tfd) {
-        log_line("dhcp6: Failed to create v6 UDP socket on %s: %s", ifname_.c_str(), strerror(errno));
+        log_line("dhcp6: Failed to create v6 UDP socket on %s: %s\n", ifname_.c_str(), strerror(errno));
         return false;
     }
     nk::ip_address mc6_alldhcp_ras;
@@ -63,7 +63,7 @@ bool D6Listener::create_dhcp6_socket()
     sai.sin6_family = AF_INET6;
     sai.sin6_port = htons(547);
     if (bind(tfd(), reinterpret_cast<const sockaddr *>(&sai), sizeof sai)) {
-        log_line("dhcp6: Failed to bind to UDP 547 on %s: %s", ifname_.c_str(), strerror(errno));
+        log_line("dhcp6: Failed to bind to UDP 547 on %s: %s\n", ifname_.c_str(), strerror(errno));
         return false;
     }
 
@@ -80,23 +80,23 @@ bool D6Listener::init(const std::string &ifname, uint8_t preference)
     {
         auto ifinfo = nl_socket->get_ifinfo(ifname_);
         if (!ifinfo) {
-            log_line("dhcp6: Failed to get interface index for %s", ifname_.c_str());
+            log_line("dhcp6: Failed to get interface index for %s\n", ifname_.c_str());
             return false;
         }
 
-        log_line("dhcp6: DHCPv6 Preference is %u on %s", preference_, ifname_.c_str());
+        log_line("dhcp6: DHCPv6 Preference is %u on %s\n", preference_, ifname_.c_str());
 
         for (const auto &i: ifinfo->addrs) {
             if (i.scope == netif_addr::Scope::Global && !i.address.is_v4()) {
                 local_ip_ = i.address;
                 prefixlen_ = i.prefixlen;
                 local_ip_prefix_ = mask_v6_addr(local_ip_, prefixlen_);
-                log_line("dhcp6: IP address for %s is %s/%u.  Prefix is %s.",
+                log_line("dhcp6: IP address for %s is %s/%u.  Prefix is %s.\n",
                          ifname.c_str(), local_ip_.to_string().c_str(), +prefixlen_,
                          local_ip_prefix_.to_string().c_str());
             } else if (i.scope == netif_addr::Scope::Link && !i.address.is_v4()) {
                 link_local_ip_ = i.address;
-                log_line("dhcp6: Link-local IP address for %s is %s.",
+                log_line("dhcp6: Link-local IP address for %s is %s.\n",
                          ifname.c_str(), link_local_ip_.to_string().c_str());
             }
         }
@@ -117,7 +117,7 @@ void D6Listener::process_input()
             int err = errno;
             if (err == EINTR) continue;
             if (err == EAGAIN || err == EWOULDBLOCK) break;
-            suicide("dhcp6: recvfrom failed on %s: %s", ifname_.c_str(), strerror(err));
+            suicide("dhcp6: recvfrom failed on %s: %s\n", ifname_.c_str(), strerror(err));
         }
         process_receive(buf, static_cast<size_t>(buflen), sai, sailen);
     }
@@ -174,7 +174,7 @@ static const char * dhcp6_opt_to_string(uint16_t opttype)
     case 24: return "DNS Domain Search List"; // RFC3646
     case 39: return "Client FQDN"; // RFC4704
     case 56: return "NTP Server"; // RFC5908
-    default: log_line("Unknown DHCP Option type %u", opttype);
+    default: log_line("Unknown DHCP Option type %u\n", opttype);
              return "Unknown";
     }
 }
@@ -189,7 +189,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
         return true;
     }
 
-    log_line("dhcp6: Checking dynamic IP on %s...", ifname_.c_str());
+    log_line("dhcp6: Checking dynamic IP on %s...\n", ifname_.c_str());
 
     const auto expire_time = get_current_ts() + dynamic_lifetime;
 
@@ -197,19 +197,19 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
     if (v6a != nk::ip_address(nk::ip_address::any{})) {
         dhcpv6_entry de(iaid, v6a, dynamic_lifetime);
         if (!emit_IA_addr(d6s, ss, &de)) return false;
-        log_line("dhcp6: Assigned existing dynamic IP (%s) on %s", v6a.to_string().c_str(), ifname_.c_str());
+        log_line("dhcp6: Assigned existing dynamic IP (%s) on %s\n", v6a.to_string().c_str(), ifname_.c_str());
         use_dynamic = true;
         return true;
     }
     // This check guards against OOM via DoS.
     if (dynlease6_count(ifname_) >= MAX_DYN_LEASES) {
-        log_line("dhcp6: Maximum number of dynamic leases (%u) reached on %s",
+        log_line("dhcp6: Maximum number of dynamic leases (%u) reached on %s\n",
                  MAX_DYN_LEASES, ifname_.c_str());
         if (!emit_IA_code(d6s, ss, iaid, failcode)) return false;
         use_dynamic = false;
         return true;
     }
-    log_line("dhcp6: Selecting an unused dynamic IP on %s", ifname_.c_str());
+    log_line("dhcp6: Selecting an unused dynamic IP on %s\n", ifname_.c_str());
 
     // Given a prefix, choose a random address.  Then check it against our
     // existing static and dynamic leases.  If no collision, assign a
@@ -225,7 +225,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
             return true;
         }
     }
-    log_line("dhcp6: Unable to select an unused dynamic IP after %u attempts on %s",
+    log_line("dhcp6: Unable to select an unused dynamic IP after %u attempts on %s\n",
              MAX_DYN_ATTEMPTS, ifname_.c_str());
     if (!emit_IA_code(d6s, ss, iaid, failcode)) return false;
     use_dynamic = false;
@@ -336,11 +336,11 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, sbufs &ss,
     bool ha{false};
     // Look through IAs and send IA with assigned address as an option.
     for (const auto &i: d6s.ias) {
-        log_line("dhcp6: Querying duid='%s' iaid=%u...",
+        log_line("dhcp6: Querying duid='%s' iaid=%u...\n",
                  d6s.client_duid.c_str(), i.iaid);
         if (auto x = query_dhcp_state(ifname_, d6s.client_duid, i.iaid)) {
             ha = true;
-            log_line("dhcp6: Found static address %s on %s", x->address.to_string().c_str(), ifname_.c_str());
+            log_line("dhcp6: Found static address %s on %s\n", x->address.to_string().c_str(), ifname_.c_str());
             if (!emit_IA_addr(d6s, ss, x)) return false;
             continue;
         }
@@ -348,7 +348,7 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, sbufs &ss,
         if (!allot_dynamic_ip(d6s, ss, i.iaid, failcode, use_dynamic)) return false;
         if (use_dynamic) ha = true;
     }
-    if (!ha) log_line("dhcp6: Unable to assign any IPs on %s!", ifname_.c_str());
+    if (!ha) log_line("dhcp6: Unable to assign any IPs on %s!\n", ifname_.c_str());
     if (has_addrs) *has_addrs = ha;
     return true;
 }
@@ -454,14 +454,14 @@ bool D6Listener::confirm_match(const d6msg_state &d6s, bool &confirmed)
 {
     confirmed = false;
     for (const auto &i: d6s.ias) {
-        log_line("dhcp6: Querying duid='%s' iaid=%u...", d6s.client_duid.c_str(), i.iaid);
+        log_line("dhcp6: Querying duid='%s' iaid=%u...\n", d6s.client_duid.c_str(), i.iaid);
         if (i.ia_na_addrs.empty()) return false; // See RFC8415 18.3.3 p3
         for (const auto &j: i.ia_na_addrs) {
             if (!j.addr.compare_mask(local_ip_prefix_, prefixlen_)) {
-                log_line("dhcp6: Invalid prefix for IA IP %s on %s. NAK.", j.addr.to_string().c_str(), ifname_.c_str());
+                log_line("dhcp6: Invalid prefix for IA IP %s on %s. NAK.\n", j.addr.to_string().c_str(), ifname_.c_str());
                 return true;
             } else {
-                log_line("dhcp6: IA iaid=%u has a valid prefix on %s", i.iaid, ifname_.c_str());
+                log_line("dhcp6: IA iaid=%u has a valid prefix on %s\n", i.iaid, ifname_.c_str());
             }
         }
     }
@@ -473,20 +473,20 @@ bool D6Listener::mark_addr_unused(const d6msg_state &d6s, sbufs &ss)
 {
     for (const auto &i: d6s.ias) {
         bool freed_ia_addr{false};
-        log_line("dhcp6: Marking duid='%s' iaid=%u unused on %s...", d6s.client_duid.c_str(), i.iaid, ifname_.c_str());
+        log_line("dhcp6: Marking duid='%s' iaid=%u unused on %s...\n", d6s.client_duid.c_str(), i.iaid, ifname_.c_str());
         auto x = query_dhcp_state(ifname_, d6s.client_duid, i.iaid);
         for (const auto &j: i.ia_na_addrs) {
             if (x && j.addr == x->address) {
-                log_line("dhcp6: found static lease on %s", ifname_.c_str());
+                log_line("dhcp6: found static lease on %s\n", ifname_.c_str());
                 freed_ia_addr = true;
             } else if (dynlease_del(ifname_, j.addr, d6s.client_duid.c_str(), i.iaid)) {
-                log_line("dhcp6: found dynamic lease on %s", ifname_.c_str());
+                log_line("dhcp6: found dynamic lease on %s\n", ifname_.c_str());
                 freed_ia_addr = true;
             }
         }
         if (!freed_ia_addr) {
             if (!emit_IA_code(d6s, ss, i.iaid, d6_statuscode::code::nobinding)) return false;
-            log_line("dhcp6: no dynamic lease found on %s", ifname_.c_str());
+            log_line("dhcp6: no dynamic lease found on %s\n", ifname_.c_str());
         }
     }
     return true;
@@ -551,7 +551,7 @@ bool D6Listener::handle_information_msg(const d6msg_state &d6s, sbufs &ss)
 {
     if (!write_response_header(d6s, ss, dhcp6_msgtype::reply)) return false;
     if (!attach_dns_ntp_info(d6s, ss)) return false;
-    log_line("dhcp6: Sending Information Message in response on %s", ifname_.c_str());
+    log_line("dhcp6: Sending Information Message in response on %s\n", ifname_.c_str());
     return true;
 }
 
@@ -573,7 +573,7 @@ bool D6Listener::handle_decline_msg(const d6msg_state &d6s, sbufs &ss)
 
 #define OPTIONS_CONSUME(BLD_VAL) do { \
     if (!options_consume(d6s, (BLD_VAL))) { \
-        log_line("dhcp6: Received malformed message on %s", ifname_.c_str()); \
+        log_line("dhcp6: Received malformed message on %s\n", ifname_.c_str()); \
         return; \
     } \
 } while (0)
@@ -603,12 +603,12 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
                                  const sockaddr_storage &sai, socklen_t sailen)
 {
     if (sailen < sizeof(sockaddr_in6)) {
-        log_line("dhcp6: Received too-short address family on %s: %u", ifname_.c_str(), sailen);
+        log_line("dhcp6: Received too-short address family on %s: %u\n", ifname_.c_str(), sailen);
         return;
     }
     char sip_str[32];
     if (!sa6_to_string(sip_str, sizeof sip_str, &sai, sailen)) {
-        log_line("dhcp6: Failed to stringize sender ip on %s", ifname_.c_str());
+        log_line("dhcp6: Failed to stringize sender ip on %s\n", ifname_.c_str());
         return;
     }
 
@@ -616,7 +616,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
     if (!using_bpf_) {
         // Discard if the DHCP6 length < the size of a DHCP6 header.
         if (buflen < dhcp6_header::size) {
-            log_line("dhcp6: Packet from %s is too short (%zu) on %s",
+            log_line("dhcp6: Packet from %s is too short (%zu) on %s\n",
                      sip_str, buflen, ifname_.c_str());
             return;
         }
@@ -624,13 +624,13 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
 
     d6msg_state d6s;
     if (!d6s.header.read(rs)) {
-        log_line("dhcp6: Packet from %s has no valid option headers on %s",
+        log_line("dhcp6: Packet from %s has no valid option headers on %s\n",
                  sip_str, ifname_.c_str());
         return;
     }
     OPTIONS_CONSUME(d6s.header.size);
 
-    log_line("dhcp6: Message (%s) on %s",
+    log_line("dhcp6: Message (%s) on %s\n",
              dhcp6_msgtype_to_string(d6s.header.msg_type()), ifname_.c_str());
 
     // These message types are not allowed to be sent to servers.
@@ -649,13 +649,13 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
          dhcp6_opt opt;
          if (!opt.read(rs)) return;
          OPTIONS_CONSUME(opt.size);
-         log_line("dhcp6: Option '%s' length=%d on %s",
+         log_line("dhcp6: Option '%s' length=%d on %s\n",
                   dhcp6_opt_to_string(opt.type()), opt.length(), ifname_.c_str());
          auto l = opt.length();
          auto ot = opt.type();
 
          if (l > rs.brem()) {
-             log_line("dhcp6: Option is too long on %s", ifname_.c_str());
+             log_line("dhcp6: Option is too long on %s\n", ifname_.c_str());
              return;
          }
 
@@ -672,7 +672,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
                  OPTIONS_CONSUME(1);
              }
              if (d6s.client_duid.size() > 0)
-                log_line("dhcp6: DUID %s on %s", d6s.client_duid.c_str(), ifname_.c_str());
+                log_line("dhcp6: DUID %s on %s\n", d6s.client_duid.c_str(), ifname_.c_str());
          } else if (ot == 2) { // ServerID
              d6s.server_duid_blob.reserve(l);
              std::string tmpstr;
@@ -686,11 +686,11 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
                  OPTIONS_CONSUME(1);
              }
              if (tmpstr.size() > 0)
-                log_line("dhcp6: Server DUID '%s' len %zu on %s", tmpstr.c_str(),
+                log_line("dhcp6: Server DUID '%s' len %zu on %s\n", tmpstr.c_str(),
                          d6s.server_duid_blob.size(), ifname_.c_str());
          } else if (ot == 3) { // Option_IA_NA
              if (l < 12) {
-                 log_line("dhcp6: Client-sent option IA_NA has a bad length on %s", ifname_.c_str());
+                 log_line("dhcp6: Client-sent option IA_NA has a bad length on %s\n", ifname_.c_str());
                  return;
              }
              d6s.ias.emplace_back();
@@ -701,27 +701,27 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
              if (na_options_len > 0)
                  d6s.prev_opt.emplace_back(std::make_pair(3, na_options_len));
 
-             log_line("dhcp6: IA_NA: iaid=%u t1=%us t2=%us opt_len=%u on %s",
+             log_line("dhcp6: IA_NA: iaid=%u t1=%us t2=%us opt_len=%u on %s\n",
                       d6s.ias.back().iaid, d6s.ias.back().t1_seconds,
                       d6s.ias.back().t2_seconds, na_options_len, ifname_.c_str());
          } else if (ot == 5) { // Address
              if (l < 24) {
-                 log_line("dhcp6: Client-sent option IAADDR has a bad length (%u) on %s", l, ifname_.c_str());
+                 log_line("dhcp6: Client-sent option IAADDR has a bad length (%u) on %s\n", l, ifname_.c_str());
                  return;
              }
              if (d6s.prev_opt.size() != 1) {
-                 log_line("dhcp6: Client-sent option IAADDR is not nested on %s", ifname_.c_str());
+                 log_line("dhcp6: Client-sent option IAADDR is not nested on %s\n", ifname_.c_str());
                  return;
              }
              if (d6s.prev_opt.back().first != 3) {
-                 log_line("dhcp6: Client-sent option IAADDR must follow IA_NA on %s", ifname_.c_str());
+                 log_line("dhcp6: Client-sent option IAADDR must follow IA_NA on %s\n", ifname_.c_str());
                  return;
              }
              if (d6s.ias.empty())
-                 suicide("dhcp6: d6.ias is empty on %s", ifname_.c_str());
+                 suicide("dhcp6: d6.ias is empty on %s\n", ifname_.c_str());
              d6s.ias.back().ia_na_addrs.emplace_back();
              if (d6s.ias.back().ia_na_addrs.empty())
-                 suicide("dhcp6: d6.ias.back().ia_na_addrs is empty on %s", ifname_.c_str());
+                 suicide("dhcp6: d6.ias.back().ia_na_addrs is empty on %s\n", ifname_.c_str());
              if (!d6s.ias.back().ia_na_addrs.back().read(rs)) return;
              OPTIONS_CONSUME(d6s.ias.back().ia_na_addrs.back().size);
 
@@ -729,7 +729,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
              if (iaa_options_len > 0)
                  d6s.prev_opt.emplace_back(std::make_pair(5, iaa_options_len));
 
-             log_line("dhcp6: IA Address: %s prefer=%us valid=%us opt_len=%d on %s",
+             log_line("dhcp6: IA Address: %s prefer=%us valid=%us opt_len=%d on %s\n",
                       d6s.ias.back().ia_na_addrs.back().addr.to_string().c_str(),
                       d6s.ias.back().ia_na_addrs.back().prefer_lifetime,
                       d6s.ias.back().ia_na_addrs.back().valid_lifetime,
@@ -737,7 +737,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
 
          } else if (ot == 6) { // OptionRequest
              if (l % 2) {
-                 log_line("dhcp6: Client-sent option Request has a bad length (%d) on %s", l, ifname_.c_str());
+                 log_line("dhcp6: Client-sent option Request has a bad length (%d) on %s\n", l, ifname_.c_str());
                  return;
              }
              d6s.optreq_exists = true;
@@ -758,7 +758,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
                  default: break;
                  }
              }
-             log_line("dhcp6: Option Request%s%s%s%s%s on %s",
+             log_line("dhcp6: Option Request%s%s%s%s%s on %s\n",
                       d6s.optreq_dns ? " DNS" : "",
                       d6s.optreq_dns_search ? " DNS_SEARCH" : "",
                       d6s.optreq_sntp ? " SNTP" : "",
@@ -768,7 +768,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
          } else if (ot == 8) { // ElapsedTime
              // 16-bit hundreths of a second since start of exchange
              if (l != 2) {
-                 log_line("dhcp6: Client-sent option ElapsedTime has a bad length on %s", ifname_.c_str());
+                 log_line("dhcp6: Client-sent option ElapsedTime has a bad length on %s\n", ifname_.c_str());
                  return;
              }
              char b[2];
@@ -778,14 +778,14 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
              memcpy(&d6s.elapsed_time, b, 2);
          } else if (ot == 14) { // Rapid Commit
              if (l != 0) {
-                 log_line("dhcp6: Client-sent option Rapid Commit has a bad length on %s", ifname_.c_str());
+                 log_line("dhcp6: Client-sent option Rapid Commit has a bad length on %s\n", ifname_.c_str());
                  return;
              }
              d6s.use_rapid_commit = true;
          } else if (ot == 39) { // Client FQDN
-             log_line("dhcp6: FQDN Length: %d", l);
+             log_line("dhcp6: FQDN Length: %d\n", l);
              if (l < 3) {
-                 log_line("dhcp6: Client-sent option Client FQDN has a bad length on %s", ifname_.c_str());
+                 log_line("dhcp6: Client-sent option Client FQDN has a bad length on %s\n", ifname_.c_str());
                  return;
              }
              uint8_t flags, namelen;
@@ -794,18 +794,18 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
              OPTIONS_CONSUME(2);
              l -= 2;
              if (l != namelen) {
-                 log_line("dhcp6: Client-sent option Client FQDN namelen disagrees with length on %s", ifname_.c_str());
+                 log_line("dhcp6: Client-sent option Client FQDN namelen disagrees with length on %s\n", ifname_.c_str());
                  return;
              }
              d6s.fqdn_.clear();
              d6s.fqdn_.reserve(namelen);
-             log_line("dhcp6: FQDN Flags='%u', NameLen='%u' on %s", flags, namelen, ifname_.c_str());
+             log_line("dhcp6: FQDN Flags='%u', NameLen='%u' on %s\n", flags, namelen, ifname_.c_str());
              while (l--) {
                  char c = *rs.si++;
                  OPTIONS_CONSUME(1);
                  d6s.fqdn_.push_back(c);
              }
-             log_line("dhcp6: Client FQDN: flags='%u' '%s' on %s", flags, d6s.fqdn_.c_str(), ifname_.c_str());
+             log_line("dhcp6: Client FQDN: flags='%u' '%s' on %s\n", flags, d6s.fqdn_.c_str(), ifname_.c_str());
          } else {
              rs.si += l;
              OPTIONS_CONSUME(l);
@@ -820,7 +820,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
          case dhcp6_msgtype::renew:
          case dhcp6_msgtype::rebind:
          case dhcp6_msgtype::information_request:
-             log_line("Client sent invalid %s -- no Option Request is present", dhcp6_msgtype_to_string(d6s.header.msg_type()));
+             log_line("Client sent invalid %s -- no Option Request is present\n", dhcp6_msgtype_to_string(d6s.header.msg_type()));
              return;
          default: break;
          }
@@ -877,7 +877,7 @@ void D6Listener::process_receive(char *buf, std::size_t buflen,
      sao.sin6_port = htons(546);
      size_t slen = ss.si > sbuf ? static_cast<size_t>(ss.si - sbuf) : 0;
      if (safe_sendto(fd_(), sbuf, slen, 0, reinterpret_cast<const sockaddr *>(&sao), sizeof sao) < 0) {
-         log_line("dhcp6: sendto (%s) failed on %s: %s", sip_str, ifname_.c_str(), strerror(errno));
+         log_line("dhcp6: sendto (%s) failed on %s: %s\n", sip_str, ifname_.c_str(), strerror(errno));
          return;
      }
 }

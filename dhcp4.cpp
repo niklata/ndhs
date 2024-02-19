@@ -25,7 +25,7 @@ static std::string generateKey(uint32_t xid, uint8_t *hwaddr) {
                       xid, hwaddr[0], hwaddr[1], hwaddr[2],
                       hwaddr[3], hwaddr[4], hwaddr[5]);
     if (t < 0 || static_cast<size_t>(t) > ret.size())
-        suicide("dhcp4: %s: snprintf failed; return=%d", __func__, t);
+        suicide("dhcp4: %s: snprintf failed; return=%d\n", __func__, t);
     ret.resize(static_cast<size_t>(t));
     return ret;
 }
@@ -104,20 +104,20 @@ bool D4Listener::create_dhcp4_socket()
 {
     auto tfd = nk::sys::handle{ socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, IPPROTO_UDP) };
     if (!tfd) {
-        log_line("dhcp4: Failed to create v4 UDP socket on %s: %s", ifname_.c_str(), strerror(errno));
+        log_line("dhcp4: Failed to create v4 UDP socket on %s: %s\n", ifname_.c_str(), strerror(errno));
         return false;
     }
     const int iv = 1;
     if (setsockopt(tfd(), SOL_SOCKET, SO_BROADCAST, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
-        log_line("dhcp4: Failed to set broadcast flag on %s: %s", ifname_.c_str(), strerror(errno));
+        log_line("dhcp4: Failed to set broadcast flag on %s: %s\n", ifname_.c_str(), strerror(errno));
         return false;
     }
     if (setsockopt(tfd(), SOL_SOCKET, SO_DONTROUTE, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
-        log_line("dhcp4: Failed to set do not route flag on %s: %s", ifname_.c_str(), strerror(errno));
+        log_line("dhcp4: Failed to set do not route flag on %s: %s\n", ifname_.c_str(), strerror(errno));
         return false;
     }
     if (setsockopt(tfd(), SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
-        log_line("dhcp4: Failed to set reuse address flag on %s: %s", ifname_.c_str(), strerror(errno));
+        log_line("dhcp4: Failed to set reuse address flag on %s: %s\n", ifname_.c_str(), strerror(errno));
         return false;
     }
     sockaddr_in sai;
@@ -125,20 +125,20 @@ bool D4Listener::create_dhcp4_socket()
     sai.sin_port = htons(67);
     sai.sin_addr.s_addr = 0; // any
     if (bind(tfd(), reinterpret_cast<const sockaddr *>(&sai), sizeof sai)) {
-        log_line("dhcp4: Failed to bind to UDP 67 on %s: %s", ifname_.c_str(), strerror(errno));
+        log_line("dhcp4: Failed to bind to UDP 67 on %s: %s\n", ifname_.c_str(), strerror(errno));
         return false;
     }
 
     struct ifreq ifr;
     memset(&ifr, 0, sizeof ifr);
     if (ifname_.size() >= sizeof ifr.ifr_name) {
-        log_line("dhcp4: Interface name '%s' is too long: %zu >= %zu",
+        log_line("dhcp4: Interface name '%s' is too long: %zu >= %zu\n",
                  ifname_.c_str(), ifname_.size(), sizeof ifr.ifr_name);
         return false;
     }
     memcpy(ifr.ifr_name, ifname_.c_str(), ifname_.size());
     if (setsockopt(tfd(), SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
-        log_line("dhcp4: Failed to bind socket to device on %s: %s", ifname_.c_str(), strerror(errno));
+        log_line("dhcp4: Failed to bind socket to device on %s: %s\n", ifname_.c_str(), strerror(errno));
         return false;
     }
 
@@ -155,19 +155,19 @@ bool D4Listener::init(const std::string &ifname)
     {
         auto ifinfo = nl_socket->get_ifinfo(ifname);
         if (!ifinfo) {
-            log_line("dhcp4: Failed to get interface index for %s", ifname.c_str());
+            log_line("dhcp4: Failed to get interface index for %s\n", ifname.c_str());
             return false;
         }
 
         for (const auto &i: ifinfo->addrs) {
             if (i.address.is_v4()) {
                 local_ip_ = i.address;
-                log_line("dhcp4: IP address for %s is %s", ifname.c_str(), local_ip_.to_string().c_str());
+                log_line("dhcp4: IP address for %s is %s\n", ifname.c_str(), local_ip_.to_string().c_str());
             }
         }
     }
     if (!local_ip_.is_v4()) {
-        log_line("dhcp4: Interface (%s) has no IP address", ifname.c_str());
+        log_line("dhcp4: Interface (%s) has no IP address\n", ifname.c_str());
         return false;
     }
 
@@ -185,7 +185,7 @@ void D4Listener::process_input()
             int err = errno;
             if (err == EINTR) continue;
             if (err == EAGAIN || err == EWOULDBLOCK) break;
-            suicide("dhcp6: recvfrom failed on %s: %s", ifname_.c_str(), strerror(err));
+            suicide("dhcp6: recvfrom failed on %s: %s\n", ifname_.c_str(), strerror(err));
         }
         process_receive(buf, static_cast<size_t>(buflen));
     }
@@ -209,7 +209,7 @@ uint32_t D4Listener::local_ip() const
 {
     uint32_t ret;
     if (inet_pton(AF_INET, local_ip_.to_string().c_str(), &ret) != 1) {
-        log_line("dhcp4: inet_pton failed: %s", strerror(errno));
+        log_line("dhcp4: inet_pton failed: %s\n", strerror(errno));
         return 0;
     }
     return ret;
@@ -224,7 +224,7 @@ bool D4Listener::send_to(const void *buf, size_t len, uint32_t addr, int port)
     sai.sin_addr.s_addr = addr;
     const auto r = safe_sendto(fd_(), static_cast<const char *>(buf), len, 0, reinterpret_cast<const sockaddr *>(&sai), sizeof sai);
     if (r < 0) {
-        log_line("dhcp4: D4Listener sendto failed: %s", strerror(errno));
+        log_line("dhcp4: D4Listener sendto failed: %s\n", strerror(errno));
         return false;
     }
     return true;
@@ -242,9 +242,9 @@ void D4Listener::send_reply_do(const dhcpmsg &dm, SendReplyType srt)
         break;
     case SendReplyType::Broadcast: {
         const auto broadcast = query_broadcast(ifname_);
-        if (!broadcast) suicide("dhcp4: misconfigured -- must have a broadcast address");
+        if (!broadcast) suicide("dhcp4: misconfigured -- must have a broadcast address\n");
         uint32_t bcaddr;
-        if (!broadcast->raw_v4bytes(&bcaddr)) suicide("dhcp4: broadcast address to raw bytes failed");
+        if (!broadcast->raw_v4bytes(&bcaddr)) suicide("dhcp4: broadcast address to raw bytes failed\n");
         send_to(&dm, dmlen, bcaddr, 68);
         break;
     }
@@ -308,11 +308,11 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     if (!query_use_dynamic_v4(ifname_, dynamic_lifetime))
         return false;
 
-    log_line("dhcp4: Checking dynamic IP.");
+    log_line("dhcp4: Checking dynamic IP.\n");
 
     const auto dr = query_dynamic_range(ifname_);
     if (!dr) {
-        log_line("dhcp4: No dynamic range is associated.  Can't assign an IP.");
+        log_line("dhcp4: No dynamic range is associated.  Can't assign an IP.\n");
         return false;
     }
     const auto expire_time = get_current_ts() + dynamic_lifetime;
@@ -320,19 +320,19 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     auto v4a = dynlease_query_refresh(ifname_, hwaddr, expire_time);
     if (v4a != nk::ip_address(nk::ip_address::any{})) {
         if (!v4a.raw_v4bytes(&reply.yiaddr)) {
-            log_line("dhcp4: allot_dynamic_ip - bad address");
+            log_line("dhcp4: allot_dynamic_ip - bad address\n");
             return false;
         }
         add_u32_option(&reply, DCODE_LEASET, htonl(dynamic_lifetime));
-        log_line("dhcp4: Assigned existing dynamic IP: %s", v4a.to_string().c_str());
+        log_line("dhcp4: Assigned existing dynamic IP: %s\n", v4a.to_string().c_str());
         return true;
     }
-    log_line("dhcp4: Selecting an unused dynamic IP.");
+    log_line("dhcp4: Selecting an unused dynamic IP.\n");
 
     // IP is randomly selected from the dynamic range.
     uint32_t al, ah;
-    if (!dr->first.raw_v4bytes(&al)) suicide("dhcp4: allot_dynamic_ip - al failed");
-    if (!dr->second.raw_v4bytes(&ah)) suicide("dhcp4: allot_dynamic_ip - ah failed");
+    if (!dr->first.raw_v4bytes(&al)) suicide("dhcp4: allot_dynamic_ip - al failed\n");
+    if (!dr->second.raw_v4bytes(&ah)) suicide("dhcp4: allot_dynamic_ip - ah failed\n");
     al = ntohl(al);
     ah = ntohl(ah);
     const uint64_t ar = ah > al ? ah - al : al - ah;
@@ -391,7 +391,8 @@ bool D4Listener::create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_ass
     if (!broadcast->raw_v4bytes(&broadcast_addr)) return false;
     add_option_broadcast(&reply, broadcast_addr);
 
-    log_line("dhcp4: Sending reply %u.%u.%u.%u", reply.yiaddr & 255, (reply.yiaddr >> 8) & 255, (reply.yiaddr >> 16) & 255, (reply.yiaddr >> 24) & 255);
+    log_line("dhcp4: Sending reply %u.%u.%u.%u\n", reply.yiaddr & 255,
+             (reply.yiaddr >> 8) & 255, (reply.yiaddr >> 16) & 255, (reply.yiaddr >> 24) & 255);
 
     std::string iplist;
     const auto routers = query_gateway(ifname_);
@@ -410,7 +411,7 @@ bool D4Listener::create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_ass
 
 void D4Listener::reply_discover()
 {
-    log_line("dhcp4: Got DHCP4 discover message");
+    log_line("dhcp4: Got DHCP4 discover message\n");
     dhcpmsg reply;
     dhcpmsg_init(reply, DHCPOFFER, dhcpmsg_.xid);
     if (create_reply(reply, dhcpmsg_.chaddr, true))
@@ -419,7 +420,7 @@ void D4Listener::reply_discover()
 
 void D4Listener::reply_request()
 {
-    log_line("dhcp4: Got DHCP4 request message");
+    log_line("dhcp4: Got DHCP4 request message\n");
     dhcpmsg reply;
     dhcpmsg_init(reply, DHCPACK, dhcpmsg_.xid);
     if (create_reply(reply, dhcpmsg_.chaddr, true)) {
@@ -431,7 +432,7 @@ void D4Listener::reply_request()
 static nk::ip_address zero_v4;
 void D4Listener::reply_inform()
 {
-    log_line("dhcp4: Got DHCP4 inform message");
+    log_line("dhcp4: Got DHCP4 inform message\n");
     struct dhcpmsg reply;
     dhcpmsg_init(reply, DHCPACK, dhcpmsg_.xid);
     if (create_reply(reply, dhcpmsg_.chaddr, false)) {
@@ -462,7 +463,7 @@ void D4Listener::do_release() {
     if (!valid) {
         char buf[32] = "invalid ip";
         ip4_to_string(buf, sizeof buf, dhcpmsg_.ciaddr);
-        log_line("dhcp4: do_release: ignoring spoofed release request for %s.", buf);
+        log_line("dhcp4: do_release: ignoring spoofed release request for %s.\n", buf);
         return;
     }
     dynlease_del(ifname_, u32_ipaddr(dhcpmsg_.ciaddr), dhcpmsg_.chaddr);
@@ -518,7 +519,7 @@ void D4Listener::process_receive(const char *buf, std::size_t buflen)
     case DHCPDISCOVER: reply_discover(); break;
     case DHCPREQUEST:  reply_request(); break;
     case DHCPINFORM:   reply_inform(); break;
-    case DHCPDECLINE:  log_line("dhcp4: Received a DHCPDECLINE.  Clients conflict?");
+    case DHCPDECLINE:  log_line("dhcp4: Received a DHCPDECLINE.  Clients conflict?\n");
     case DHCPRELEASE:  do_release(); break;
     }
 }

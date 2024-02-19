@@ -1,6 +1,5 @@
-// Copyright 2011-2017 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2011-2018 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
-#include <stdbool.h>
 #include <assert.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -74,15 +73,15 @@ ssize_t nl_recv_buf(int fd, char *buf, size_t blen)
     if (ret < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return 0;
-        log_line("%s: recvmsg failed: %s", __func__, strerror(errno));
+        log_line("%s: recvmsg failed: %s\n", __func__, strerror(errno));
         return -1;
     }
     if (msg.msg_flags & MSG_TRUNC) {
-        log_line("%s: Buffer not long enough for message.", __func__);
+        log_line("%s: Buffer not long enough for message.\n", __func__);
         return -1;
     }
     if (msg.msg_namelen != sizeof addr) {
-        log_line("%s: Response was not of the same address family.",
+        log_line("%s: Response was not of the same address family.\n",
                  __func__);
         return -1;
     }
@@ -107,13 +106,13 @@ int nl_foreach_nlmsg(char *buf, size_t blen, uint32_t seq, uint32_t portid,
         } else {
             switch (nlh->nlmsg_type) {
                 case NLMSG_ERROR:
-                    log_line("%s: Received a NLMSG_ERROR: %s",
+                    log_line("%s: Received a NLMSG_ERROR: %s\n",
                              __func__, strerror(nlmsg_get_error(nlh)));
                     return -1;
                 case NLMSG_DONE:
                     return 0;
                 case NLMSG_OVERRUN:
-                    log_line("%s: Received a NLMSG_OVERRUN.", __func__);
+                    log_line("%s: Received a NLMSG_OVERRUN.\n", __func__);
                 case NLMSG_NOOP:
                 default:
                     break;
@@ -123,7 +122,7 @@ int nl_foreach_nlmsg(char *buf, size_t blen, uint32_t seq, uint32_t portid,
     return 0;
 }
 
-static int nl_sendgetlink_do(int fd, uint32_t seq, int ifindex, bool by_ifindex)
+static int nl_sendgetlink_do(int fd, uint32_t seq, int ifindex, int by_ifindex)
 {
     char nlbuf[512];
     struct nlmsghdr *nlh = (struct nlmsghdr *)nlbuf;
@@ -147,10 +146,10 @@ static int nl_sendgetlink_do(int fd, uint32_t seq, int ifindex, bool by_ifindex)
                             (struct sockaddr *)&addr, sizeof addr);
     if (r < 0 || (size_t)r != nlh->nlmsg_len) {
         if (r < 0)
-            log_line("%s: sendto socket failed: %s", __func__,
+            log_line("%s: sendto socket failed: %s\n", __func__,
                      strerror(errno));
         else
-            log_line("%s: sendto short write: %zd < %u", __func__, r,
+            log_line("%s: sendto short write: %zd < %u\n", __func__, r,
                      nlh->nlmsg_len);
         return -1;
     }
@@ -159,16 +158,16 @@ static int nl_sendgetlink_do(int fd, uint32_t seq, int ifindex, bool by_ifindex)
 
 int nl_sendgetlinks(int fd, uint32_t seq)
 {
-    return nl_sendgetlink_do(fd, seq, 0, false);
+    return nl_sendgetlink_do(fd, seq, 0, 0);
 }
 
 int nl_sendgetlink(int fd, uint32_t seq, int ifindex)
 {
-    return nl_sendgetlink_do(fd, seq, ifindex, true);
+    return nl_sendgetlink_do(fd, seq, ifindex, 1);
 }
 
-static int nl_sendgetaddr_do(int fd, uint32_t seq, uint32_t ifindex, bool by_ifindex,
-                             int afamily, bool by_afamily)
+static int nl_sendgetaddr_do(int fd, uint32_t seq, uint32_t ifindex, int by_ifindex,
+                             int afamily, int by_afamily)
 {
     char nlbuf[512];
     struct nlmsghdr *nlh = (struct nlmsghdr *)nlbuf;
@@ -193,10 +192,10 @@ static int nl_sendgetaddr_do(int fd, uint32_t seq, uint32_t ifindex, bool by_ifi
                             (struct sockaddr *)&addr, sizeof addr);
     if (r < 0 || (size_t)r != nlh->nlmsg_len) {
         if (r < 0)
-            log_line("%s: sendto socket failed: %s", __func__,
+            log_line("%s: sendto socket failed: %s\n", __func__,
                      strerror(errno));
         else
-            log_line("%s: sendto short write: %zd < %u", __func__, r,
+            log_line("%s: sendto short write: %zd < %u\n", __func__, r,
                      nlh->nlmsg_len);
         return -1;
     }
@@ -205,32 +204,32 @@ static int nl_sendgetaddr_do(int fd, uint32_t seq, uint32_t ifindex, bool by_ifi
 
 int nl_sendgetaddrs(int fd, uint32_t seq)
 {
-    return nl_sendgetaddr_do(fd, seq, 0, false, 0, false);
+    return nl_sendgetaddr_do(fd, seq, 0, 0, 0, 0);
 }
 
 int nl_sendgetaddrs4(int fd, uint32_t seq)
 {
-    return nl_sendgetaddr_do(fd, seq, 0, false, AF_INET, true);
+    return nl_sendgetaddr_do(fd, seq, 0, 0, AF_INET, 1);
 }
 
 int nl_sendgetaddrs6(int fd, uint32_t seq)
 {
-    return nl_sendgetaddr_do(fd, seq, 0, false, AF_INET6, true);
+    return nl_sendgetaddr_do(fd, seq, 0, 0, AF_INET6, 1);
 }
 
 int nl_sendgetaddr(int fd, uint32_t seq, uint32_t ifindex)
 {
-    return nl_sendgetaddr_do(fd, seq, ifindex, true, 0, false);
+    return nl_sendgetaddr_do(fd, seq, ifindex, 1, 0, 0);
 }
 
 int nl_sendgetaddr4(int fd, uint32_t seq, uint32_t ifindex)
 {
-    return nl_sendgetaddr_do(fd, seq, ifindex, true, AF_INET, true);
+    return nl_sendgetaddr_do(fd, seq, ifindex, 1, AF_INET, 1);
 }
 
 int nl_sendgetaddr6(int fd, uint32_t seq, uint32_t ifindex)
 {
-    return nl_sendgetaddr_do(fd, seq, ifindex, true, AF_INET6, true);
+    return nl_sendgetaddr_do(fd, seq, ifindex, 1, AF_INET6, 1);
 }
 
 int nl_open(int nltype, unsigned nlgroup, uint32_t *nlportid)
@@ -238,7 +237,7 @@ int nl_open(int nltype, unsigned nlgroup, uint32_t *nlportid)
     int fd;
     fd = socket(AF_NETLINK, SOCK_RAW | SOCK_NONBLOCK | SOCK_CLOEXEC, nltype);
     if (fd < 0) {
-        log_line("%s: socket failed: %s", __func__, strerror(errno));
+        log_line("%s: socket failed: %s\n", __func__, strerror(errno));
         return -1;
     }
     socklen_t al;
@@ -247,23 +246,23 @@ int nl_open(int nltype, unsigned nlgroup, uint32_t *nlportid)
         .nl_groups = nlgroup,
     };
     if (bind(fd, (struct sockaddr *)&nlsock, sizeof nlsock) < 0) {
-        log_line("%s: bind to group failed: %s",
+        log_line("%s: bind to group failed: %s\n",
                  __func__, strerror(errno));
         goto err_close;
     }
     al = sizeof nlsock;
     if (getsockname(fd, (struct sockaddr *)&nlsock, &al) < 0) {
-        log_line("%s: getsockname failed: %s",
+        log_line("%s: getsockname failed: %s\n",
                  __func__, strerror(errno));
         goto err_close;
     }
     if (al != sizeof nlsock) {
-        log_line("%s: Bound socket doesn't have right family size.",
+        log_line("%s: Bound socket doesn't have right family size.\n",
                  __func__);
         goto err_close;
     }
     if (nlsock.nl_family != AF_NETLINK) {
-        log_line("%s: Bound socket isn't AF_NETLINK.",
+        log_line("%s: Bound socket isn't AF_NETLINK.\n",
                  __func__);
         goto err_close;
     }

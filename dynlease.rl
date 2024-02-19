@@ -87,7 +87,7 @@ static bool emplace_dynlease_state(size_t linenum, std::string &&interface,
     }
     nk::ip_address ipa;
     if (!ipa.from_string(v4_addr)) {
-        log_line("Bad IP address at line %zu: %s", linenum, v4_addr.c_str());
+        log_line("Bad IP address at line %zu: %s\n", linenum, v4_addr.c_str());
         return false;
     }
     // We won't get duplicates unless someone manually edits the file.  If they do,
@@ -107,7 +107,7 @@ static bool emplace_dynlease_state(size_t linenum, std::string &&interface,
     }
     nk::ip_address ipa;
     if (!ipa.from_string(v6_addr)) {
-        log_line("Bad IP address at line %zu: %s", linenum, v6_addr.c_str());
+        log_line("Bad IP address at line %zu: %s\n", linenum, v6_addr.c_str());
         return false;
     }
     si->second.emplace_back(std::move(ipa), std::move(duid), iaid, expire_time);
@@ -314,7 +314,7 @@ bool dynlease_serialize(const std::string &path)
                              iface.c_str(), j.addr.to_string().c_str(),
                              j.macaddr[0], j.macaddr[1], j.macaddr[2],
                              j.macaddr[3], j.macaddr[4], j.macaddr[5], j.expire_time);
-            if (t < 0 || static_cast<size_t>(t) > sizeof wbuf) suicide("%s: snprintf failed; return=%d", __func__, t);
+            if (t < 0 || static_cast<size_t>(t) > sizeof wbuf) suicide("%s: snprintf failed; return=%d\n", __func__, t);
             size_t splen = static_cast<size_t>(t);
             const auto fs = fwrite(wbuf, 1, splen, f);
             if (fs != splen) {
@@ -349,22 +349,22 @@ bool dynlease_serialize(const std::string &path)
             wbuf.append("\n");
             const auto fs = fwrite(wbuf.c_str(), 1, wbuf.size(), f);
             if (fs != wbuf.size()) {
-                log_line("%s: short write %zd < %zu", __func__, fs, wbuf.size());
+                log_line("%s: short write %zd < %zu\n", __func__, fs, wbuf.size());
                 return false;
             }
         }
     }
     if (fflush(f)) {
-        log_line("%s: fflush failed: %s", __func__, strerror(errno));
+        log_line("%s: fflush failed: %s\n", __func__, strerror(errno));
         return false;
     }
     const auto fd = fileno(f);
     if (fdatasync(fd)) {
-        log_line("%s: fdatasync failed: %s", __func__, strerror(errno));
+        log_line("%s: fdatasync failed: %s\n", __func__, strerror(errno));
         return false;
     }
     if (rename(tmp_path.c_str(), path.c_str())) {
-        log_line("%s: rename failed: %s", __func__, strerror(errno));
+        log_line("%s: rename failed: %s\n", __func__, strerror(errno));
         return false;
     }
     return true;
@@ -503,10 +503,10 @@ bool dynlease_deserialize(const std::string &path)
         const auto r = do_parse_dynlease_line(ps, buf, llen, linenum);
         if (r < 0) {
             if (r == -2)
-                log_line("%s: Incomplete dynlease at line %zu; ignoring",
+                log_line("%s: Incomplete dynlease at line %zu; ignoring\n",
                          __func__, linenum);
             else
-                log_line("%s: Malformed dynlease at line %zu; ignoring.",
+                log_line("%s: Malformed dynlease at line %zu; ignoring.\n",
                          __func__, linenum);
             continue;
         }

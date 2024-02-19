@@ -33,7 +33,7 @@ static void print_duid()
         str.append(tbuf);
     }
     str.append("'");
-    log_line("%s", str.c_str());
+    log_line("%s\n", str.c_str());
 }
 
 // Use DUID-UUID (RFC6355)
@@ -52,11 +52,11 @@ static void generate_duid()
     off += sizeof r1;
 
     const auto fd = open(DUID_PATH, O_WRONLY|O_TRUNC|O_CREAT|O_CLOEXEC, 0644);
-    if (fd < 0) suicide("%s: failed to open %s for write", __func__, DUID_PATH);
+    if (fd < 0) suicide("%s: failed to open %s for write\n", __func__, DUID_PATH);
     SCOPE_EXIT { close(fd); };
     const auto r = safe_write(fd, g_server_duid, g_server_duid_len);
     if (r < 0 || r != g_server_duid_len)
-        suicide("%s: failed to write duid to %s", __func__, DUID_PATH);
+        suicide("%s: failed to write duid to %s\n", __func__, DUID_PATH);
     print_duid();
 }
 
@@ -64,15 +64,15 @@ void duid_load_from_file()
 {
     const auto fd = open(DUID_PATH, O_RDONLY|O_CLOEXEC, 0);
     if (fd < 0) {
-        log_line("No DUID found.  Generating a DUID.");
+        log_line("No DUID found.  Generating a DUID.\n");
         generate_duid();
         return;
     }
     SCOPE_EXIT { close(fd); };
     const auto r = safe_read(fd, g_server_duid, g_server_duid_len);
-    if (r < 0) suicide("%s: failed to read duid from %s", __func__, DUID_PATH);
+    if (r < 0) suicide("%s: failed to read duid from %s\n", __func__, DUID_PATH);
     if (r != g_server_duid_len) {
-        log_line("DUID is too short to be valid.  Generating a new DUID.");
+        log_line("DUID is too short to be valid.  Generating a new DUID.\n");
         generate_duid();
         return;
     }

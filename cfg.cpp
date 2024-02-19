@@ -734,7 +734,7 @@ const size_t linenum)
 #line 92 "cfg.rl"
 							
 							if (auto t = nk::from_string<uint8_t>(MARKED_STRING())) cps.default_preference = *t; else {
-								log_line("default_preference on line %zu out of range [0,255]: %s",
+								log_line("default_preference on line %zu out of range [0,255]: %s\n",
 								linenum, std::string(MARKED_STRING()).c_str());
 								cps.parse_error = true;
 								{p += 1; goto _out; }
@@ -900,7 +900,7 @@ void parse_config(const std::string &path)
 	char buf[MAX_LINE];
 	auto f = fopen(path.c_str(), "r");
 	if (!f) {
-		log_line("%s: failed to open config file \"%s\" for read: %s",
+		log_line("%s: failed to open config file '%s' for read: %s\n",
 		__func__, path.c_str(), strerror(errno));
 		return;
 	}
@@ -910,7 +910,7 @@ void parse_config(const std::string &path)
 	while (!feof(f)) {
 		if (!fgets(buf, sizeof buf, f)) {
 			if (!feof(f))
-				log_line("%s: io error fetching line of '%s'", __func__, path.c_str());
+				log_line("%s: io error fetching line of '%s'\n", __func__, path.c_str());
 			break;
 		}
 		auto llen = strlen(buf);
@@ -923,10 +923,10 @@ void parse_config(const std::string &path)
 		const auto r = do_parse_cfg_line(ps, buf, llen, linenum);
 		if (r < 0) {
 			if (r == -2)
-				log_line("%s: Incomplete configuration at line %zu; ignoring",
+				log_line("%s: Incomplete configuration at line %zu; ignoring\n",
 			__func__, linenum);
 			else
-				log_line("%s: Malformed configuration at line %zu; ignoring.",
+				log_line("%s: Malformed configuration at line %zu; ignoring.\n",
 			__func__, linenum);
 			continue;
 		}

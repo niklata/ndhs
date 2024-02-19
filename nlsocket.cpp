@@ -20,7 +20,7 @@ NLSocket::NLSocket(std::vector<std::string> &&ifnames)
     : ifnames_(std::move(ifnames)), nlseq_(random_u64()), got_newlink_(false)
 {
     auto tfd = nk::sys::handle{ nl_open(NETLINK_ROUTE, RTMGRP_LINK, 0) };
-    if (!tfd) suicide("NLSocket: failed to create netlink socket");
+    if (!tfd) suicide("NLSocket: failed to create netlink socket\n");
     swap(fd_, tfd);
 
     request_links();
@@ -32,10 +32,10 @@ NLSocket::NLSocket(std::vector<std::string> &&ifnames)
     for (;(got_newlink_ == false);) {
         if (poll(&pfd, 1, -1) < 0) {
             if (errno == EINTR) continue;
-            suicide("poll failed");
+            suicide("poll failed\n");
         }
         if (pfd.revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-            suicide("nlfd closed unexpectedly");
+            suicide("nlfd closed unexpectedly\n");
         }
         if (pfd.revents & POLLIN) {
             process_input();
@@ -49,10 +49,10 @@ NLSocket::NLSocket(std::vector<std::string> &&ifnames)
         for (;query_ifindex_.has_value();) {
             if (poll(&pfd, 1, -1) < 0) {
                 if (errno == EINTR) continue;
-                suicide("poll failed");
+                suicide("poll failed\n");
             }
             if (pfd.revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                suicide("nlfd closed unexpectedly");
+                suicide("nlfd closed unexpectedly\n");
             }
             if (pfd.revents & POLLIN) {
                 process_input();
@@ -70,7 +70,7 @@ void NLSocket::process_input()
             int err = errno;
             if (err == EINTR) continue;
             if (err == EAGAIN || err == EWOULDBLOCK) break;
-            suicide("nlsocket: recv failed: %s", strerror(err));
+            suicide("nlsocket: recv failed: %s\n", strerror(err));
         }
         process_receive(buf, static_cast<size_t>(buflen), 0, 0);
     }
@@ -80,14 +80,14 @@ void NLSocket::request_links()
 {
     auto link_seq = nlseq_++;
     if (nl_sendgetlinks(fd_(), link_seq) < 0)
-        suicide("nlsocket: failed to get initial rtlink state");
+        suicide("nlsocket: failed to get initial rtlink state\n");
 }
 
 void NLSocket::request_addrs(int ifidx)
 {
     auto addr_seq = nlseq_++;
     if (nl_sendgetaddr(fd_(), addr_seq, static_cast<uint32_t>(ifidx)) < 0)
-        suicide("nlsocket: failed to get initial rtaddr state");
+        suicide("nlsocket: failed to get initial rtaddr state\n");
 }
 
 static void parse_raw_address6(nk::ip_address &addr, struct rtattr *tb[], size_t type)
@@ -119,7 +119,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
     case RT_SCOPE_LINK: nia.scope = netif_addr::Scope::Link; break;
     case RT_SCOPE_HOST: nia.scope = netif_addr::Scope::Host; break;
     case RT_SCOPE_NOWHERE: nia.scope = netif_addr::Scope::None; break;
-    default: log_line("nlsocket: Unknown scope: %u", ifa->ifa_scope); return;
+    default: log_line("nlsocket: Unknown scope: %u\n", ifa->ifa_scope); return;
     }
     if (tb[IFA_ADDRESS]) {
         if (nia.addr_type == AF_INET6)
@@ -155,7 +155,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
         if (query_ifindex_.has_value() && *query_ifindex_ == nia.if_index) query_ifindex_.reset();
         auto ifelt = interfaces_.find(nia.if_index);
         if (ifelt == interfaces_.end()) {
-            log_line("nlsocket: Address for unknown interface %s", nia.if_name.c_str());
+            log_line("nlsocket: Address for unknown interface %s\n", nia.if_name.c_str());
             return;
         }
         for (auto i = ifelt->second.addrs.begin(), iend = ifelt->second.addrs.end(); i != iend; ++i) {
@@ -191,7 +191,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
         return;
     }
     default:
-        log_line("nlsocket: Unhandled address message type: %u", nlh->nlmsg_type);
+        log_line("nlsocket: Unhandled address message type: %u\n", nlh->nlmsg_type);
         return;
     }
 }
@@ -240,7 +240,7 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
         // Preserve the addresses if we're just modifying fields.
         if (elt != interfaces_.end())
             std::swap(nii.addrs, elt->second.addrs);
-        log_line("nlsocket: Adding link info: %s", nii.name.c_str());
+        log_line("nlsocket: Adding link info: %s\n", nii.name.c_str());
         interfaces_.emplace(std::make_pair(nii.index, nii));
         break;
     }
@@ -250,7 +250,7 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
         break;
     }
     default:
-        log_line("nlsocket: Unhandled link message type: %u", nlh->nlmsg_type);
+        log_line("nlsocket: Unhandled link message type: %u\n", nlh->nlmsg_type);
         break;
     }
 }
@@ -267,7 +267,7 @@ void NLSocket::process_nlmsg(const struct nlmsghdr *nlh)
             process_rt_addr_msgs(nlh);
             break;
         default:
-            log_line("nlsocket: Unhandled RTNETLINK msg type: %u", nlh->nlmsg_type);
+            log_line("nlsocket: Unhandled RTNETLINK msg type: %u\n", nlh->nlmsg_type);
             break;
     }
 }
@@ -288,16 +288,16 @@ void NLSocket::process_receive(const char *buf, std::size_t bytes_xferred,
         } else {
             switch (nlh->nlmsg_type) {
             case NLMSG_ERROR: {
-                log_line("nlsocket: Received a NLMSG_ERROR: %s",
+                log_line("nlsocket: Received a NLMSG_ERROR: %s\n",
                          strerror(nlmsg_get_error(nlh)));
                 auto nle = reinterpret_cast<struct nlmsgerr *>(NLMSG_DATA(nlh));
-                log_line("error=%u len=%u type=%u flags=%u seq=%u pid=%u",
+                log_line("error=%u len=%u type=%u flags=%u seq=%u pid=%u\n",
                          nle->error, nle->msg.nlmsg_len, nle->msg.nlmsg_type,
                          nle->msg.nlmsg_flags, nle->msg.nlmsg_seq,
                          nle->msg.nlmsg_pid);
                 break;
             }
-            case NLMSG_OVERRUN: log_line("nlsocket: Received a NLMSG_OVERRUN.");
+            case NLMSG_OVERRUN: log_line("nlsocket: Received a NLMSG_OVERRUN.\n");
             case NLMSG_NOOP: break;
             case NLMSG_DONE: got_newlink_ = true; break;
             default: break;

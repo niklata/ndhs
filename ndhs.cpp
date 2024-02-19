@@ -85,7 +85,7 @@ static void init_listeners()
     {
         auto bin = bound_interfaces_names();
         for (const auto &i: bin)
-            log_line("Detected %s broadcast: %s subnet: %s", i.c_str(), query_broadcast(i)->to_string().c_str(),
+            log_line("Detected %s broadcast: %s subnet: %s\n", i.c_str(), query_broadcast(i)->to_string().c_str(),
                      query_subnet(i)->to_string().c_str());
     }
 
@@ -98,13 +98,13 @@ static void init_listeners()
             v6l->emplace_back(std::make_unique<D6Listener>());
             if (!v6l->back()->init(i, preference)) {
                 v6l->pop_back();
-                log_line("Can't bind to dhcpv6 interface: %s", i.c_str());
+                log_line("Can't bind to dhcpv6 interface: %s\n", i.c_str());
             } else {
                 vr6l->emplace_back(std::make_unique<RA6Listener>());
                 if (!vr6l->back()->init(i)) {
                     v6l->pop_back();
                     vr6l->pop_back();
-                    log_line("Can't bind to rav6 interface: %s", i.c_str());
+                    log_line("Can't bind to rav6 interface: %s\n", i.c_str());
                 } else {
                     struct pollfd pt;
                     pt.fd = v6l->back()->fd();
@@ -124,7 +124,7 @@ static void init_listeners()
             v4l->emplace_back(std::make_unique<D4Listener>());
             if (!v4l->back()->init(i)) {
                 v4l->pop_back();
-                log_line("Can't bind to dhcpv4 interface: %s", i.c_str());
+                log_line("Can't bind to dhcpv4 interface: %s\n", i.c_str());
             } else {
                 struct pollfd pt;
                 pt.fd = v4l->back()->fd();
@@ -141,14 +141,14 @@ int64_t get_current_ts()
 {
     struct timespec ts;
     if (clock_gettime(CLOCK_MONOTONIC, &ts))
-        suicide("clock_gettime failed");
+        suicide("clock_gettime failed\n");
     return ts.tv_sec;
 }
 
 void set_user_runas(size_t /* linenum */, std::string &&username)
 {
     if (nk_uidgidbyname(username.c_str(), &ndhs_uid, &ndhs_gid))
-        suicide("invalid user '%s' specified", username.c_str());
+        suicide("invalid user '%s' specified\n", username.c_str());
 }
 void set_chroot_path(size_t /* linenum */, std::string &&path)
 {
@@ -176,28 +176,28 @@ static void setup_signals_ndhs()
     };
     sigset_t mask;
     if (sigprocmask(0, 0, &mask) < 0)
-        suicide("sigprocmask failed");
+        suicide("sigprocmask failed\n");
     for (int i = 0; ss[i] != SIGKILL; ++i)
         if (sigdelset(&mask, ss[i]))
-            suicide("sigdelset failed");
+            suicide("sigdelset failed\n");
     if (sigaddset(&mask, SIGPIPE))
-        suicide("sigaddset failed");
+        suicide("sigaddset failed\n");
     if (sigprocmask(SIG_SETMASK, &mask, nullptr) < 0)
-        suicide("sigprocmask failed");
+        suicide("sigprocmask failed\n");
 
     struct sigaction sa;
     memset(&sa, 0, sizeof sa);
     sa.sa_handler = signal_handler;
     sa.sa_flags = SA_RESTART;
     if (sigemptyset(&sa.sa_mask))
-        suicide("sigemptyset failed");
+        suicide("sigemptyset failed\n");
     for (int i = 0; ss[i] != SIGKILL; ++i)
         if (sigaction(ss[i], &sa, NULL))
-            suicide("sigaction failed");
+            suicide("sigaction failed\n");
     sa.sa_handler = SIG_IGN;
     sa.sa_flags = SA_NOCLDWAIT;
     if (sigaction(SIGCHLD, &sa, NULL))
-        suicide("sigaction failed");
+        suicide("sigaction failed\n");
 }
 
 static void usage()
@@ -256,11 +256,11 @@ static void process_options(int ac, char *av[])
         parse_config(configfile);
 
     if (!bound_interfaces_count())
-        suicide("No interfaces have been bound");
+        suicide("No interfaces have been bound\n");
     if (!ndhs_uid || !ndhs_gid)
-        suicide("No non-root user account is specified.");
+        suicide("No non-root user account is specified.\n");
     if (chroot_path.empty())
-        suicide("No chroot path is specified.");
+        suicide("No chroot path is specified.\n");
 
     init_listeners();
 
@@ -291,7 +291,7 @@ int main(int ac, char *av[])
         }
         dynlease_gc();
         if (poll(poll_vector.data(), poll_vector.size(), timeout > 0 ? timeout : 0) < 0) {
-            if (errno != EINTR) suicide("poll failed");
+            if (errno != EINTR) suicide("poll failed\n");
         }
         if (l_signal_exit) break;
         for (size_t i = 0, iend = poll_vector.size(); i < iend; ++i) {
@@ -299,7 +299,7 @@ int main(int ac, char *av[])
             case pfd_type::netlink: {
                 auto nl = static_cast<NLSocket *>(poll_meta[i].data);
                 if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                    suicide("nlfd closed unexpectedly");
+                    suicide("nlfd closed unexpectedly\n");
                 }
                 if (poll_vector[i].revents & POLLIN) {
                     nl->process_input();
@@ -308,7 +308,7 @@ int main(int ac, char *av[])
             case pfd_type::dhcp6: {
                 auto d6 = static_cast<D6Listener *>(poll_meta[i].data);
                 if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                    suicide("%s: dhcp6 socket closed unexpectedly", d6->ifname().c_str());
+                    suicide("%s: dhcp6 socket closed unexpectedly\n", d6->ifname().c_str());
                 }
                 if (poll_vector[i].revents & POLLIN) {
                     d6->process_input();
@@ -317,7 +317,7 @@ int main(int ac, char *av[])
             case pfd_type::dhcp4: {
                 auto d4 = static_cast<D4Listener *>(poll_meta[i].data);
                 if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                    suicide("%s: dhcp4 socket closed unexpectedly", d4->ifname().c_str());
+                    suicide("%s: dhcp4 socket closed unexpectedly\n", d4->ifname().c_str());
                 }
                 if (poll_vector[i].revents & POLLIN) {
                     d4->process_input();
@@ -326,7 +326,7 @@ int main(int ac, char *av[])
             case pfd_type::radv6: {
                 auto r6 = static_cast<RA6Listener *>(poll_meta[i].data);
                 if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                    suicide("%s: ra6 socket closed unexpectedly", r6->ifname().c_str());
+                    suicide("%s: ra6 socket closed unexpectedly\n", r6->ifname().c_str());
                 }
                 if (poll_vector[i].revents & POLLIN) {
                     r6->process_input();
