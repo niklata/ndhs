@@ -69,7 +69,6 @@ static inline void toggle_bit(bool v, void *data, std::size_t arrayidx, unsigned
 class ipv6_header
 {
 public:
-    ipv6_header() { std::fill(data_, data_ + sizeof data_, 0); }
     uint8_t version() const { return (data_[0] >> 4) & 0xf; }
     uint8_t traffic_class() const {
         return (static_cast<uint32_t>(data_[0] & 0xf) << 4)
@@ -118,7 +117,7 @@ public:
         return true;
     }
 private:
-    uint8_t data_[40];
+    uint8_t data_[40] = {};
 };
 
 #define DEF_RW_MEMBERS() \
@@ -140,7 +139,6 @@ private:
 class icmp_header
 {
 public:
-    icmp_header() { std::fill(data_, data_ + sizeof data_, 0); }
     uint8_t type() const { return data_[0]; }
     uint8_t code() const { return data_[1]; }
     uint16_t checksum() const { return decode16be(data_ + 2); }
@@ -150,25 +148,23 @@ public:
     static const std::size_t size = 4;
     DEF_RW_MEMBERS()
 private:
-    uint8_t data_[4];
+    uint8_t data_[4] = {};
 };
 
 class ra6_solicit_header
 {
 public:
-    ra6_solicit_header() { std::fill(data_, data_ + sizeof data_, 0); }
     // Just a reserved 32-bit field.
     // Follow with MTU and Prefix Information options.
     static const std::size_t size = 4;
     DEF_RW_MEMBERS()
 private:
-    uint8_t data_[4];
+    uint8_t data_[4] = {};
 };
 
 class ra6_advert_header
 {
 public:
-    ra6_advert_header() { std::fill(data_, data_ + sizeof data_, 0); }
     uint8_t hoplimit() const { return data_[0]; }
     bool managed_addresses() const { return data_[1] & (1 << 7); }
     bool other_stateful() const { return data_[1] & (1 << 6); }
@@ -204,17 +200,12 @@ public:
     static const std::size_t size = 12;
     DEF_RW_MEMBERS()
 private:
-    uint8_t data_[12];
+    uint8_t data_[12] = {};
 };
 
 class ra6_source_lla_opt
 {
 public:
-    ra6_source_lla_opt() {
-        std::fill(data_, data_ + sizeof data_, 0);
-        data_[0] = 1;
-        data_[1] = 1;
-    }
     uint8_t type() const { return data_[0]; }
     uint8_t length() const { return data_[1] * 8; }
     const uint8_t *macaddr() const { return data_ + 2; }
@@ -225,17 +216,12 @@ public:
     static const std::size_t size = 8;
     DEF_RW_MEMBERS()
 private:
-    uint8_t data_[8];
+    uint8_t data_[8] = { 1, 1 };
 };
 
 class ra6_mtu_opt
 {
 public:
-    ra6_mtu_opt() {
-        std::fill(data_, data_ + sizeof data_, 0);
-        data_[0] = 5;
-        data_[1] = 1;
-    }
     uint8_t type() const { return data_[0]; }
     uint8_t length() const { return data_[1] * 8; }
     uint32_t mtu() const { return decode32be(data_ + 4); }
@@ -243,17 +229,12 @@ public:
     static const std::size_t size = 8;
     DEF_RW_MEMBERS()
 private:
-    uint8_t data_[8];
+    uint8_t data_[8] = { 5, 1 };
 };
 
 class ra6_prefix_info_opt
 {
 public:
-    ra6_prefix_info_opt() {
-        std::fill(data_, data_ + sizeof data_, 0);
-        data_[0] = 3;
-        data_[1] = 4;
-    }
     uint8_t type() const { return data_[0]; }
     uint8_t length() const { return data_[1]; }
     uint8_t prefix_length() const { return data_[2]; }
@@ -293,16 +274,12 @@ public:
     static const std::size_t size = 32;
     DEF_RW_MEMBERS()
 private:
-    uint8_t data_[32];
+    uint8_t data_[32] = { 3, 4 };
 };
 
 class ra6_rdns_opt
 {
 public:
-    ra6_rdns_opt() {
-        std::fill(data_, data_ + sizeof data_, 0);
-        data_[0] = 25;
-    }
     uint8_t type() const { return data_[0]; }
     uint8_t length() const { return data_[1] * 8; }
     uint32_t lifetime() const { return decode32be(data_ + 4); }
@@ -311,16 +288,12 @@ public:
     static const std::size_t size = 8;
     DEF_RW_MEMBERS()
 private:
-    uint8_t data_[8];
+    uint8_t data_[8] = { 25 };
 };
 
 class ra6_dns_search_opt
 {
 public:
-    ra6_dns_search_opt() {
-        std::fill(data_, data_ + sizeof data_, 0);
-        data_[0] = 31;
-    }
     uint8_t type() const { return data_[0]; }
     uint8_t length() const { return data_[1] * 8; }
     uint32_t lifetime() const { return decode32be(data_ + 4); }
@@ -334,7 +307,7 @@ public:
     static const std::size_t size = 8;
     DEF_RW_MEMBERS()
 private:
-    uint8_t data_[8];
+    uint8_t data_[8] = { 31 };
 };
 #undef DEF_RW_MEMBERS
 

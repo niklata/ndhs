@@ -31,18 +31,8 @@ enum class dhcp6_msgtype {
 };
 
 // Packet header.
-class dhcp6_header
+struct dhcp6_header
 {
-public:
-    dhcp6_header() : type_(0), xid_{0, 0, 0} {}
-    dhcp6_header(const dhcp6_header &o) : type_(o.type_) {
-        memcpy(xid_, o.xid_, sizeof xid_);
-    }
-    dhcp6_header &operator=(const dhcp6_header &o) {
-        type_ = o.type_;
-        memcpy(xid_, o.xid_, sizeof xid_);
-        return *this;
-    }
     dhcp6_msgtype msg_type() const {
         if (type_ >= 1 && type_ <= 13)
             return static_cast<dhcp6_msgtype>(type_);
@@ -68,15 +58,13 @@ public:
         return true;
     }
 private:
-    uint8_t type_;
-    char xid_[3];
+    uint8_t type_ = 0;
+    char xid_[3] = {};
 };
 
 // Option header.
-class dhcp6_opt
+struct dhcp6_opt
 {
-public:
-    dhcp6_opt() { std::fill(data_, data_ + sizeof data_, 0); }
     uint16_t type() const { return decode16be(data_); }
     uint16_t length() const { return decode16be(data_ + 2); }
     void type(uint16_t v) { encode16be(v, data_); }
@@ -98,7 +86,7 @@ public:
         return true;
     }
 private:
-    uint8_t data_[4];
+    uint8_t data_[4] = {};
 };
 
 // Server Identifier Option
@@ -197,9 +185,8 @@ struct d6_statuscode
     }
 };
 
-class D6Listener
+struct D6Listener
 {
-public:
     D6Listener() {}
     D6Listener(const D6Listener &) = delete;
     D6Listener &operator=(const D6Listener &) = delete;
