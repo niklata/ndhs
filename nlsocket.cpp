@@ -272,7 +272,7 @@ void NLSocket::process_nlmsg(const struct nlmsghdr *nlh)
     }
 }
 
-void NLSocket::process_receive(const char *buf, std::size_t bytes_xferred,
+void NLSocket::process_receive(const char *buf, size_t bytes_xferred,
                                unsigned seq, unsigned portid)
 {
     auto nlh = reinterpret_cast<const struct nlmsghdr *>(buf);

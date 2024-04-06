@@ -39,7 +39,7 @@ struct dhcp6_header
         return dhcp6_msgtype::unknown;
     };
     void msg_type(dhcp6_msgtype v) { type_ = static_cast<uint8_t>(v); }
-    static const std::size_t size = 4;
+    static const size_t size = 4;
 
     bool read(sbufs &rbuf)
     {
@@ -69,7 +69,7 @@ struct dhcp6_opt
     uint16_t length() const { return decode16be(data_ + 2); }
     void type(uint16_t v) { encode16be(v, data_); }
     void length(uint16_t v) { encode16be(v, data_ + 2); }
-    static const std::size_t size = 4;
+    static const size_t size = 4;
 
     bool read(sbufs &rbuf)
     {
@@ -114,7 +114,7 @@ struct d6_ia_addr {
     nk::ip_address addr;
     uint32_t prefer_lifetime;
     uint32_t valid_lifetime;
-    static const std::size_t size = 24;
+    static const size_t size = 24;
 
     bool read(sbufs &rbuf)
     {
@@ -140,7 +140,7 @@ struct d6_ia {
     uint32_t t1_seconds;
     uint32_t t2_seconds;
     std::vector<d6_ia_addr> ia_na_addrs;
-    static const std::size_t size = 12;
+    static const size_t size = 12;
 
     bool read(sbufs &rbuf)
     {
@@ -174,7 +174,7 @@ struct d6_statuscode
     d6_statuscode() : status_code(code::success) {}
     explicit d6_statuscode(code c) : status_code(c) {}
     code status_code;
-    static const std::size_t size = 2;
+    static const size_t size = 2;
 
     bool write(sbufs &sbuf) const
     {
@@ -244,7 +244,7 @@ private:
     [[nodiscard]] bool handle_decline_msg(const d6msg_state &d6s, sbufs &ss);
     bool serverid_incorrect(const d6msg_state &d6s) const;
     void attach_bpf(int fd);
-    void process_receive(char *buf, std::size_t buflen,
+    void process_receive(char *buf, size_t buflen,
                          const sockaddr_storage &sai, socklen_t sailen);
 
     nk::ip_address local_ip_;

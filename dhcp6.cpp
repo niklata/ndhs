@@ -599,7 +599,7 @@ bool D6Listener::serverid_incorrect(const d6msg_state &d6s) const
         || memcmp(d6s.server_duid_blob.data(), g_server_duid, sizeof g_server_duid);
 }
 
-void D6Listener::process_receive(char *buf, std::size_t buflen,
+void D6Listener::process_receive(char *buf, size_t buflen,
                                  const sockaddr_storage &sai, socklen_t sailen)
 {
     if (sailen < sizeof(sockaddr_in6)) {

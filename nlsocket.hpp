@@ -87,7 +87,7 @@ public:
         return nullptr;
     }
 private:
-    void process_receive(const char *buf, std::size_t bytes_xferred,
+    void process_receive(const char *buf, size_t bytes_xferred,
                          unsigned seq, unsigned portid);
     void process_rt_link_msgs(const struct nlmsghdr *nlh);
     void process_rt_addr_msgs(const struct nlmsghdr *nlh);

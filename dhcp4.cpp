@@ -485,7 +485,7 @@ uint8_t D4Listener::validate_dhcp(size_t len) const
     return get_option_msgtype(&dhcpmsg_);
 }
 
-void D4Listener::process_receive(const char *buf, std::size_t buflen)
+void D4Listener::process_receive(const char *buf, size_t buflen)
 {
     auto msglen = std::min(static_cast<size_t>(buflen), sizeof dhcpmsg_);
     memset(&dhcpmsg_, 0, sizeof dhcpmsg_);

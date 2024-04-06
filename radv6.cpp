@@ -25,7 +25,7 @@ extern "C" {
 #include "nk/io.h"
 }
 
-static inline void toggle_bit(bool v, void *data, std::size_t arrayidx, unsigned char bitidx)
+static inline void toggle_bit(bool v, void *data, size_t arrayidx, unsigned char bitidx)
 {
     auto d = reinterpret_cast<unsigned char *>(data);
     if (v) d[arrayidx] |= bitidx;
@@ -99,7 +99,7 @@ public:
         ret.from_v6bytes(data_ + 24);
         return ret;
     }
-    static const std::size_t size = 40;
+    static const size_t size = 40;
 
     bool read(sbufs &rbuf)
     {
@@ -145,7 +145,7 @@ public:
     void type(uint8_t v) { data_[0] = v; }
     void code(uint8_t v) { data_[1] = v; }
     void checksum(uint16_t v) { encode16be(v, data_ + 2); }
-    static const std::size_t size = 4;
+    static const size_t size = 4;
     DEF_RW_MEMBERS()
 private:
     uint8_t data_[4] = {};
@@ -156,7 +156,7 @@ class ra6_solicit_header
 public:
     // Just a reserved 32-bit field.
     // Follow with MTU and Prefix Information options.
-    static const std::size_t size = 4;
+    static const size_t size = 4;
     DEF_RW_MEMBERS()
 private:
     uint8_t data_[4] = {};
@@ -197,7 +197,7 @@ public:
     void reachable_time(uint32_t v) { encode32be(v, data_ + 4); }
     void retransmit_timer(uint32_t v) { encode32be(v, data_ + 8); }
     // Follow with MTU and Prefix Information options.
-    static const std::size_t size = 12;
+    static const size_t size = 12;
     DEF_RW_MEMBERS()
 private:
     uint8_t data_[12] = {};
@@ -209,11 +209,11 @@ public:
     uint8_t type() const { return data_[0]; }
     uint8_t length() const { return data_[1] * 8; }
     const uint8_t *macaddr() const { return data_ + 2; }
-    void macaddr(char *mac, std::size_t maclen) {
+    void macaddr(char *mac, size_t maclen) {
         if (maclen != 6) suicide("ra6: wrong maclen\n");
         memcpy(data_ + 2, mac, 6);
     }
-    static const std::size_t size = 8;
+    static const size_t size = 8;
     DEF_RW_MEMBERS()
 private:
     uint8_t data_[8] = { 1, 1 };
@@ -226,7 +226,7 @@ public:
     uint8_t length() const { return data_[1] * 8; }
     uint32_t mtu() const { return decode32be(data_ + 4); }
     void mtu(uint32_t v) { encode32be(v, data_ + 4); }
-    static const std::size_t size = 8;
+    static const size_t size = 8;
     DEF_RW_MEMBERS()
 private:
     uint8_t data_[8] = { 5, 1 };
@@ -271,7 +271,7 @@ public:
         }
         memcpy(data_ + 16, a6, sizeof a6);
     }
-    static const std::size_t size = 32;
+    static const size_t size = 32;
     DEF_RW_MEMBERS()
 private:
     uint8_t data_[32] = { 3, 4 };
@@ -285,7 +285,7 @@ public:
     uint32_t lifetime() const { return decode32be(data_ + 4); }
     void length(uint8_t numdns) { data_[1] = 1 + 2 * numdns; }
     void lifetime(uint32_t v) { encode32be(v, data_ + 4); }
-    static const std::size_t size = 8;
+    static const size_t size = 8;
     DEF_RW_MEMBERS()
 private:
     uint8_t data_[8] = { 25 };
@@ -304,7 +304,7 @@ public:
         return 8 * data_[1] - (8 + sz);
     }
     void lifetime(uint32_t v) { encode32be(v, data_ + 4); }
-    static const std::size_t size = 8;
+    static const size_t size = 8;
     DEF_RW_MEMBERS()
 private:
     uint8_t data_[8] = { 31 };
@@ -554,7 +554,7 @@ bool ip6_is_unspecified(const sockaddr_storage &sa)
     return memcmp(&sai.sin6_addr, &t.sin6_addr, sizeof t.sin6_addr) == 0;
 }
 
-void RA6Listener::process_receive(char *buf, std::size_t buflen,
+void RA6Listener::process_receive(char *buf, size_t buflen,
                                   const sockaddr_storage &sai, socklen_t sailen)
 {
     if (sailen < sizeof(sockaddr_in6)) {
