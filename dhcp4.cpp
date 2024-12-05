@@ -104,20 +104,20 @@ bool D4Listener::create_dhcp4_socket()
 {
     auto tfd = nk::sys::handle{ socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, IPPROTO_UDP) };
     if (!tfd) {
-        log_line("dhcp4: Failed to create v4 UDP socket on %s: %s\n", ifname_.c_str(), strerror(errno));
+        log_line("dhcp4: Failed to create v4 UDP socket on %s: %s\n", ifname_, strerror(errno));
         return false;
     }
     const int iv = 1;
     if (setsockopt(tfd(), SOL_SOCKET, SO_BROADCAST, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
-        log_line("dhcp4: Failed to set broadcast flag on %s: %s\n", ifname_.c_str(), strerror(errno));
+        log_line("dhcp4: Failed to set broadcast flag on %s: %s\n", ifname_, strerror(errno));
         return false;
     }
     if (setsockopt(tfd(), SOL_SOCKET, SO_DONTROUTE, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
-        log_line("dhcp4: Failed to set do not route flag on %s: %s\n", ifname_.c_str(), strerror(errno));
+        log_line("dhcp4: Failed to set do not route flag on %s: %s\n", ifname_, strerror(errno));
         return false;
     }
     if (setsockopt(tfd(), SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
-        log_line("dhcp4: Failed to set reuse address flag on %s: %s\n", ifname_.c_str(), strerror(errno));
+        log_line("dhcp4: Failed to set reuse address flag on %s: %s\n", ifname_, strerror(errno));
         return false;
     }
     sockaddr_in sai;
@@ -125,20 +125,21 @@ bool D4Listener::create_dhcp4_socket()
     sai.sin_port = htons(67);
     sai.sin_addr.s_addr = 0; // any
     if (bind(tfd(), reinterpret_cast<const sockaddr *>(&sai), sizeof sai)) {
-        log_line("dhcp4: Failed to bind to UDP 67 on %s: %s\n", ifname_.c_str(), strerror(errno));
+        log_line("dhcp4: Failed to bind to UDP 67 on %s: %s\n", ifname_, strerror(errno));
         return false;
     }
 
+    size_t ifname_len = strlen(ifname_);
     struct ifreq ifr;
     memset(&ifr, 0, sizeof ifr);
-    if (ifname_.size() >= sizeof ifr.ifr_name) {
+    if (ifname_len >= sizeof ifr.ifr_name) {
         log_line("dhcp4: Interface name '%s' is too long: %zu >= %zu\n",
-                 ifname_.c_str(), ifname_.size(), sizeof ifr.ifr_name);
+                 ifname_, ifname_len, sizeof ifr.ifr_name);
         return false;
     }
-    memcpy(ifr.ifr_name, ifname_.c_str(), ifname_.size());
+    memcpy(ifr.ifr_name, ifname_, ifname_len);
     if (setsockopt(tfd(), SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
-        log_line("dhcp4: Failed to bind socket to device on %s: %s\n", ifname_.c_str(), strerror(errno));
+        log_line("dhcp4: Failed to bind socket to device on %s: %s\n", ifname_, strerror(errno));
         return false;
     }
 
@@ -146,28 +147,34 @@ bool D4Listener::create_dhcp4_socket()
     return true;
 }
 
-bool D4Listener::init(const std::string &ifname)
+bool D4Listener::init(const char *ifname)
 {
-    ifname_ = ifname;
+    size_t ifname_src_size = strlen(ifname);
+    if (ifname_src_size >= sizeof ifname_) {
+        log_line("D4Listener: Interface name (%s) too long\n", ifname);
+        return false;
+    }
+    *static_cast<char *>(mempcpy(ifname_, ifname, ifname_src_size)) = 0;
+
     init_client_states_v4();
     if (!create_dhcp4_socket()) return false;
 
     {
-        auto ifinfo = nl_socket.get_ifinfo(ifname.c_str());
+        auto ifinfo = nl_socket.get_ifinfo(ifname);
         if (!ifinfo) {
-            log_line("dhcp4: Failed to get interface index for %s\n", ifname.c_str());
+            log_line("dhcp4: Failed to get interface index for %s\n", ifname);
             return false;
         }
 
         for (const auto &i: ifinfo->addrs) {
             if (i.address.is_v4()) {
                 local_ip_ = i.address;
-                log_line("dhcp4: IP address for %s is %s\n", ifname.c_str(), local_ip_.to_string().c_str());
+                log_line("dhcp4: IP address for %s is %s\n", ifname, local_ip_.to_string().c_str());
             }
         }
     }
     if (!local_ip_.is_v4()) {
-        log_line("dhcp4: Interface (%s) has no IP address\n", ifname.c_str());
+        log_line("dhcp4: Interface (%s) has no IP address\n", ifname);
         return false;
     }
 
@@ -185,7 +192,7 @@ void D4Listener::process_input()
             int err = errno;
             if (err == EINTR) continue;
             if (err == EAGAIN || err == EWOULDBLOCK) break;
-            suicide("dhcp6: recvfrom failed on %s: %s\n", ifname_.c_str(), strerror(err));
+            suicide("dhcp6: recvfrom failed on %s: %s\n", ifname_, strerror(err));
         }
         process_receive(buf, static_cast<size_t>(buflen));
     }

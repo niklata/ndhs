@@ -12,6 +12,9 @@
 #include <nk/net/ip_address.hpp>
 #include <nk/sys/posix/handle.hpp>
 #include "dhcp.h"
+extern "C" {
+#include <net/if.h>
+}
 
 // There are two hashtables, a 'new' and a 'marked for death' table.  If these
 // tables are not empty, a timer with period t will wake up and delete all
@@ -54,10 +57,10 @@ public:
     D4Listener(const D4Listener &) = delete;
     D4Listener &operator=(const D4Listener &) = delete;
 
-    [[nodiscard]] bool init(const std::string &ifname);
+    [[nodiscard]] bool init(const char *ifname);
     void process_input();
     auto fd() const { return fd_(); }
-    auto& ifname() const { return ifname_; }
+    const char *ifname() const { return ifname_; }
 private:
     bool create_dhcp4_socket();
     void dhcpmsg_init(dhcpmsg &dm, uint8_t type, uint32_t xid) const;
@@ -82,7 +85,7 @@ private:
 
     nk::sys::handle fd_;
     struct dhcpmsg dhcpmsg_;
-    std::string ifname_;
+    char ifname_[IFNAMSIZ];
     nk::ip_address local_ip_;
 };
 

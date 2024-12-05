@@ -133,7 +133,7 @@ static void init_listeners()
         }
         if (use_v4) {
             v4l->emplace_back(std::make_unique<D4Listener>());
-            if (!v4l->back()->init(i)) {
+            if (!v4l->back()->init(i.c_str())) {
                 v4l->pop_back();
                 log_line("Can't bind to dhcpv4 interface: %s\n", i.c_str());
             } else {
@@ -327,7 +327,7 @@ int main(int ac, char *av[])
             case pfd_type::dhcp4: {
                 auto d4 = static_cast<D4Listener *>(poll_meta[i].data);
                 if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                    suicide("%s: dhcp4 socket closed unexpectedly\n", d4->ifname().c_str());
+                    suicide("%s: dhcp4 socket closed unexpectedly\n", d4->ifname());
                 }
                 if (poll_vector[i].revents & POLLIN) {
                     d4->process_input();
