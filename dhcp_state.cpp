@@ -281,9 +281,9 @@ bool emplace_ntp_server(size_t linenum, const std::string &interface,
     return true;
 }
 
-bool emplace_subnet(size_t linenum, const std::string &interface, const std::string &addr)
+bool emplace_subnet(size_t linenum, const char *interface, const std::string &addr)
 {
-    if (interface.empty()) {
+    if (strlen(interface) == 0) {
         log_line("No interface specified at line %zu\n", linenum);
         return false;
     }
@@ -315,9 +315,9 @@ bool emplace_gateway(size_t linenum, const std::string &interface, const std::st
     return true;
 }
 
-bool emplace_broadcast(size_t linenum, const std::string &interface, const std::string &addr)
+bool emplace_broadcast(size_t linenum, const char *interface, const std::string &addr)
 {
-    if (interface.empty()) {
+    if (strlen(interface) == 0) {
         log_line("No interface specified at line %zu\n", linenum);
         return false;
     }

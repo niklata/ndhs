@@ -135,7 +135,12 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
     }
     if (tb[IFA_LABEL]) {
         auto v = reinterpret_cast<const char *>(RTA_DATA(tb[IFA_LABEL]));
-        nia.if_name = std::string(v, strlen(v));
+        size_t src_size = strlen(v);
+        if (src_size >= sizeof nia.if_name) {
+            log_line("nlsocket: Interface name (%s) too long\n", v);
+            return;
+        }
+        *((char *)mempcpy(nia.if_name, v, src_size)) = 0;
     }
     if (tb[IFA_BROADCAST]) {
         if (nia.addr_type == AF_INET6)
@@ -155,7 +160,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
         if (query_ifindex_.has_value() && *query_ifindex_ == nia.if_index) query_ifindex_.reset();
         auto ifelt = interfaces_.find(nia.if_index);
         if (ifelt == interfaces_.end()) {
-            log_line("nlsocket: Address for unknown interface %s\n", nia.if_name.c_str());
+            log_line("nlsocket: Address for unknown interface %s\n", nia.if_name);
             return;
         }
         for (auto i = ifelt->second.addrs.begin(), iend = ifelt->second.addrs.end(); i != iend; ++i) {

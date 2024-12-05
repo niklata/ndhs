@@ -35,9 +35,9 @@ bool emplace_dns_server(size_t linenum, const std::string &interface,
                         const std::string &addr, addr_type atype);
 bool emplace_ntp_server(size_t linenum, const std::string &interface,
                         const std::string &addr, addr_type atype);
-bool emplace_subnet(size_t linenum, const std::string &interface, const std::string &addr);
+bool emplace_subnet(size_t linenum, const char *interface, const std::string &addr);
 bool emplace_gateway(size_t linenum, const std::string &interface, const std::string &addr);
-bool emplace_broadcast(size_t linenum, const std::string &interface, const std::string &addr);
+bool emplace_broadcast(size_t linenum, const char *interface, const std::string &addr);
 bool emplace_dynamic_range(size_t linenum, const std::string &interface,
                            const std::string &lo_addr, const std::string &hi_addr,
                            uint32_t dynamic_lifetime);

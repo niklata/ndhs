@@ -10,6 +10,7 @@
 #include <nk/sys/posix/handle.hpp>
 #include <nk/net/ip_address.hpp>
 extern "C" {
+#include <net/if.h>
 #include "nl.h"
 }
 
@@ -23,7 +24,7 @@ struct netif_addr
         None = RT_SCOPE_NOWHERE,
     };
 
-    std::string if_name;
+    char if_name[IFNAMSIZ];
     int if_index;
     nk::ip_address address;
     nk::ip_address peer_address;
