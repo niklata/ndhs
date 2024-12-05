@@ -1,7 +1,7 @@
 // Copyright 2011-2020 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
-#ifndef NK_DHCPCLIENT_H
-#define NK_DHCPCLIENT_H
+#ifndef NDHS_DHCP4_HPP
+#define NDHS_DHCP4_HPP
 
 #include <string>
 #include <vector>

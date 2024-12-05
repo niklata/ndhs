@@ -1,7 +1,7 @@
 // Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
-#ifndef NK_NRAD6_DHCP6_HPP_
-#define NK_NRAD6_DHCP6_HPP_
+#ifndef NDHS_DHCP6_HPP_
+#define NDHS_DHCP6_HPP_
 
 #include <string>
 #include <stdint.h>

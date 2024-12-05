@@ -1,7 +1,7 @@
 // Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
-#ifndef NK_NRAD6_MULTICAST6_HPP_
-#define NK_NRAD6_MULTICAST6_HPP_
+#ifndef NDHS_MULTICAST6_HPP_
+#define NDHS_MULTICAST6_HPP_
 
 #include <string>
 #include <memory>

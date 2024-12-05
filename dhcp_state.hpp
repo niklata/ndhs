@@ -1,7 +1,7 @@
 // Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
-#ifndef NK_NRAD6_DHCP_STATE_HPP_
-#define NK_NRAD6_DHCP_STATE_HPP_
+#ifndef NDHS_DHCP_STATE_HPP_
+#define NDHS_DHCP_STATE_HPP_
 
 #include <vector>
 #include <functional>

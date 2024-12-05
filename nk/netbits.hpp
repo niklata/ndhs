@@ -1,5 +1,5 @@
-#ifndef NK_NRAD6_NETBITS_HPP_
-#define NK_NRAD6_NETBITS_HPP_
+#ifndef NDHS_NETBITS_HPP_
+#define NDHS_NETBITS_HPP_
 
 #include <stdint.h>
 

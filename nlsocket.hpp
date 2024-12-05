@@ -1,11 +1,10 @@
 // Copyright 2014-2020 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
-#ifndef NRAD6_NLSOCKET_HPP_
-#define NRAD6_NLSOCKET_HPP_
+#ifndef NDHS_NLSOCKET_HPP_
+#define NDHS_NLSOCKET_HPP_
 #include <stdint.h>
 #include <vector>
 #include <string>
-#include <array>
 #include <map>
 #include <optional>
 #include <nk/sys/posix/handle.hpp>
