@@ -16,8 +16,8 @@ extern "C" {
 #pragma GCC diagnostic ignored "-Wold-style-cast"
 #endif
 
-NLSocket::NLSocket(std::vector<std::string> &&ifnames)
-    : ifnames_(std::move(ifnames)), nlseq_(random_u64()), got_newlink_(false)
+NLSocket::NLSocket(std::vector<std::string> &ifnames)
+    : nlseq_(random_u64()), got_newlink_(false)
 {
     auto tfd = nk::sys::handle{ nl_open(NETLINK_ROUTE, RTMGRP_LINK, 0) };
     if (!tfd) suicide("NLSocket: failed to create netlink socket\n");
@@ -42,10 +42,11 @@ NLSocket::NLSocket(std::vector<std::string> &&ifnames)
         }
     }
 
-    for (auto &i: ifnames_) {
-        const auto ifindex = name_to_ifindex_[i];
-        query_ifindex_ = ifindex;
-        request_addrs(ifindex);
+    for (auto &i: ifnames) {
+        const auto ifindex = get_ifindex(i.c_str());
+        if (!ifindex.has_value()) continue;
+        query_ifindex_ = *ifindex;
+        request_addrs(*ifindex);
         for (;query_ifindex_.has_value();) {
             if (poll(&pfd, 1, -1) < 0) {
                 if (errno == EINTR) continue;
@@ -158,42 +159,44 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
     switch (nlh->nlmsg_type) {
     case RTM_NEWADDR: {
         if (query_ifindex_.has_value() && *query_ifindex_ == nia.if_index) query_ifindex_.reset();
-        auto ifelt = interfaces_.find(nia.if_index);
-        if (ifelt == interfaces_.end()) {
-            log_line("nlsocket: Address for unknown interface %s\n", nia.if_name);
-            return;
-        }
-        for (auto i = ifelt->second.addrs.begin(), iend = ifelt->second.addrs.end(); i != iend; ++i) {
-            if (i->address == nia.address) {
-                *i = std::move(nia);
+        for (auto &i: ifaces_) {
+            if (i.index == nia.if_index) {
+                // Update if the address already exists
+                for (auto j = i.addrs.begin(), jend = i.addrs.end(); j != jend; ++j) {
+                    if (j->address == nia.address) {
+                        *j = std::move(nia);
+                        return;
+                    }
+                }
+                // Otherwise add it.
+                if (nia.addr_type == AF_INET) {
+                    emplace_broadcast(0, nia.if_name, nia.broadcast_address.to_string());
+
+                    uint32_t subnet = 0xffffffffu;
+                    for (unsigned j = 0, jend = 32 - nia.prefixlen; j < jend; ++j) subnet <<= 1;
+                    subnet = htonl(subnet);
+                    char sbuf[INET_ADDRSTRLEN+1];
+                    if (inet_ntop(AF_INET, &subnet, sbuf, sizeof sbuf)) {
+                        emplace_subnet(0, nia.if_name, sbuf);
+                    }
+                }
+                i.addrs.emplace_back(std::move(nia));
                 return;
             }
         }
-        if (nia.addr_type == AF_INET) {
-            emplace_broadcast(0, nia.if_name, nia.broadcast_address.to_string());
-
-            uint32_t subnet = 0xffffffffu;
-            for (unsigned i = 0, iend = 32 - nia.prefixlen; i < iend; ++i) subnet <<= 1;
-            subnet = htonl(subnet);
-            char sbuf[INET_ADDRSTRLEN+1];
-            if (inet_ntop(AF_INET, &subnet, sbuf, sizeof sbuf)) {
-                emplace_subnet(0, nia.if_name, sbuf);
-            }
-        }
-        ifelt->second.addrs.emplace_back(std::move(nia));
-        return;
+        log_line("nlsocket: Address for unknown interface %s\n", nia.if_name);
     }
     case RTM_DELADDR: {
-        auto ifelt = interfaces_.find(nia.if_index);
-        if (ifelt == interfaces_.end())
-            return;
-        for (auto i = ifelt->second.addrs.begin(), iend = ifelt->second.addrs.end(); i != iend; ++i) {
-            if (i->address == nia.address) {
-                ifelt->second.addrs.erase(i);
-                break;
+        for (auto &i: ifaces_) {
+            if (i.index == nia.if_index) {
+                for (auto j = i.addrs.begin(), jend = i.addrs.end(); j != jend; ++j) {
+                    if (j->address == nia.address) {
+                        i.addrs.erase(j);
+                        return;
+                    }
+                }
             }
         }
-        return;
     }
     default:
         log_line("nlsocket: Unhandled address message type: %u\n", nlh->nlmsg_type);
@@ -234,10 +237,6 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
         }
         *((char *)mempcpy(nii.name, v, src_size)) = 0;
     }
-    if (tb[IFLA_QDISC]) {
-        auto v = reinterpret_cast<const char *>(RTA_DATA(tb[IFLA_QDISC]));
-        nii.qdisc = std::string(v, strlen(v));
-    }
     if (tb[IFLA_MTU])
         nii.mtu = *reinterpret_cast<uint32_t *>(RTA_DATA(tb[IFLA_MTU]));
     if (tb[IFLA_LINK])
@@ -245,18 +244,27 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
 
     switch (nlh->nlmsg_type) {
     case RTM_NEWLINK: {
-        name_to_ifindex_.emplace(std::make_pair(nii.name, nii.index));
-        auto elt = interfaces_.find(nii.index);
-        // Preserve the addresses if we're just modifying fields.
-        if (elt != interfaces_.end())
-            std::swap(nii.addrs, elt->second.addrs);
+        bool update = false;
+        for (auto &i: ifaces_) {
+            if (!strcmp(i.name, nii.name)) {
+                // Preserve the addresses if we're just modifying fields.
+                std::swap(nii.addrs, i.addrs);
+                i = std::move(nii);
+                update = true;
+                break;
+            }
+        }
+        if (!update) ifaces_.emplace_back(std::move(nii));
         log_line("nlsocket: Adding link info: %s\n", nii.name);
-        interfaces_.emplace(std::make_pair(nii.index, nii));
         break;
     }
     case RTM_DELLINK: {
-        name_to_ifindex_.erase(nii.name);
-        interfaces_.erase(nii.index);
+        for (auto i = ifaces_.begin(), iend = ifaces_.end(); i != iend; ++i) {
+            if (!strcmp(i->name, nii.name)) {
+                ifaces_.erase(i);
+                break;
+            }
+        }
         break;
     }
     default:

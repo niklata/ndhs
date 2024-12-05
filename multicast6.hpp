@@ -16,7 +16,7 @@ extern std::unique_ptr<NLSocket> nl_socket;
 [[nodiscard]] static inline bool attach_multicast(int fd, const std::string &ifname, const sockaddr_in6 &mc6addr)
 {
     int ifidx;
-    if (auto t = nl_socket->get_ifindex(ifname)) ifidx = *t;
+    if (auto t = nl_socket->get_ifindex(ifname.c_str())) ifidx = *t;
     else {
         log_line("Failed to get interface index for %s\n", ifname.c_str());
         return false;
