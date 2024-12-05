@@ -16,7 +16,7 @@ extern "C" {
 #pragma GCC diagnostic ignored "-Wold-style-cast"
 #endif
 
-void NLSocket::init(std::vector<std::string> &ifnames)
+void NLSocket::init()
 {
     nlseq_ = random_u64();
     got_newlink_ = false;
@@ -44,24 +44,31 @@ void NLSocket::init(std::vector<std::string> &ifnames)
             process_input();
         }
     }
+}
 
-    for (auto &i: ifnames) {
-        query_ifindex_ = get_ifindex(i.c_str());
-        if (query_ifindex_ < 0) continue;
-        request_addrs(query_ifindex_);
-        while (query_ifindex_ >= 0) {
-            if (poll(&pfd, 1, -1) < 0) {
-                if (errno == EINTR) continue;
-                suicide("poll failed\n");
-            }
-            if (pfd.revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                suicide("nlfd closed unexpectedly\n");
-            }
-            if (pfd.revents & POLLIN) {
-                process_input();
-            }
+bool NLSocket::add_interface(const char *ifname)
+{
+    query_ifindex_ = get_ifindex(ifname);
+    if (query_ifindex_ < 0) return false;
+    request_addrs(query_ifindex_);
+
+    struct pollfd pfd;
+    pfd.fd = fd_();
+    pfd.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+    pfd.revents = 0;
+    while (query_ifindex_ >= 0) {
+        if (poll(&pfd, 1, -1) < 0) {
+            if (errno == EINTR) continue;
+            suicide("poll failed\n");
+        }
+        if (pfd.revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+            suicide("nlfd closed unexpectedly\n");
+        }
+        if (pfd.revents & POLLIN) {
+            process_input();
         }
     }
+    return true;
 }
 
 void NLSocket::process_input()

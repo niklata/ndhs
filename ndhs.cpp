@@ -73,8 +73,18 @@ extern void parse_config(const std::string &path);
 static void init_listeners()
 {
     {
-        auto bn = bound_interfaces_names();
-        nl_socket.init(bn);
+        nl_socket.init();
+        {
+            auto bn = bound_interfaces_names();
+            for (auto &i: bn) {
+                if (!nl_socket.add_interface(i.c_str())) {
+                    // XXX: Maybe this should be a fatal error?  It indicates
+                    //      the kernel changed the list of interfaces between
+                    //      bound_interfaces_names() and now.
+                    log_line("Interface %s does not exist!\n", i.c_str());
+                }
+            }
+        }
         struct pollfd pt;
         pt.fd = nl_socket.fd();
         pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;

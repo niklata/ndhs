@@ -4,7 +4,6 @@
 #define NDHS_NLSOCKET_HPP_
 #include <stdint.h>
 #include <vector>
-#include <string>
 #include <nk/sys/posix/handle.hpp>
 #include <nk/net/ip_address.hpp>
 extern "C" {
@@ -57,7 +56,8 @@ struct NLSocket
     NLSocket(const NLSocket &) = delete;
     NLSocket &operator=(const NLSocket &) = delete;
 
-    void init(std::vector<std::string> &ifnames);
+    void init();
+    [[nodiscard]] bool add_interface(const char *ifname);
 
     void process_input();
     auto fd() const { return fd_(); }
