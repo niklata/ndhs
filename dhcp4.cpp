@@ -1,6 +1,8 @@
 // Copyright 2011-2020 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <unistd.h>
+#include <unordered_map>
+#include <chrono>
 #include <sys/types.h>
 #include <net/if.h>
 #include <pwd.h>
@@ -16,12 +18,46 @@ extern "C" {
 #include "options.h"
 }
 
+// There are two hashtables, a 'new' and a 'marked for death' table.  If these
+// tables are not empty, a timer with period t will wake up and delete all
+// entries on the 'm4d' table and move the 'new' table to replace the 'm4d'
+// table.  If an entry on the 'm4d' table is accessed, it will be moved to the
+// 'new' table.  New entries will be added to the 'new' table.  If both tables
+// are emptied, the timer can stop until a new entry is added.  We optimize
+// the scheme by not actually performing moves: instead, we store an index
+// to the 'new' table, and the 'marked for death' table is the unindexed table.
+//
+// This scheme requires no per-item timestamping and will bound the lifetime of any
+// object to be p < lifetime < 2p.  A further refinement would be to scale
+// p to be inversely proportional to the number of entries on the 'new'
+// and 'm4d' tables.  This change would cause the deletion rate to increase
+// smoothly under heavy load, providing resistance to OOM DoS at the cost of
+// making it so that clients will need to complete their transactions quickly.
+class ClientStates
+{
+public:
+    ClientStates();
+    ClientStates(const ClientStates &) = delete;
+    ClientStates &operator=(const ClientStates &) = delete;
+
+    bool stateExists(uint32_t xid, uint8_t *hwaddr);
+    void stateAdd(uint32_t xid, uint8_t *hwaddr, uint8_t state);
+    uint8_t stateGet(uint32_t xid, uint8_t *hwaddr);
+    void stateKill(uint32_t xid, uint8_t *hwaddr);
+private:
+    void maybe_swap(void);
+    std::chrono::steady_clock::time_point expires_;
+    std::unordered_map<std::string, uint8_t> map_[2];
+    int currentMap_; // Either 0 or 1.
+    int swapInterval_;
+};
+
 // key is concatenation of xid|hwaddr.  Neither of these need to be
 // stored in explicit fields in the state structure.
 static std::string generateKey(uint32_t xid, uint8_t *hwaddr) {
     std::string ret;
-    ret.resize(32);
-    auto t = snprintf(ret.data(), ret.size(), "%u%2.x%2.x%2.x%2.x%2.x%2.x",
+    ret.resize(21);
+    auto t = snprintf(ret.data(), ret.size(), "%8.x%2.x%2.x%2.x%2.x%2.x%2.x",
                       xid, hwaddr[0], hwaddr[1], hwaddr[2],
                       hwaddr[3], hwaddr[4], hwaddr[5]);
     if (t < 0 || static_cast<size_t>(t) > ret.size())
@@ -264,15 +300,6 @@ void D4Listener::send_reply_do(const dhcpmsg &dm, SendReplyType srt)
     }
 }
 
-std::string D4Listener::ipStr(uint32_t ip) const
-{
-    char addrbuf[INET_ADDRSTRLEN];
-    auto r = inet_ntop(AF_INET, &ip, addrbuf, sizeof addrbuf);
-    if (!r)
-        return std::string("");
-    return std::string(addrbuf);
-}
-
 void D4Listener::send_reply(const dhcpmsg &reply)
 {
     if (dhcpmsg_.giaddr)
@@ -474,13 +501,6 @@ void D4Listener::do_release() {
         return;
     }
     dynlease_del(ifname_, u32_ipaddr(dhcpmsg_.ciaddr), dhcpmsg_.chaddr);
-}
-
-std::string D4Listener::getChaddr(const struct dhcpmsg &dm) const
-{
-    char mac[7];
-    memcpy(mac, dm.chaddr, sizeof mac - 1);
-    return std::string(mac, 6);
 }
 
 uint8_t D4Listener::validate_dhcp(size_t len) const
