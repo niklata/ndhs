@@ -78,7 +78,7 @@ bool D6Listener::init(const std::string &ifname, uint8_t preference)
     preference_ = preference;
 
     {
-        auto ifinfo = nl_socket.get_ifinfo(ifname_);
+        auto ifinfo = nl_socket.get_ifinfo(ifname_.c_str());
         if (!ifinfo) {
             log_line("dhcp6: Failed to get interface index for %s\n", ifname_.c_str());
             return false;

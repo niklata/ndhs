@@ -77,10 +77,10 @@ struct NLSocket
         }
         return nullptr;
     }
-    [[nodiscard]] netif_info *get_ifinfo(const std::string &name)
+    [[nodiscard]] netif_info *get_ifinfo(const char *name)
     {
         for (auto &i: ifaces_) {
-            if (!strcmp(name.c_str(), i.name)) return &i;
+            if (!strcmp(name, i.name)) return &i;
         }
         return {};
     }

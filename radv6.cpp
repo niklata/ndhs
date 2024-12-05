@@ -427,7 +427,7 @@ bool RA6Listener::send_advert()
         (csum, net_checksum16(&ra6adv_hdr, sizeof ra6adv_hdr));
 
     {
-        auto ifinfo = nl_socket.get_ifinfo(ifname_);
+        auto ifinfo = nl_socket.get_ifinfo(ifname_.c_str());
         if (!ifinfo) {
             log_line("ra6: Failed to get interface index for %s\n", ifname_.c_str());
             return false;

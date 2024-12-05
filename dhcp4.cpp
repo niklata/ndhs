@@ -153,7 +153,7 @@ bool D4Listener::init(const std::string &ifname)
     if (!create_dhcp4_socket()) return false;
 
     {
-        auto ifinfo = nl_socket.get_ifinfo(ifname);
+        auto ifinfo = nl_socket.get_ifinfo(ifname.c_str());
         if (!ifinfo) {
             log_line("dhcp4: Failed to get interface index for %s\n", ifname.c_str());
             return false;
