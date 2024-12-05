@@ -107,7 +107,7 @@ static void init_listeners()
                                               uint8_t preference) {
         if (use_v6) {
             v6l->emplace_back(std::make_unique<D6Listener>());
-            if (!v6l->back()->init(i, preference)) {
+            if (!v6l->back()->init(i.c_str(), preference)) {
                 v6l->pop_back();
                 log_line("Can't bind to dhcpv6 interface: %s\n", i.c_str());
             } else {
@@ -318,7 +318,7 @@ int main(int ac, char *av[])
             case pfd_type::dhcp6: {
                 auto d6 = static_cast<D6Listener *>(poll_meta[i].data);
                 if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                    suicide("%s: dhcp6 socket closed unexpectedly\n", d6->ifname().c_str());
+                    suicide("%s: dhcp6 socket closed unexpectedly\n", d6->ifname());
                 }
                 if (poll_vector[i].revents & POLLIN) {
                     d6->process_input();

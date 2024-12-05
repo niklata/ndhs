@@ -12,6 +12,9 @@
 #include "dhcp_state.hpp"
 #include "radv6.hpp"
 #include "sbufs.h"
+extern "C" {
+#include <net/if.h>
+}
 
 enum class dhcp6_msgtype {
     unknown = 0,
@@ -191,10 +194,10 @@ struct D6Listener
     D6Listener(const D6Listener &) = delete;
     D6Listener &operator=(const D6Listener &) = delete;
 
-    [[nodiscard]] bool init(const std::string &ifname, uint8_t preference);
+    [[nodiscard]] bool init(const char *ifname, uint8_t preference);
     void process_input();
     auto fd() const { return fd_(); }
-    auto& ifname() const { return ifname_; }
+    const char *ifname() const { return ifname_; }
 private:
     using prev_opt_state = std::pair<int8_t, uint16_t>; // Type of parent opt and length left
     struct d6msg_state
@@ -250,7 +253,7 @@ private:
     nk::ip_address local_ip_;
     nk::ip_address local_ip_prefix_;
     nk::ip_address link_local_ip_;
-    std::string ifname_;
+    char ifname_[IFNAMSIZ];
     nk::sys::handle fd_;
     bool using_bpf_:1;
     unsigned char prefixlen_;
