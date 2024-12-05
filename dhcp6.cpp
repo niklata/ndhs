@@ -55,7 +55,7 @@ bool D6Listener::create_dhcp6_socket()
     }
     nk::ip_address mc6_alldhcp_ras;
     if (!mc6_alldhcp_ras.from_string("ff02::1:2")) return false;
-    if (!attach_multicast(tfd(), ifname_, mc6_alldhcp_ras)) return false;
+    if (!attach_multicast(tfd(), ifname_.c_str(), mc6_alldhcp_ras)) return false;
     attach_bpf(tfd());
 
     sockaddr_in6 sai;

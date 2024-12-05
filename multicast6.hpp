@@ -3,7 +3,6 @@
 #ifndef NDHS_MULTICAST6_HPP_
 #define NDHS_MULTICAST6_HPP_
 
-#include <string>
 #include <memory>
 #include <net/if.h>
 #include <nk/net/ip_address.hpp>
@@ -13,16 +12,16 @@ extern "C" {
 }
 
 extern NLSocket nl_socket;
-[[nodiscard]] static inline bool attach_multicast(int fd, const std::string &ifname, const sockaddr_in6 &mc6addr)
+[[nodiscard]] static inline bool attach_multicast(int fd, const char *ifname, const sockaddr_in6 &mc6addr)
 {
-    int ifidx = nl_socket.get_ifindex(ifname.c_str());
+    int ifidx = nl_socket.get_ifindex(ifname);
     if (ifidx < 0) {
-        log_line("Failed to get interface index for %s\n", ifname.c_str());
+        log_line("Failed to get interface index for %s\n", ifname);
         return false;
     }
     struct ifreq ifr;
     memset(&ifr, 0, sizeof (struct ifreq));
-    memcpy(ifr.ifr_name, ifname.c_str(), ifname.size());
+    memcpy(ifr.ifr_name, ifname, strlen(ifname));
     if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
         log_line("failed to bind socket to device: %s\n", strerror(errno));
         return false;
@@ -51,7 +50,7 @@ extern NLSocket nl_socket;
     return true;
 }
 
-[[nodiscard]] static inline bool attach_multicast(int fd, const std::string &ifname, nk::ip_address &mc6addr)
+[[nodiscard]] static inline bool attach_multicast(int fd, const char *ifname, nk::ip_address &mc6addr)
 {
     sockaddr_in6 sai;
     memset(&sai, 0, sizeof sai);
