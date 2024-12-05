@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <vector>
 #include <string>
-#include <optional>
 #include <nk/sys/posix/handle.hpp>
 #include <nk/net/ip_address.hpp>
 extern "C" {
@@ -62,11 +61,11 @@ struct NLSocket
 
     void process_input();
     auto fd() const { return fd_(); }
-    [[nodiscard]] std::optional<int> get_ifindex(const char *name) const {
+    [[nodiscard]] int get_ifindex(const char *name) const {
         for (auto &i: ifaces_) {
             if (!strcmp(name, i.name)) return i.index;
         }
-        return {};
+        return -1;
     }
 
     // The pointer that is returned is stable because the function is only
@@ -94,7 +93,7 @@ private:
     void request_links();
     void request_addrs(int ifidx);
     std::vector<netif_info> ifaces_;
-    std::optional<int> query_ifindex_;
+    int query_ifindex_;
     nk::sys::handle fd_;
     uint32_t nlseq_;
     bool got_newlink_:1;

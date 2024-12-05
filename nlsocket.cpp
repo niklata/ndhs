@@ -20,6 +20,7 @@ void NLSocket::init(std::vector<std::string> &ifnames)
 {
     nlseq_ = random_u64();
     got_newlink_ = false;
+    query_ifindex_ = -1;
 
     auto tfd = nk::sys::handle{ nl_open(NETLINK_ROUTE, RTMGRP_LINK, 0) };
     if (!tfd) suicide("NLSocket: failed to create netlink socket\n");
@@ -45,11 +46,10 @@ void NLSocket::init(std::vector<std::string> &ifnames)
     }
 
     for (auto &i: ifnames) {
-        const auto ifindex = get_ifindex(i.c_str());
-        if (!ifindex.has_value()) continue;
-        query_ifindex_ = *ifindex;
-        request_addrs(*ifindex);
-        for (;query_ifindex_.has_value();) {
+        query_ifindex_ = get_ifindex(i.c_str());
+        if (query_ifindex_ < 0) continue;
+        request_addrs(query_ifindex_);
+        while (query_ifindex_ >= 0) {
             if (poll(&pfd, 1, -1) < 0) {
                 if (errno == EINTR) continue;
                 suicide("poll failed\n");
@@ -160,7 +160,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
 
     switch (nlh->nlmsg_type) {
     case RTM_NEWADDR: {
-        if (query_ifindex_.has_value() && *query_ifindex_ == nia.if_index) query_ifindex_.reset();
+        if (query_ifindex_ == nia.if_index) query_ifindex_ = -1;
         for (auto &i: ifaces_) {
             if (i.index == nia.if_index) {
                 // Update if the address already exists
