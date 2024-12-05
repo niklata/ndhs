@@ -1,7 +1,7 @@
 // Copyright 2011-2020 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <unistd.h>
-#include <unordered_map>
+#include <map>
 #include <chrono>
 #include <sys/types.h>
 #include <net/if.h>
@@ -18,6 +18,9 @@ extern "C" {
 #include "options.h"
 }
 
+// Expect a client to reply within this value in seconds
+#define CS_SWAP_INTERVAL 60
+
 // There are two hashtables, a 'new' and a 'marked for death' table.  If these
 // tables are not empty, a timer with period t will wake up and delete all
 // entries on the 'm4d' table and move the 'new' table to replace the 'm4d'
@@ -33,92 +36,89 @@ extern "C" {
 // and 'm4d' tables.  This change would cause the deletion rate to increase
 // smoothly under heavy load, providing resistance to OOM DoS at the cost of
 // making it so that clients will need to complete their transactions quickly.
-class ClientStates
+struct ClientStates
 {
-public:
     ClientStates();
     ClientStates(const ClientStates &) = delete;
     ClientStates &operator=(const ClientStates &) = delete;
 
-    bool stateExists(uint32_t xid, uint8_t *hwaddr);
     void stateAdd(uint32_t xid, uint8_t *hwaddr, uint8_t state);
     uint8_t stateGet(uint32_t xid, uint8_t *hwaddr);
-    void stateKill(uint32_t xid, uint8_t *hwaddr);
+    void stateKill(uint8_t *hwaddr);
 private:
     void maybe_swap(void);
+    struct StateItem
+    {
+        uint32_t xid_;
+        uint8_t state_;
+    };
     std::chrono::steady_clock::time_point expires_;
-    std::unordered_map<std::string, uint8_t> map_[2];
+    std::map<uint64_t, StateItem> map_[2];
     int currentMap_; // Either 0 or 1.
-    int swapInterval_;
 };
 
-// key is concatenation of xid|hwaddr.  Neither of these need to be
-// stored in explicit fields in the state structure.
-static std::string generateKey(uint32_t xid, uint8_t *hwaddr) {
-    std::string ret;
-    ret.resize(21);
-    auto t = snprintf(ret.data(), ret.size(), "%8.x%2.x%2.x%2.x%2.x%2.x%2.x",
-                      xid, hwaddr[0], hwaddr[1], hwaddr[2],
-                      hwaddr[3], hwaddr[4], hwaddr[5]);
-    if (t < 0 || static_cast<size_t>(t) > ret.size())
-        suicide("dhcp4: %s: snprintf failed; return=%d\n", __func__, t);
-    ret.resize(static_cast<size_t>(t));
-    return ret;
+// hwaddr must be exactly 6 bytes
+static uint64_t hwaddr_to_int64(uint8_t *hwaddr)
+{
+    return (uint64_t)hwaddr[0] |
+           ((uint64_t)hwaddr[1] << 8) |
+           ((uint64_t)hwaddr[2] << 16) |
+           ((uint64_t)hwaddr[3] << 24) |
+           ((uint64_t)hwaddr[4] << 32) |
+           ((uint64_t)hwaddr[5] << 40);
 }
 
-ClientStates::ClientStates() : currentMap_(0), swapInterval_(60) /* 1m */
+ClientStates::ClientStates() : currentMap_(0)
 {
-    expires_ = std::chrono::steady_clock::now() + std::chrono::seconds(swapInterval_);
+    expires_ = std::chrono::steady_clock::now() + std::chrono::seconds(CS_SWAP_INTERVAL);
 }
-bool ClientStates::stateExists(uint32_t xid, uint8_t *hwaddr) {
-    maybe_swap();
-    const auto key = generateKey(xid, hwaddr);
-    return (map_[0].find(key) != map_[0].end()) ||
-           (map_[1].find(key) != map_[1].end());
-}
+
 void ClientStates::stateAdd(uint32_t xid, uint8_t *hwaddr, uint8_t state)
 {
     maybe_swap();
-    const auto key = generateKey(xid, hwaddr);
-    if (!state)
-        return;
-    stateKill(xid, hwaddr);
-    map_[currentMap_][key] = state;
+    if (!state) return;
+    uint64_t key = hwaddr_to_int64(hwaddr);
+    map_[!currentMap_].erase(key);
+    map_[currentMap_][key] = StateItem{ xid, state };
 }
+
 uint8_t ClientStates::stateGet(uint32_t xid, uint8_t *hwaddr)
 {
     maybe_swap();
-    const auto key = generateKey(xid, hwaddr);
+    uint64_t key = hwaddr_to_int64(hwaddr);
     auto r = map_[currentMap_].find(key);
-    if (r != map_[currentMap_].end())
-        return r->second;
-    r = map_[!currentMap_].find(key);
-    if (r != map_[!currentMap_].end()) {
-        map_[!currentMap_].erase(r);
-        map_[currentMap_][key] = r->second;
-        return r->second;
+    struct StateItem si;
+    if (r != map_[currentMap_].end()) {
+        si = r->second;
+    } else {
+        r = map_[!currentMap_].find(key);
+        if (r != map_[!currentMap_].end()) {
+            si = r->second;
+            // Transfer into the newest map.
+            auto t = map_[!currentMap_].extract(r);
+            map_[currentMap_].insert(std::move(t));
+        } else {
+            return DHCPNULL;
+        }
     }
-    return DHCPNULL;
+    if (si.xid_ != xid) return DHCPNULL;
+    return si.state_;
 }
-void ClientStates::stateKill(uint32_t xid, uint8_t *hwaddr)
+
+void ClientStates::stateKill(uint8_t *hwaddr)
 {
     maybe_swap();
-    const auto key = generateKey(xid, hwaddr);
-    auto elt = map_[currentMap_].find(key);
-    if (elt != map_[currentMap_].end()) {
-        map_[currentMap_].erase(elt);
-        return;
-    }
-    elt = map_[!currentMap_].find(key);
-    if (elt != map_[!currentMap_].end())
-        map_[!currentMap_].erase(elt);
+    uint64_t key = hwaddr_to_int64(hwaddr);
+    if (map_[currentMap_].erase(key)) return;
+    map_[!currentMap_].erase(key);
 }
+
 void ClientStates::maybe_swap(void)
 {
     const auto now = std::chrono::steady_clock::now();
     if (now < expires_) return;
 
-    expires_ = now + std::chrono::seconds(swapInterval_);
+    expires_ = now + std::chrono::seconds(CS_SWAP_INTERVAL);
     const int killMap = !currentMap_;
     map_[killMap].clear();
     currentMap_ = killMap;
@@ -127,6 +127,7 @@ void ClientStates::maybe_swap(void)
 extern NLSocket nl_socket;
 extern int64_t get_current_ts();
 
+// XXX: The table should be per-interface.
 static std::unique_ptr<ClientStates> client_states_v4;
 static void init_client_states_v4()
 {
@@ -460,7 +461,7 @@ void D4Listener::reply_request()
     if (create_reply(reply, dhcpmsg_.chaddr, true)) {
         send_reply(reply);
     }
-    client_states_v4->stateKill(dhcpmsg_.xid, dhcpmsg_.chaddr);
+    client_states_v4->stateKill(dhcpmsg_.chaddr);
 }
 
 static nk::ip_address zero_v4;
