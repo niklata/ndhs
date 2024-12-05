@@ -38,7 +38,7 @@ struct netif_addr
 
 struct netif_info
 {
-    std::string name;
+    char name[IFNAMSIZ];
     std::string qdisc;
     unsigned char family;
     unsigned short device_type;

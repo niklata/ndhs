@@ -227,7 +227,12 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
     }
     if (tb[IFLA_IFNAME]) {
         auto v = reinterpret_cast<const char *>(RTA_DATA(tb[IFLA_IFNAME]));
-        nii.name = std::string(v, strlen(v));
+        size_t src_size = strlen(v);
+        if (src_size >= sizeof nii.name) {
+            log_line("nlsocket: Interface name (%s) in link message is too long\n", v);
+            return;
+        }
+        *((char *)mempcpy(nii.name, v, src_size)) = 0;
     }
     if (tb[IFLA_QDISC]) {
         auto v = reinterpret_cast<const char *>(RTA_DATA(tb[IFLA_QDISC]));
@@ -245,7 +250,7 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
         // Preserve the addresses if we're just modifying fields.
         if (elt != interfaces_.end())
             std::swap(nii.addrs, elt->second.addrs);
-        log_line("nlsocket: Adding link info: %s\n", nii.name.c_str());
+        log_line("nlsocket: Adding link info: %s\n", nii.name);
         interfaces_.emplace(std::make_pair(nii.index, nii));
         break;
     }
