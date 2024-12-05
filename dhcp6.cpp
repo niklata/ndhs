@@ -14,7 +14,7 @@ extern "C" {
 #define MAX_DYN_LEASES 1000u
 #define MAX_DYN_ATTEMPTS 100u
 
-extern std::unique_ptr<NLSocket> nl_socket;
+extern NLSocket nl_socket;
 extern int64_t get_current_ts();
 
 static nk::ip_address mask_v6_addr(const nk::ip_address &addr, uint8_t mask)
@@ -78,7 +78,7 @@ bool D6Listener::init(const std::string &ifname, uint8_t preference)
     preference_ = preference;
 
     {
-        auto ifinfo = nl_socket->get_ifinfo(ifname_);
+        auto ifinfo = nl_socket.get_ifinfo(ifname_);
         if (!ifinfo) {
             log_line("dhcp6: Failed to get interface index for %s\n", ifname_.c_str());
             return false;

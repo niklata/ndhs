@@ -88,7 +88,7 @@ void ClientStates::maybe_swap(void)
     currentMap_ = killMap;
 }
 
-extern std::unique_ptr<NLSocket> nl_socket;
+extern NLSocket nl_socket;
 extern int64_t get_current_ts();
 
 static std::unique_ptr<ClientStates> client_states_v4;
@@ -153,7 +153,7 @@ bool D4Listener::init(const std::string &ifname)
     if (!create_dhcp4_socket()) return false;
 
     {
-        auto ifinfo = nl_socket->get_ifinfo(ifname);
+        auto ifinfo = nl_socket.get_ifinfo(ifname);
         if (!ifinfo) {
             log_line("dhcp4: Failed to get interface index for %s\n", ifname.c_str());
             return false;

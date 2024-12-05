@@ -52,12 +52,13 @@ struct netif_info
     std::vector<netif_addr> addrs;
 };
 
-class NLSocket
+struct NLSocket
 {
-public:
-    NLSocket(std::vector<std::string> &ifnames);
+    NLSocket() {}
     NLSocket(const NLSocket &) = delete;
     NLSocket &operator=(const NLSocket &) = delete;
+
+    void init(std::vector<std::string> &ifnames);
 
     void process_input();
     auto fd() const { return fd_(); }

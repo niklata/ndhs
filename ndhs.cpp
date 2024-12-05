@@ -59,7 +59,7 @@ static uid_t ndhs_uid;
 static gid_t ndhs_gid;
 static std::optional<int> s6_notify_fd;
 
-std::unique_ptr<NLSocket> nl_socket;
+NLSocket nl_socket;
 
 static std::vector<std::unique_ptr<D6Listener>> v6_listeners;
 static std::vector<std::unique_ptr<D4Listener>> v4_listeners;
@@ -74,13 +74,13 @@ static void init_listeners()
 {
     {
         auto bn = bound_interfaces_names();
-        nl_socket = std::make_unique<NLSocket>(bn);
+        nl_socket.init(bn);
         struct pollfd pt;
-        pt.fd = nl_socket->fd();
+        pt.fd = nl_socket.fd();
         pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
         pt.revents = 0;
         poll_vector.push_back(pt);
-        poll_meta.emplace_back(pfd_type::netlink, nl_socket.get());
+        poll_meta.emplace_back(pfd_type::netlink, &nl_socket);
     }
 
     {
@@ -298,12 +298,11 @@ int main(int ac, char *av[])
         for (size_t i = 0, iend = poll_vector.size(); i < iend; ++i) {
             switch (poll_meta[i].pfdt) {
             case pfd_type::netlink: {
-                auto nl = static_cast<NLSocket *>(poll_meta[i].data);
                 if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
                     suicide("nlfd closed unexpectedly\n");
                 }
                 if (poll_vector[i].revents & POLLIN) {
-                    nl->process_input();
+                    nl_socket.process_input();
                 }
             } break;
             case pfd_type::dhcp6: {

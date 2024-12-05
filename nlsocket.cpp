@@ -16,9 +16,11 @@ extern "C" {
 #pragma GCC diagnostic ignored "-Wold-style-cast"
 #endif
 
-NLSocket::NLSocket(std::vector<std::string> &ifnames)
-    : nlseq_(random_u64()), got_newlink_(false)
+void NLSocket::init(std::vector<std::string> &ifnames)
 {
+    nlseq_ = random_u64();
+    got_newlink_ = false;
+
     auto tfd = nk::sys::handle{ nl_open(NETLINK_ROUTE, RTMGRP_LINK, 0) };
     if (!tfd) suicide("NLSocket: failed to create netlink socket\n");
     swap(fd_, tfd);
