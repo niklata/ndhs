@@ -79,12 +79,8 @@ public:
     [[nodiscard]] netif_info *get_ifinfo(const std::string &name)
     {
         auto alt = name_to_ifindex_.find(name);
-        if (alt != name_to_ifindex_.end()) {
-            if (auto elt = interfaces_.find(alt->second); elt != interfaces_.end()) {
-                return &elt->second;
-            }
-        }
-        return nullptr;
+        if (alt == name_to_ifindex_.end()) return nullptr;
+        return get_ifinfo(alt->second);
     }
 private:
     void process_receive(const char *buf, size_t bytes_xferred,
