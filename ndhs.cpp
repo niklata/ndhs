@@ -112,7 +112,7 @@ static void init_listeners()
                 log_line("Can't bind to dhcpv6 interface: %s\n", i.c_str());
             } else {
                 vr6l->emplace_back(std::make_unique<RA6Listener>());
-                if (!vr6l->back()->init(i)) {
+                if (!vr6l->back()->init(i.c_str())) {
                     v6l->pop_back();
                     vr6l->pop_back();
                     log_line("Can't bind to rav6 interface: %s\n", i.c_str());
@@ -336,7 +336,7 @@ int main(int ac, char *av[])
             case pfd_type::radv6: {
                 auto r6 = static_cast<RA6Listener *>(poll_meta[i].data);
                 if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                    suicide("%s: ra6 socket closed unexpectedly\n", r6->ifname().c_str());
+                    suicide("%s: ra6 socket closed unexpectedly\n", r6->ifname());
                 }
                 if (poll_vector[i].revents & POLLIN) {
                     r6->process_input();
