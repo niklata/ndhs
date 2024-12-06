@@ -1,7 +1,6 @@
 // Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <unordered_map>
-#include <optional>
 #include <memory>
 #include <string>
 #include <cassert>
@@ -44,13 +43,13 @@ static std::unordered_map<std::string, interface_data> interface_state;
 // Allocates memory frequently in order to make correctness easier to
 // verify, but at least in this program, it will called only at
 // reconfiguration.
-static std::optional<std::vector<uint8_t>> dns_label(const std::string &ds)
+static bool dns_label(std::vector<uint8_t> *out, std::string_view ds)
 {
-    std::vector<uint8_t> ret;
     std::vector<std::pair<size_t, size_t>> locs;
 
+    out->clear();
     if (ds.size() <= 0)
-        return ret;
+        return true;
 
     // First we build up a list of label start/end offsets.
     size_t s=0, idx=0;
@@ -61,7 +60,7 @@ static std::optional<std::vector<uint8_t>> dns_label(const std::string &ds)
                 locs.emplace_back(std::make_pair(s, idx));
                 in_label = false;
             } else {
-                return {}; // malformed input
+                return false; // malformed input
             }
         } else {
             if (!in_label) {
@@ -82,38 +81,40 @@ static std::optional<std::vector<uint8_t>> dns_label(const std::string &ds)
     for (const auto &i: locs) {
         auto len = i.second - i.first;
         if (len > 63)
-            return {}; // label too long
-        ret.push_back(len);
+            return false; // label too long
+        out->push_back(len);
         for (size_t j = i.first; j < i.second; ++j)
-            ret.push_back(static_cast<uint8_t>(ds[j]));
+            out->push_back(static_cast<uint8_t>(ds[j]));
     }
     // Terminating zero length label.
-    if (ret.size())
-        ret.push_back(0);
-    if (ret.size() > 255)
-        return {}; // domain name too long
-    return ret;
+    if (out->size())
+        out->push_back(0);
+    if (out->size() > 255) {
+        out->clear();
+        return false; // domain name too long
+    }
+    return true;
 }
 
 static void create_dns_search_blob(std::vector<std::string> &dns_search,
                                    std::vector<uint8_t> &dns_search_blob)
 {
     dns_search_blob.clear();
+    std::vector<uint8_t> lbl;
     for (const auto &dnsname: dns_search) {
-        auto lbl = dns_label(dnsname);
-        if (!lbl) {
+        if (!dns_label(&lbl, dnsname)) {
             log_line("labelizing %s failed\n", dnsname.c_str());
             continue;
         }
         // See if the search blob size is too large to encode in a RA
         // dns search option.
-        if (dns_search_blob.size() + lbl->size() > 8 * 254) {
+        if (dns_search_blob.size() + lbl.size() > 8 * 254) {
             log_line("dns search list is too long, truncating\n");
             break;
         }
         dns_search_blob.insert(dns_search_blob.end(),
-                               std::make_move_iterator(lbl->begin()),
-                               std::make_move_iterator(lbl->end()));
+                               std::make_move_iterator(lbl.begin()),
+                               std::make_move_iterator(lbl.end()));
     }
     assert(dns_search_blob.size() <= 8 * 254);
     dns_search.clear();
@@ -122,23 +123,23 @@ static void create_dns_search_blob(std::vector<std::string> &dns_search,
 // Different from the dns search blob because we pre-include the
 // suboption headers.
 static void create_ntp6_fqdns_blob(std::vector<std::string> &ntp_fqdns,
-                            std::vector<uint8_t> &ntp6_fqdns_blob)
+                                   std::vector<uint8_t> &ntp6_fqdns_blob)
 {
     ntp6_fqdns_blob.clear();
+    std::vector<uint8_t> lbl;
     for (const auto &ntpname: ntp_fqdns) {
-        auto lbl = dns_label(ntpname);
-        if (!lbl) {
+        if (!dns_label(&lbl, ntpname)) {
             log_line("labelizing %s failed\n", ntpname.c_str());
             continue;
         }
         ntp6_fqdns_blob.push_back(0);
         ntp6_fqdns_blob.push_back(3);
-        uint16_t lblsize = lbl->size();
+        uint16_t lblsize = lbl.size();
         ntp6_fqdns_blob.push_back(lblsize >> 8);
         ntp6_fqdns_blob.push_back(lblsize & 0xff);
         ntp6_fqdns_blob.insert(ntp6_fqdns_blob.end(),
-                               std::make_move_iterator(lbl->begin()),
-                               std::make_move_iterator(lbl->end()));
+                               std::make_move_iterator(lbl.begin()),
+                               std::make_move_iterator(lbl.end()));
     }
 }
 
