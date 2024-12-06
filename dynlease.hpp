@@ -8,24 +8,24 @@
 size_t dynlease4_count(const char *interface);
 size_t dynlease6_count(const char *interface);
 void dynlease_gc();
-bool dynlease_add(const char *interface, const nk::ip_address &addr,
-                  const uint8_t *macaddr, int64_t expire_time);
-bool dynlease_add(const char *interface, const nk::ip_address &addr,
-                  const char *duid, size_t duid_len,
-                  uint32_t iaid, int64_t expire_time);
-nk::ip_address dynlease_query_refresh_v4(const char *interface, const uint8_t *macaddr,
+bool dynlease4_add(const char *interface, const nk::ip_address &addr,
+                   const uint8_t *macaddr, int64_t expire_time);
+bool dynlease6_add(const char *interface, const nk::ip_address &addr,
+                   const char *duid, size_t duid_len,
+                   uint32_t iaid, int64_t expire_time);
+nk::ip_address dynlease4_query_refresh(const char *interface, const uint8_t *macaddr,
                                          int64_t expire_time);
-nk::ip_address dynlease_query_refresh_v6(const char *interface,
-                                         const char *duid, size_t duid_len,
-                                         uint32_t iaid, int64_t expire_time);
-bool dynlease_exists(const char *interface, const nk::ip_address &addr,
-                     const uint8_t *macaddr);
-bool dynlease_exists(const char *interface, const nk::ip_address &addr,
-                     const char *duid, size_t duid_len, uint32_t iaid);
-bool dynlease_del(const char *interface, const nk::ip_address &addr,
-                  const uint8_t *macaddr);
-bool dynlease_del(const char *interface, const nk::ip_address &addr,
-                  const char *duid, size_t duid_len, uint32_t iaid);
+nk::ip_address dynlease6_query_refresh(const char *interface,
+                                       const char *duid, size_t duid_len,
+                                       uint32_t iaid, int64_t expire_time);
+bool dynlease4_exists(const char *interface, const nk::ip_address &addr,
+                      const uint8_t *macaddr);
+bool dynlease6_exists(const char *interface, const nk::ip_address &addr,
+                      const char *duid, size_t duid_len, uint32_t iaid);
+bool dynlease4_del(const char *interface, const nk::ip_address &addr,
+                   const uint8_t *macaddr);
+bool dynlease6_del(const char *interface, const nk::ip_address &addr,
+                   const char *duid, size_t duid_len, uint32_t iaid);
 
 bool dynlease_unused_addr(const char *interface, const nk::ip_address &addr);
 

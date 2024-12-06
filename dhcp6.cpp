@@ -196,7 +196,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
 
     const auto expire_time = get_current_ts() + dynamic_lifetime;
 
-    auto v6a = dynlease_query_refresh_v6(ifname_, d6s.client_duid.data(), d6s.client_duid.size(), iaid, expire_time);
+    auto v6a = dynlease6_query_refresh(ifname_, d6s.client_duid.data(), d6s.client_duid.size(), iaid, expire_time);
     if (v6a != nk::ip_address(nk::ip_address::any{})) {
         dhcpv6_entry de(v6a, dynamic_lifetime, iaid);
         if (!emit_IA_addr(d6s, ss, &de)) return false;
@@ -220,8 +220,8 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
     for (unsigned attempt = 0; attempt < MAX_DYN_ATTEMPTS; ++attempt) {
         v6a = v6_addr_random(local_ip_prefix_, prefixlen_);
         if (!query_unused_addr(ifname_, v6a)) continue;
-        const auto assigned = dynlease_add(ifname_, v6a, d6s.client_duid.data(),
-                                           d6s.client_duid.size(), iaid, expire_time);
+        const auto assigned = dynlease6_add(ifname_, v6a, d6s.client_duid.data(),
+                                            d6s.client_duid.size(), iaid, expire_time);
         if (assigned) {
             dhcpv6_entry de(v6a, dynamic_lifetime, iaid);
             if (!emit_IA_addr(d6s, ss, &de)) return false;
@@ -483,7 +483,7 @@ bool D6Listener::mark_addr_unused(const d6msg_state &d6s, sbufs &ss)
             if (x && j.addr == x->address) {
                 log_line("dhcp6: found static lease on %s\n", ifname_);
                 freed_ia_addr = true;
-            } else if (dynlease_del(ifname_, j.addr, d6s.client_duid.data(), d6s.client_duid.size(), i.iaid)) {
+            } else if (dynlease6_del(ifname_, j.addr, d6s.client_duid.data(), d6s.client_duid.size(), i.iaid)) {
                 log_line("dhcp6: found dynamic lease on %s\n", ifname_);
                 freed_ia_addr = true;
             }
