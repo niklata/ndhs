@@ -207,7 +207,7 @@ bool emplace_dhcp_state(size_t linenum, const char *interface,
     return false;
 }
 
-bool emplace_dhcp_state(size_t linenum, const char *interface, const std::string &macaddr,
+bool emplace_dhcp_state(size_t linenum, const char *interface, const char *macstr,
                         std::string_view v4_addr, uint32_t default_lifetime)
 {
     for (auto &i: interface_state) {
@@ -217,12 +217,16 @@ bool emplace_dhcp_state(size_t linenum, const char *interface, const std::string
                 log_line("Bad IPv4 address at line %zu: %.*s\n", linenum, (int)v4_addr.size(), v4_addr.data());
                 return false;
             }
-            uint8_t buf[7] = {0};
-            for (unsigned j = 0; j < 6; ++j)
-                buf[j] = strtol(macaddr.c_str() + 3*j, nullptr, 16);
-            i.macaddr_mapping.emplace
-                   (std::make_pair(std::string{reinterpret_cast<char *>(buf), 6},
-                                   dhcpv4_entry(ipa, default_lifetime)));
+
+            uint8_t u[6];
+            char buf[6];
+            if (sscanf(macstr, "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx", &u[0], &u[1], &u[2], &u[3], &u[4], &u[5]) != 6) {
+                log_line("Bad MAC address at line %zu: %s\n", linenum, macstr);
+                return false;
+            }
+            memcpy(buf, u, sizeof buf);
+
+            i.macaddr_mapping.emplace(std::make_pair(std::string(buf, 6), dhcpv4_entry(ipa, default_lifetime)));
             return true;
         }
     }

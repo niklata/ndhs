@@ -177,7 +177,7 @@ static inline std::string lc_string(const char *s, size_t slen)
         emplace_dynamic_v6(linenum, cps.interface);
     }
     action V4EntryEn {
-        emplace_dhcp_state(linenum, cps.interface, cps.macaddr, cps.ipaddr,
+        emplace_dhcp_state(linenum, cps.interface, cps.macaddr.c_str(), cps.ipaddr,
                            cps.default_lifetime);
     }
     action V6EntryEn {

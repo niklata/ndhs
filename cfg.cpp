@@ -892,7 +892,7 @@ const size_t linenum)
 							{
 #line 179 "cfg.rl"
 							
-							emplace_dhcp_state(linenum, cps.interface, cps.macaddr, cps.ipaddr,
+							emplace_dhcp_state(linenum, cps.interface, cps.macaddr.c_str(), cps.ipaddr,
 							cps.default_lifetime);
 						}
 						
