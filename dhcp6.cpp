@@ -198,7 +198,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
 
     auto v6a = dynlease_query_refresh(ifname_, d6s.client_duid, iaid, expire_time);
     if (v6a != nk::ip_address(nk::ip_address::any{})) {
-        dhcpv6_entry de(iaid, v6a, dynamic_lifetime);
+        dhcpv6_entry de(v6a, dynamic_lifetime, iaid);
         if (!emit_IA_addr(d6s, ss, &de)) return false;
         log_line("dhcp6: Assigned existing dynamic IP (%s) on %s\n", v6a.to_string().c_str(), ifname_);
         use_dynamic = true;
@@ -222,7 +222,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
         if (!query_unused_addr(ifname_, v6a)) continue;
         const auto assigned = dynlease_add(ifname_, v6a, d6s.client_duid, iaid, expire_time);
         if (assigned) {
-            dhcpv6_entry de(iaid, v6a, dynamic_lifetime);
+            dhcpv6_entry de(v6a, dynamic_lifetime, iaid);
             if (!emit_IA_addr(d6s, ss, &de)) return false;
             use_dynamic = true;
             return true;

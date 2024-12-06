@@ -1,6 +1,6 @@
 // Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
-#include <unordered_map>
+#include <map>
 #include <memory>
 #include <string>
 #include <cassert>
@@ -14,8 +14,8 @@ struct interface_data
     interface_data(bool use_v4, bool use_v6)
         : dynamic_lifetime(0), preference(0), use_dhcpv4(use_v4), use_dhcpv6(use_v6),
           use_dynamic_v4(false), use_dynamic_v6(false) {}
-    std::unordered_multimap<std::string, std::unique_ptr<dhcpv6_entry>> duid_mapping;
-    std::unordered_map<std::string, std::unique_ptr<dhcpv4_entry>> macaddr_mapping;
+    std::multimap<std::string, dhcpv6_entry> duid_mapping;
+    std::map<std::string, dhcpv4_entry> macaddr_mapping;
     std::vector<nk::ip_address> gateway;
     std::vector<nk::ip_address> dns6_servers;
     std::vector<nk::ip_address> dns4_servers;
@@ -37,7 +37,7 @@ struct interface_data
     bool use_dynamic_v6:1;
 };
 
-static std::unordered_map<std::string, interface_data> interface_state;
+static std::map<std::string, interface_data> interface_state;
 
 // Performs DNS label wire encoding cf RFC1035 3.1
 // Allocates memory frequently in order to make correctness easier to
@@ -193,7 +193,7 @@ bool emplace_dhcp_state(size_t linenum, const char *interface,
     }
     si->second.duid_mapping.emplace
            (std::make_pair(std::string(duid, duid_len),
-                           std::make_unique<dhcpv6_entry>(iaid, ipa, default_lifetime)));
+                           dhcpv6_entry(ipa, default_lifetime, iaid)));
     return true;
 }
 
@@ -215,7 +215,7 @@ bool emplace_dhcp_state(size_t linenum, const char *interface, const std::string
         buf[i] = strtol(macaddr.c_str() + 3*i, nullptr, 16);
     si->second.macaddr_mapping.emplace
         (std::make_pair(std::string{reinterpret_cast<char *>(buf), 6},
-                        std::make_unique<dhcpv4_entry>(ipa, default_lifetime)));
+                        dhcpv4_entry(ipa, default_lifetime)));
     return true;
 }
 
@@ -384,8 +384,8 @@ const dhcpv6_entry *query_dhcp_state(const char *interface,
     if (si == interface_state.end()) return nullptr;
     auto f = si->second.duid_mapping.equal_range(std::string(duid, duid_len));
     for (auto i = f.first; i != f.second; ++i) {
-        if (i->second->iaid == iaid)
-            return i->second.get();
+        if (i->second.iaid == iaid)
+            return &i->second;
     }
     return nullptr;
 }
@@ -395,7 +395,7 @@ const dhcpv4_entry* query_dhcp_state(const char *interface, const uint8_t *hwadd
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
     auto f = si->second.macaddr_mapping.find(std::string(reinterpret_cast<const char *>(hwaddr), 6));
-    return f != si->second.macaddr_mapping.end() ? f->second.get() : nullptr;
+    return f != si->second.macaddr_mapping.end() ? &f->second : nullptr;
 }
 
 const std::vector<nk::ip_address> *query_dns6_servers(const char *interface)
@@ -505,7 +505,7 @@ bool query_unused_addr(const char *interface, const nk::ip_address &addr)
     if (si == interface_state.end()) return true;
 
     for (const auto &i: si->second.duid_mapping) {
-        if (i.second->address == addr)
+        if (i.second.address == addr)
             return false;
     }
     return true;

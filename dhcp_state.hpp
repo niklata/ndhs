@@ -10,16 +10,12 @@
 enum class addr_type { null, v4, v6 };
 
 struct dhcpv6_entry {
-    dhcpv6_entry(uint32_t iaid_, const nk::ip_address &addr_, uint32_t lifetime_)
-        : address(addr_), iaid(iaid_), lifetime(lifetime_) {}
     nk::ip_address address;
-    uint32_t iaid;
     uint32_t lifetime;
+    uint32_t iaid;
 };
 
 struct dhcpv4_entry {
-    dhcpv4_entry(const nk::ip_address &addr_, uint32_t lifetime_)
-        : address(addr_), lifetime(lifetime_) {}
     nk::ip_address address;
     uint32_t lifetime;
 };
