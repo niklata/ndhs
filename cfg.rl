@@ -7,6 +7,7 @@
 #include "dhcp_state.hpp"
 extern "C" {
 #include "nk/log.h"
+#include <net/if.h>
 }
 extern void set_user_runas(const char *username, size_t len);
 extern void set_chroot_path(const char *path, size_t len);
@@ -41,7 +42,7 @@ struct cfg_parse_state {
     std::string ipaddr;
     std::string ipaddr2;
     addr_type last_addr;
-    std::string interface;
+    char interface[IFNAMSIZ];
     uint32_t default_lifetime;
     uint8_t default_preference;
     bool parse_error;
@@ -98,38 +99,45 @@ static inline std::string lc_string(const char *s, size_t slen)
         }
     }
     action InterfaceEn {
-        cps.interface = std::string(MARKED_STRING());
-        emplace_interface(linenum, cps.interface.c_str(), cps.default_preference);
+        size_t len = (size_t)(p - cps.st);
+        if (p <= cps.st || len >= IFNAMSIZ) {
+            log_line("interface name on line %zu is too long (>= %d)\n", linenum, IFNAMSIZ);
+            cps.parse_error = true;
+            fbreak;
+        }
+        memcpy(cps.interface, cps.st, len);
+        cps.interface[len] = 0;
+        emplace_interface(linenum, cps.interface, cps.default_preference);
     }
     action DnsServerEn {
-        emplace_dns_server(linenum, cps.interface.c_str(), cps.ipaddr, cps.last_addr);
+        emplace_dns_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
     }
     action DnsSearchEn {
-        emplace_dns_search(linenum, cps.interface.c_str(), std::string(MARKED_STRING()));
+        emplace_dns_search(linenum, cps.interface, std::string(MARKED_STRING()));
     }
     action NtpServerEn {
-        emplace_ntp_server(linenum, cps.interface.c_str(), cps.ipaddr, cps.last_addr);
+        emplace_ntp_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
     }
     action GatewayEn {
-        emplace_gateway(linenum, cps.interface.c_str(), cps.ipaddr);
+        emplace_gateway(linenum, cps.interface, cps.ipaddr);
     }
     action DynRangePreEn {
         cps.ipaddr2 = std::move(cps.ipaddr);
     }
     action DynRangeEn {
-        emplace_dynamic_range(linenum, cps.interface.c_str(), cps.ipaddr2, cps.ipaddr,
+        emplace_dynamic_range(linenum, cps.interface, cps.ipaddr2, cps.ipaddr,
                               cps.default_lifetime);
     }
     action DynamicV6En {
-        emplace_dynamic_v6(linenum, cps.interface.c_str());
+        emplace_dynamic_v6(linenum, cps.interface);
     }
     action V4EntryEn {
-        emplace_dhcp_state(linenum, cps.interface.c_str(), cps.macaddr, cps.ipaddr,
+        emplace_dhcp_state(linenum, cps.interface, cps.macaddr, cps.ipaddr,
                            cps.default_lifetime);
     }
     action V6EntryEn {
         if (auto iaid = nk::from_string<uint32_t>(cps.iaid)) {
-            emplace_dhcp_state(linenum, cps.interface.c_str(), std::move(cps.duid),
+            emplace_dhcp_state(linenum, cps.interface, std::move(cps.duid),
                                *iaid, cps.ipaddr, cps.default_lifetime);
         } else {
             cps.parse_error = true;

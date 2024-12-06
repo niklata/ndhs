@@ -8,6 +8,7 @@
 #include "dhcp_state.hpp"
 extern "C" {
 #include "nk/log.h"
+#include <net/if.h>
 }
 extern void set_user_runas(const char *username, size_t len);
 extern void set_chroot_path(const char *path, size_t len);
@@ -42,7 +43,7 @@ struct cfg_parse_state {
 	std::string ipaddr;
 	std::string ipaddr2;
 	addr_type last_addr;
-	std::string interface;
+	char interface[IFNAMSIZ];
 	uint32_t default_lifetime;
 	uint8_t default_preference;
 	bool parse_error;
@@ -58,11 +59,11 @@ static inline std::string lc_string(const char *s, size_t slen)
 }
 
 
-#line 168 "cfg.rl"
+#line 176 "cfg.rl"
 
 
 
-#line 63 "cfg.cpp"
+#line 64 "cfg.cpp"
 static const signed char _cfg_line_m_actions[] = {
 	0, 1, 0, 1, 1, 1, 2, 1,
 	3, 1, 4, 1, 5, 1, 6, 1,
@@ -509,7 +510,7 @@ static const int cfg_line_m_error = 0;
 static const int cfg_line_m_en_main = 161;
 
 
-#line 170 "cfg.rl"
+#line 178 "cfg.rl"
 
 
 static int do_parse_cfg_line(cfg_parse_state &cps, const char *p, size_t plen,
@@ -519,15 +520,15 @@ const size_t linenum)
 	const char *eof = pe;
 	
 
-#line 517 "cfg.cpp"
+#line 518 "cfg.cpp"
 	{
 		cps.cs = (int)cfg_line_m_start;
 	}
 	
-#line 178 "cfg.rl"
+#line 186 "cfg.rl"
 
 
-#line 522 "cfg.cpp"
+#line 523 "cfg.cpp"
 	{
 		int _klen;
 		unsigned int _trans = 0;
@@ -607,103 +608,103 @@ const size_t linenum)
 				{
 					case 0:  {
 							{
-#line 63 "cfg.rl"
+#line 64 "cfg.rl"
 							cps.st = p; }
 						
-#line 604 "cfg.cpp"
+#line 605 "cfg.cpp"
 
 						break; 
 					}
 					case 1:  {
 							{
-#line 65 "cfg.rl"
+#line 66 "cfg.rl"
 							cps.duid = lc_string(MARKED_STRING()); }
 						
-#line 612 "cfg.cpp"
+#line 613 "cfg.cpp"
 
 						break; 
 					}
 					case 2:  {
 							{
-#line 66 "cfg.rl"
+#line 67 "cfg.rl"
 							cps.iaid = lc_string(MARKED_STRING()); }
 						
-#line 620 "cfg.cpp"
+#line 621 "cfg.cpp"
 
 						break; 
 					}
 					case 3:  {
 							{
-#line 67 "cfg.rl"
+#line 68 "cfg.rl"
 							cps.macaddr = lc_string(MARKED_STRING()); }
 						
-#line 628 "cfg.cpp"
+#line 629 "cfg.cpp"
 
 						break; 
 					}
 					case 4:  {
 							{
-#line 68 "cfg.rl"
+#line 69 "cfg.rl"
 							
 							cps.ipaddr = lc_string(MARKED_STRING());
 							cps.last_addr = addr_type::v4;
 						}
 						
-#line 639 "cfg.cpp"
+#line 640 "cfg.cpp"
 
 						break; 
 					}
 					case 5:  {
 							{
-#line 72 "cfg.rl"
+#line 73 "cfg.rl"
 							
 							cps.ipaddr = lc_string(MARKED_STRING());
 							cps.last_addr = addr_type::v6;
 						}
 						
-#line 650 "cfg.cpp"
+#line 651 "cfg.cpp"
 
 						break; 
 					}
 					case 6:  {
 							{
-#line 76 "cfg.rl"
+#line 77 "cfg.rl"
 							emplace_bind(linenum, std::string(MARKED_STRING()), true); }
 						
-#line 658 "cfg.cpp"
+#line 659 "cfg.cpp"
 
 						break; 
 					}
 					case 7:  {
 							{
-#line 77 "cfg.rl"
+#line 78 "cfg.rl"
 							emplace_bind(linenum, std::string(MARKED_STRING()), false); }
 						
-#line 666 "cfg.cpp"
+#line 667 "cfg.cpp"
 
 						break; 
 					}
 					case 8:  {
 							{
-#line 78 "cfg.rl"
+#line 79 "cfg.rl"
 							set_user_runas(MARKED_STRING()); }
 						
-#line 674 "cfg.cpp"
+#line 675 "cfg.cpp"
 
 						break; 
 					}
 					case 9:  {
 							{
-#line 79 "cfg.rl"
+#line 80 "cfg.rl"
 							set_chroot_path(MARKED_STRING()); }
 						
-#line 682 "cfg.cpp"
+#line 683 "cfg.cpp"
 
 						break; 
 					}
 					case 10:  {
 							{
-#line 80 "cfg.rl"
+#line 81 "cfg.rl"
 							
 							if (auto t = nk::from_string<int>(MARKED_STRING())) set_s6_notify_fd(*t); else {
 								cps.parse_error = true;
@@ -711,13 +712,13 @@ const size_t linenum)
 							}
 						}
 						
-#line 695 "cfg.cpp"
+#line 696 "cfg.cpp"
 
 						break; 
 					}
 					case 11:  {
 							{
-#line 86 "cfg.rl"
+#line 87 "cfg.rl"
 							
 							if (auto t = nk::from_string<uint32_t>(MARKED_STRING())) cps.default_lifetime = *t; else {
 								cps.parse_error = true;
@@ -725,13 +726,13 @@ const size_t linenum)
 							}
 						}
 						
-#line 708 "cfg.cpp"
+#line 709 "cfg.cpp"
 
 						break; 
 					}
 					case 12:  {
 							{
-#line 92 "cfg.rl"
+#line 93 "cfg.rl"
 							
 							if (auto t = nk::from_string<uint8_t>(MARKED_STRING())) cps.default_preference = *t; else {
 								log_line("default_preference on line %zu out of range [0,255]: %s\n",
@@ -741,118 +742,125 @@ const size_t linenum)
 							}
 						}
 						
-#line 723 "cfg.cpp"
+#line 724 "cfg.cpp"
 
 						break; 
 					}
 					case 13:  {
 							{
-#line 100 "cfg.rl"
+#line 101 "cfg.rl"
 							
-							cps.interface = std::string(MARKED_STRING());
-							emplace_interface(linenum, cps.interface.c_str(), cps.default_preference);
+							size_t len = (size_t)(p - cps.st);
+							if (p <= cps.st || len >= IFNAMSIZ) {
+								log_line("interface name on line %zu is too long (>= %d)\n", linenum, IFNAMSIZ);
+								cps.parse_error = true;
+								{p += 1; goto _out; }
+							}
+							memcpy(cps.interface, cps.st, len);
+							cps.interface[len] = 0;
+							emplace_interface(linenum, cps.interface, cps.default_preference);
 						}
 						
-#line 734 "cfg.cpp"
+#line 742 "cfg.cpp"
 
 						break; 
 					}
 					case 14:  {
 							{
-#line 104 "cfg.rl"
+#line 112 "cfg.rl"
 							
-							emplace_dns_server(linenum, cps.interface.c_str(), cps.ipaddr, cps.last_addr);
+							emplace_dns_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
 						}
 						
-#line 744 "cfg.cpp"
+#line 752 "cfg.cpp"
 
 						break; 
 					}
 					case 15:  {
 							{
-#line 107 "cfg.rl"
+#line 115 "cfg.rl"
 							
-							emplace_dns_search(linenum, cps.interface.c_str(), std::string(MARKED_STRING()));
+							emplace_dns_search(linenum, cps.interface, std::string(MARKED_STRING()));
 						}
 						
-#line 754 "cfg.cpp"
+#line 762 "cfg.cpp"
 
 						break; 
 					}
 					case 16:  {
 							{
-#line 110 "cfg.rl"
+#line 118 "cfg.rl"
 							
-							emplace_ntp_server(linenum, cps.interface.c_str(), cps.ipaddr, cps.last_addr);
+							emplace_ntp_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
 						}
 						
-#line 764 "cfg.cpp"
+#line 772 "cfg.cpp"
 
 						break; 
 					}
 					case 17:  {
 							{
-#line 113 "cfg.rl"
+#line 121 "cfg.rl"
 							
-							emplace_gateway(linenum, cps.interface.c_str(), cps.ipaddr);
+							emplace_gateway(linenum, cps.interface, cps.ipaddr);
 						}
 						
-#line 774 "cfg.cpp"
+#line 782 "cfg.cpp"
 
 						break; 
 					}
 					case 18:  {
 							{
-#line 116 "cfg.rl"
+#line 124 "cfg.rl"
 							
 							cps.ipaddr2 = std::move(cps.ipaddr);
 						}
 						
-#line 784 "cfg.cpp"
+#line 792 "cfg.cpp"
 
 						break; 
 					}
 					case 19:  {
 							{
-#line 119 "cfg.rl"
+#line 127 "cfg.rl"
 							
-							emplace_dynamic_range(linenum, cps.interface.c_str(), cps.ipaddr2, cps.ipaddr,
+							emplace_dynamic_range(linenum, cps.interface, cps.ipaddr2, cps.ipaddr,
 							cps.default_lifetime);
 						}
 						
-#line 795 "cfg.cpp"
+#line 803 "cfg.cpp"
 
 						break; 
 					}
 					case 20:  {
 							{
-#line 123 "cfg.rl"
+#line 131 "cfg.rl"
 							
-							emplace_dynamic_v6(linenum, cps.interface.c_str());
+							emplace_dynamic_v6(linenum, cps.interface);
 						}
 						
-#line 805 "cfg.cpp"
+#line 813 "cfg.cpp"
 
 						break; 
 					}
 					case 21:  {
 							{
-#line 126 "cfg.rl"
+#line 134 "cfg.rl"
 							
-							emplace_dhcp_state(linenum, cps.interface.c_str(), cps.macaddr, cps.ipaddr,
+							emplace_dhcp_state(linenum, cps.interface, cps.macaddr, cps.ipaddr,
 							cps.default_lifetime);
 						}
 						
-#line 816 "cfg.cpp"
+#line 824 "cfg.cpp"
 
 						break; 
 					}
 					case 22:  {
 							{
-#line 130 "cfg.rl"
+#line 138 "cfg.rl"
 							
 							if (auto iaid = nk::from_string<uint32_t>(cps.iaid)) {
-								emplace_dhcp_state(linenum, cps.interface.c_str(), std::move(cps.duid),
+								emplace_dhcp_state(linenum, cps.interface, std::move(cps.duid),
 								*iaid, cps.ipaddr, cps.default_lifetime);
 							} else {
 								cps.parse_error = true;
@@ -860,7 +868,7 @@ const size_t linenum)
 							}
 						}
 						
-#line 832 "cfg.cpp"
+#line 840 "cfg.cpp"
 
 						break; 
 					}
@@ -884,7 +892,7 @@ const size_t linenum)
 		_out: {}
 	}
 	
-#line 179 "cfg.rl"
+#line 187 "cfg.rl"
 
 	
 	if (cps.parse_error) return -1;
