@@ -13,12 +13,10 @@ bool dynlease_add(const char *interface, const nk::ip_address &addr,
                   const uint8_t *macaddr, int64_t expire_time);
 bool dynlease_add(const char *interface, const nk::ip_address &addr,
                   const std::string &duid, uint32_t iaid, int64_t expire_time);
-const nk::ip_address &
-dynlease_query_refresh(const char *interface, const uint8_t *macaddr,
-                       int64_t expire_time);
-const nk::ip_address &
-dynlease_query_refresh(const char *interface, const std::string &duid,
-                       uint32_t iaid, int64_t expire_time);
+nk::ip_address dynlease_query_refresh_v4(const char *interface, const uint8_t *macaddr,
+                                         int64_t expire_time);
+nk::ip_address dynlease_query_refresh_v6(const char *interface, const std::string &duid,
+                                         uint32_t iaid, int64_t expire_time);
 bool dynlease_exists(const char *interface, const nk::ip_address &addr,
                      const uint8_t *macaddr);
 bool dynlease_exists(const char *interface, const nk::ip_address &addr,

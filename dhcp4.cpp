@@ -313,7 +313,7 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     }
     const auto expire_time = get_current_ts() + dynamic_lifetime;
 
-    auto v4a = dynlease_query_refresh(ifname_, hwaddr, expire_time);
+    auto v4a = dynlease_query_refresh_v4(ifname_, hwaddr, expire_time);
     if (v4a != nk::ip_address(nk::ip_address::any{})) {
         if (!v4a.raw_v4bytes(&reply.yiaddr)) {
             log_line("dhcp4: allot_dynamic_ip - bad address\n");

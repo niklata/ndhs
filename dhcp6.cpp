@@ -196,7 +196,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
 
     const auto expire_time = get_current_ts() + dynamic_lifetime;
 
-    auto v6a = dynlease_query_refresh(ifname_, d6s.client_duid, iaid, expire_time);
+    auto v6a = dynlease_query_refresh_v6(ifname_, d6s.client_duid, iaid, expire_time);
     if (v6a != nk::ip_address(nk::ip_address::any{})) {
         dhcpv6_entry de(v6a, dynamic_lifetime, iaid);
         if (!emit_IA_addr(d6s, ss, &de)) return false;

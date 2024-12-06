@@ -184,38 +184,34 @@ bool dynlease_add(const char *interface, const nk::ip_address &v6_addr,
     return true;
 }
 
-const nk::ip_address &dynlease_query_refresh(const char *interface, const uint8_t *macaddr,
-                                   int64_t expire_time)
+nk::ip_address dynlease_query_refresh_v4(const char *interface, const uint8_t *macaddr,
+                                         int64_t expire_time)
 {
-    static nk::ip_address blank{};
     auto si = dyn_leases_v4.find(interface);
-    if (si == dyn_leases_v4.end()) return blank;
+    if (si == dyn_leases_v4.end()) return {};
 
     for (auto &i: si->second) {
         if (memcmp(&i.macaddr, macaddr, 6) == 0) {
             i.expire_time = expire_time;
             return i.addr;
         }
-        return blank;
     }
-    return blank;
+    return {};
 }
 
-const nk::ip_address &dynlease_query_refresh(const char *interface, const std::string &duid,
-                                   uint32_t iaid, int64_t expire_time)
+nk::ip_address dynlease_query_refresh_v6(const char *interface, const std::string &duid,
+                                         uint32_t iaid, int64_t expire_time)
 {
-    static nk::ip_address blank{};
     auto si = dyn_leases_v6.find(interface);
-    if (si == dyn_leases_v6.end()) return blank;
+    if (si == dyn_leases_v6.end()) return {};
 
     for (auto &i: si->second) {
         if (i.duid == duid && i.iaid == iaid) {
             i.expire_time = expire_time;
             return i.addr;
         }
-        return blank;
     }
-    return blank;
+    return {};
 }
 
 bool dynlease_exists(const char *interface, const nk::ip_address &v4_addr, const uint8_t *macaddr)
