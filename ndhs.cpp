@@ -57,7 +57,7 @@ static const char *configfile = "/etc/ndhs.conf";
 static char *chroot_path;
 static uid_t ndhs_uid;
 static gid_t ndhs_gid;
-static std::optional<int> s6_notify_fd;
+static int s6_notify_fd = -1;
 
 NLSocket nl_socket;
 
@@ -289,10 +289,10 @@ static void process_options(int ac, char *av[])
     dynlease_deserialize(LEASEFILE_PATH);
     nk_set_uidgid(ndhs_uid, ndhs_gid, nullptr, 0);
 
-    if (s6_notify_fd) {
+    if (s6_notify_fd >= 0) {
         char buf[] = "\n";
-        safe_write(*s6_notify_fd, buf, 1);
-        close(*s6_notify_fd);
+        safe_write(s6_notify_fd, buf, 1);
+        close(s6_notify_fd);
     }
 }
 
