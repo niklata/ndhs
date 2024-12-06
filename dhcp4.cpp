@@ -276,10 +276,10 @@ void D4Listener::send_reply(const dhcpmsg &reply)
         send_reply_do(reply, SendReplyType::Broadcast);
 }
 
-bool D4Listener::iplist_option(dhcpmsg &reply, std::string &iplist, uint8_t code,
-                               const std::vector<nk::ip_address> &addrs)
+static bool iplist_option(dhcpmsg *reply, uint8_t code,
+                          const std::vector<nk::ip_address> &addrs)
 {
-    iplist.clear();
+    std::string iplist;
     iplist.reserve(addrs.size() * 4);
     for (const auto &i: addrs) {
         char ip8[4];
@@ -287,7 +287,7 @@ bool D4Listener::iplist_option(dhcpmsg &reply, std::string &iplist, uint8_t code
         iplist.append(ip8, 4);
     }
     if (!iplist.size()) return false;
-    add_option_string(&reply, code, iplist.c_str(), iplist.size());
+    add_option_string(reply, code, iplist.c_str(), iplist.size());
     return true;
 }
 
@@ -390,13 +390,12 @@ bool D4Listener::create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_ass
     log_line("dhcp4: Sending reply %u.%u.%u.%u\n", reply.yiaddr & 255,
              (reply.yiaddr >> 8) & 255, (reply.yiaddr >> 16) & 255, (reply.yiaddr >> 24) & 255);
 
-    std::string iplist;
     const auto routers = query_gateway(ifname_);
     const auto dns4 = query_dns4_servers(ifname_);
     const auto ntp4 = query_ntp4_servers(ifname_);
-    if (routers) iplist_option(reply, iplist, DCODE_ROUTER, *routers);
-    if (dns4) iplist_option(reply, iplist, DCODE_DNS, *dns4);
-    if (ntp4) iplist_option(reply, iplist, DCODE_NTPSVR, *ntp4);
+    if (routers) iplist_option(&reply, DCODE_ROUTER, *routers);
+    if (dns4) iplist_option(&reply, DCODE_DNS, *dns4);
+    if (ntp4) iplist_option(&reply, DCODE_NTPSVR, *ntp4);
     const auto dns_search = query_dns_search(ifname_);
     if (dns_search && dns_search->size()) {
         const auto &dn = dns_search->front();

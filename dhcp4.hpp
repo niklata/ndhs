@@ -3,8 +3,6 @@
 #ifndef NDHS_DHCP4_HPP
 #define NDHS_DHCP4_HPP
 
-#include <string>
-#include <vector>
 #include <map> // ClientStates
 #include <time.h> // ClientStates
 #include <nk/net/ip_address.hpp>
@@ -74,8 +72,6 @@ private:
     bool send_to(const void *buf, size_t len, uint32_t addr, int port);
     void send_reply_do(const dhcpmsg &dm, SendReplyType srt);
     void send_reply(const dhcpmsg &dm);
-    bool iplist_option(dhcpmsg &reply, std::string &iplist, uint8_t code,
-                       const std::vector<nk::ip_address> &addrs);
     bool allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do_assign);
     bool create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_assign);
     void reply_discover();
