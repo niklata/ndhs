@@ -115,7 +115,7 @@ uint32_t iaid, int64_t expire_time)
 	return true;
 }
 
-size_t dynlease4_count(const std::string &interface)
+size_t dynlease4_count(const char *interface)
 {
 	auto si = dyn_leases_v4.find(interface);
 	if (si == dyn_leases_v4.end())
@@ -123,7 +123,7 @@ size_t dynlease4_count(const std::string &interface)
 	return si->second.size();
 }
 
-size_t dynlease6_count(const std::string &interface)
+size_t dynlease6_count(const char *interface)
 {
 	auto si = dyn_leases_v6.find(interface);
 	if (si == dyn_leases_v6.end())
@@ -141,7 +141,7 @@ void dynlease_gc()
 	}
 }
 
-bool dynlease_add(const std::string &interface, const nk::ip_address &v4_addr, const uint8_t *macaddr,
+bool dynlease_add(const char *interface, const nk::ip_address &v4_addr, const uint8_t *macaddr,
 int64_t expire_time)
 {
 	auto si = dyn_leases_v4.find(interface);
@@ -163,7 +163,7 @@ int64_t expire_time)
 	return true;
 }
 
-bool dynlease_add(const std::string &interface, const nk::ip_address &v6_addr,
+bool dynlease_add(const char *interface, const nk::ip_address &v6_addr,
 const std::string &duid, uint32_t iaid, int64_t expire_time)
 {
 	auto si = dyn_leases_v6.find(interface);
@@ -185,7 +185,7 @@ const std::string &duid, uint32_t iaid, int64_t expire_time)
 	return true;
 }
 
-const nk::ip_address &dynlease_query_refresh(const std::string &interface, const uint8_t *macaddr,
+const nk::ip_address &dynlease_query_refresh(const char *interface, const uint8_t *macaddr,
 int64_t expire_time)
 {
 	static nk::ip_address blank{};
@@ -202,7 +202,7 @@ int64_t expire_time)
 	return blank;
 }
 
-const nk::ip_address &dynlease_query_refresh(const std::string &interface, const std::string &duid,
+const nk::ip_address &dynlease_query_refresh(const char *interface, const std::string &duid,
 uint32_t iaid, int64_t expire_time)
 {
 	static nk::ip_address blank{};
@@ -219,7 +219,7 @@ uint32_t iaid, int64_t expire_time)
 	return blank;
 }
 
-bool dynlease_exists(const std::string &interface, const nk::ip_address &v4_addr, const uint8_t *macaddr)
+bool dynlease_exists(const char *interface, const nk::ip_address &v4_addr, const uint8_t *macaddr)
 {
 	auto si = dyn_leases_v4.find(interface);
 	if (si == dyn_leases_v4.end()) return false;
@@ -232,7 +232,7 @@ bool dynlease_exists(const std::string &interface, const nk::ip_address &v4_addr
 	return false;
 }
 
-bool dynlease_exists(const std::string &interface, const nk::ip_address &v6_addr,
+bool dynlease_exists(const char *interface, const nk::ip_address &v6_addr,
 const std::string &duid, uint32_t iaid)
 {
 	auto si = dyn_leases_v6.find(interface);
@@ -246,7 +246,7 @@ const std::string &duid, uint32_t iaid)
 	return false;
 }
 
-bool dynlease_del(const std::string &interface, const nk::ip_address &v4_addr, const uint8_t *macaddr)
+bool dynlease_del(const char *interface, const nk::ip_address &v4_addr, const uint8_t *macaddr)
 {
 	auto si = dyn_leases_v4.find(interface);
 	if (si == dyn_leases_v4.end()) return false;
@@ -261,7 +261,7 @@ bool dynlease_del(const std::string &interface, const nk::ip_address &v4_addr, c
 	return false;
 }
 
-bool dynlease_del(const std::string &interface, const nk::ip_address &v6_addr,
+bool dynlease_del(const char *interface, const nk::ip_address &v6_addr,
 const std::string &duid, uint32_t iaid)
 {
 	auto si = dyn_leases_v6.find(interface);
@@ -277,7 +277,7 @@ const std::string &duid, uint32_t iaid)
 	return false;
 }
 
-bool dynlease_unused_addr(const std::string &interface, const nk::ip_address &addr)
+bool dynlease_unused_addr(const char *interface, const nk::ip_address &addr)
 {
 	auto si = dyn_leases_v6.find(interface);
 	if (si == dyn_leases_v6.end()) return true;
