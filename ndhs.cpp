@@ -96,8 +96,9 @@ static void init_listeners()
     {
         auto bin = bound_interfaces_names();
         for (const auto &i: bin)
-            log_line("Detected %s broadcast: %s subnet: %s\n", i.c_str(), query_broadcast(i)->to_string().c_str(),
-                     query_subnet(i)->to_string().c_str());
+            log_line("Detected %s broadcast: %s subnet: %s\n", i.c_str(),
+                     query_broadcast(i.c_str())->to_string().c_str(),
+                     query_subnet(i.c_str())->to_string().c_str());
     }
 
     auto v6l = &v6_listeners;

@@ -750,7 +750,7 @@ const size_t linenum)
 #line 100 "cfg.rl"
 							
 							cps.interface = std::string(MARKED_STRING());
-							emplace_interface(linenum, cps.interface, cps.default_preference);
+							emplace_interface(linenum, cps.interface.c_str(), cps.default_preference);
 						}
 						
 #line 734 "cfg.cpp"
@@ -761,7 +761,7 @@ const size_t linenum)
 							{
 #line 104 "cfg.rl"
 							
-							emplace_dns_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
+							emplace_dns_server(linenum, cps.interface.c_str(), cps.ipaddr, cps.last_addr);
 						}
 						
 #line 744 "cfg.cpp"
@@ -772,7 +772,7 @@ const size_t linenum)
 							{
 #line 107 "cfg.rl"
 							
-							emplace_dns_search(linenum, cps.interface, std::string(MARKED_STRING()));
+							emplace_dns_search(linenum, cps.interface.c_str(), std::string(MARKED_STRING()));
 						}
 						
 #line 754 "cfg.cpp"
@@ -783,7 +783,7 @@ const size_t linenum)
 							{
 #line 110 "cfg.rl"
 							
-							emplace_ntp_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
+							emplace_ntp_server(linenum, cps.interface.c_str(), cps.ipaddr, cps.last_addr);
 						}
 						
 #line 764 "cfg.cpp"
@@ -794,7 +794,7 @@ const size_t linenum)
 							{
 #line 113 "cfg.rl"
 							
-							emplace_gateway(linenum, cps.interface, cps.ipaddr);
+							emplace_gateway(linenum, cps.interface.c_str(), cps.ipaddr);
 						}
 						
 #line 774 "cfg.cpp"
@@ -816,7 +816,7 @@ const size_t linenum)
 							{
 #line 119 "cfg.rl"
 							
-							emplace_dynamic_range(linenum, cps.interface, cps.ipaddr2, cps.ipaddr,
+							emplace_dynamic_range(linenum, cps.interface.c_str(), cps.ipaddr2, cps.ipaddr,
 							cps.default_lifetime);
 						}
 						
@@ -828,7 +828,7 @@ const size_t linenum)
 							{
 #line 123 "cfg.rl"
 							
-							emplace_dynamic_v6(linenum, cps.interface);
+							emplace_dynamic_v6(linenum, cps.interface.c_str());
 						}
 						
 #line 805 "cfg.cpp"
@@ -839,7 +839,7 @@ const size_t linenum)
 							{
 #line 126 "cfg.rl"
 							
-							emplace_dhcp_state(linenum, cps.interface, cps.macaddr, cps.ipaddr,
+							emplace_dhcp_state(linenum, cps.interface.c_str(), cps.macaddr, cps.ipaddr,
 							cps.default_lifetime);
 						}
 						
@@ -852,7 +852,7 @@ const size_t linenum)
 #line 130 "cfg.rl"
 							
 							if (auto iaid = nk::from_string<uint32_t>(cps.iaid)) {
-								emplace_dhcp_state(linenum, cps.interface, std::move(cps.duid),
+								emplace_dhcp_state(linenum, cps.interface.c_str(), std::move(cps.duid),
 								*iaid, cps.ipaddr, cps.default_lifetime);
 							} else {
 								cps.parse_error = true;
