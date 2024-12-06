@@ -186,14 +186,14 @@ static int do_parse_cfg_line(cfg_parse_state &cps, const char *p, size_t plen,
     return -2;
 }
 
-void parse_config(const std::string &path)
+bool parse_config(const char *path)
 {
     char buf[MAX_LINE];
-    auto f = fopen(path.c_str(), "r");
+    auto f = fopen(path, "r");
     if (!f) {
         log_line("%s: failed to open config file '%s' for read: %s\n",
-                 __func__, path.c_str(), strerror(errno));
-        return;
+                 __func__, path, strerror(errno));
+        return false;
     }
     SCOPE_EXIT{ fclose(f); };
     size_t linenum = 0;
@@ -201,7 +201,7 @@ void parse_config(const std::string &path)
     while (!feof(f)) {
         if (!fgets(buf, sizeof buf, f)) {
             if (!feof(f))
-                log_line("%s: io error fetching line of '%s'\n", __func__, path.c_str());
+                log_line("%s: io error fetching line of '%s'\n", __func__, path);
             break;
         }
         auto llen = strlen(buf);
@@ -223,5 +223,6 @@ void parse_config(const std::string &path)
         }
     }
     create_blobs();
+    return true;
 }
 

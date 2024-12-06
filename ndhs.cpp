@@ -53,7 +53,7 @@ struct pfd_meta
     void *data;
 };
 
-static std::string configfile{"/etc/ndhs.conf"};
+static const char *configfile = "/etc/ndhs.conf";
 static std::string chroot_path;
 static uid_t ndhs_uid;
 static gid_t ndhs_gid;
@@ -68,7 +68,7 @@ static std::vector<std::unique_ptr<RA6Listener>> r6_listeners;
 static std::vector<struct pollfd> poll_vector;
 static std::vector<pfd_meta> poll_meta;
 
-extern void parse_config(const std::string &path);
+extern bool parse_config(const char *path);
 
 static void init_listeners()
 {
@@ -256,15 +256,15 @@ static void process_options(int ac, char *av[])
         auto c = getopt_long(ac, av, "c:vh", long_options, nullptr);
         if (c == -1) break;
         switch (c) {
-            case 'c': configfile = optarg; break;
+            case 'c': configfile = strdup(optarg); break;
             case 'v': print_version(); std::exit(EXIT_SUCCESS); break;
             case 'h': usage(); std::exit(EXIT_SUCCESS); break;
             default: break;
         }
     }
 
-    if (configfile.size())
-        parse_config(configfile);
+    if (!parse_config(configfile))
+        suicide("Failed to load configuration file.\n");
 
     if (!bound_interfaces_count())
         suicide("No interfaces have been bound\n");
