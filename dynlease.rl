@@ -58,14 +58,16 @@ struct lease_state_v4
 
 struct lease_state_v6
 {
-    lease_state_v6(nk::ip_address &&addr_, std::string &&duid_, uint32_t iaid_, int64_t et)
-        : addr(std::move(addr_)), duid(std::move(duid_)), iaid(iaid_), expire_time(et) {}
-    lease_state_v6(const nk::ip_address &addr_, const std::string &duid_, uint32_t iaid_, int64_t et)
-        : addr(addr_), duid(duid_), iaid(iaid_), expire_time(et) {}
+    lease_state_v6(const nk::ip_address &addr_, const char *duid_, size_t duid_len_, uint32_t iaid_, int64_t et)
+        : addr(addr_), duid_len(duid_len_), expire_time(et), iaid(iaid_)
+    {
+        memcpy(duid, duid_, duid_len_);
+    }
     nk::ip_address addr;
-    std::string duid;
-    uint32_t iaid;
+    size_t duid_len;
     int64_t expire_time;
+    uint32_t iaid;
+    char duid[128]; // not null terminated
 };
 
 // These vectors are sorted by addr.
@@ -76,9 +78,9 @@ using dynlease_map_v6 = std::vector<lease_state_v6>;
 static std::unordered_map<std::string, dynlease_map_v4> dyn_leases_v4;
 static std::unordered_map<std::string, dynlease_map_v6> dyn_leases_v6;
 
-static bool emplace_dynlease_state(size_t linenum, std::string &&interface,
-                                   std::string &&v4_addr, const std::string &macaddr,
-                                   int64_t expire_time)
+static bool emplace_dynlease4_state(size_t linenum, std::string &&interface,
+                                    std::string &&v4_addr, const std::string &macaddr,
+                                    int64_t expire_time)
 {
     auto si = dyn_leases_v4.find(interface);
     if (si == dyn_leases_v4.end()) {
@@ -96,9 +98,10 @@ static bool emplace_dynlease_state(size_t linenum, std::string &&interface,
     return true;
 }
 
-static bool emplace_dynlease_state(size_t linenum, std::string &&interface,
-                                   std::string &&v6_addr, std::string &&duid,
-                                   uint32_t iaid, int64_t expire_time)
+static bool emplace_dynlease6_state(size_t linenum, std::string &&interface,
+                                    std::string &&v6_addr,
+                                    const char *duid, size_t duid_len,
+                                    uint32_t iaid, int64_t expire_time)
 {
     auto si = dyn_leases_v6.find(interface);
     if (si == dyn_leases_v6.end()) {
@@ -110,7 +113,7 @@ static bool emplace_dynlease_state(size_t linenum, std::string &&interface,
         log_line("Bad IP address at line %zu: %s\n", linenum, v6_addr.c_str());
         return false;
     }
-    si->second.emplace_back(std::move(ipa), std::move(duid), iaid, expire_time);
+    si->second.emplace_back(ipa, duid, duid_len, iaid, expire_time);
     return true;
 }
 
@@ -162,8 +165,13 @@ bool dynlease_add(const char *interface, const nk::ip_address &v4_addr, const ui
     return true;
 }
 
+static bool duid_compare(const char *a, size_t al, const char *b, size_t bl)
+{
+    return al == bl && !memcmp(a, b, al);
+}
+
 bool dynlease_add(const char *interface, const nk::ip_address &v6_addr,
-                  const std::string &duid, uint32_t iaid, int64_t expire_time)
+                  const char *duid, size_t duid_len, uint32_t iaid, int64_t expire_time)
 {
     auto si = dyn_leases_v6.find(interface);
     if (si == dyn_leases_v6.end()) {
@@ -173,14 +181,14 @@ bool dynlease_add(const char *interface, const nk::ip_address &v6_addr,
 
     for (auto &i: si->second) {
         if (i.addr == v6_addr) {
-            if (i.duid == duid && i.iaid == iaid) {
+            if (!duid_compare(i.duid, i.duid_len, duid, duid_len) && i.iaid == iaid) {
                 i.expire_time = expire_time;
                 return true;
             }
             return false;
         }
     }
-    si->second.emplace_back(std::move(v6_addr), duid, iaid, expire_time);
+    si->second.emplace_back(std::move(v6_addr), duid, duid_len, iaid, expire_time);
     return true;
 }
 
@@ -199,14 +207,14 @@ nk::ip_address dynlease_query_refresh_v4(const char *interface, const uint8_t *m
     return {};
 }
 
-nk::ip_address dynlease_query_refresh_v6(const char *interface, const std::string &duid,
+nk::ip_address dynlease_query_refresh_v6(const char *interface, const char *duid, size_t duid_len,
                                          uint32_t iaid, int64_t expire_time)
 {
     auto si = dyn_leases_v6.find(interface);
     if (si == dyn_leases_v6.end()) return {};
 
     for (auto &i: si->second) {
-        if (i.duid == duid && i.iaid == iaid) {
+        if (!duid_compare(i.duid, i.duid_len, duid, duid_len) && i.iaid == iaid) {
             i.expire_time = expire_time;
             return i.addr;
         }
@@ -228,13 +236,13 @@ bool dynlease_exists(const char *interface, const nk::ip_address &v4_addr, const
 }
 
 bool dynlease_exists(const char *interface, const nk::ip_address &v6_addr,
-                     const std::string &duid, uint32_t iaid)
+                     const char *duid, size_t duid_len, uint32_t iaid)
 {
     auto si = dyn_leases_v6.find(interface);
     if (si == dyn_leases_v6.end()) return false;
 
     for (auto &i: si->second) {
-        if (i.addr == v6_addr && i.duid == duid && i.iaid == iaid) {
+        if (i.addr == v6_addr && !duid_compare(i.duid, i.duid_len, duid, duid_len) && i.iaid == iaid) {
             return get_current_ts() < i.expire_time;
         }
     }
@@ -257,14 +265,14 @@ bool dynlease_del(const char *interface, const nk::ip_address &v4_addr, const ui
 }
 
 bool dynlease_del(const char *interface, const nk::ip_address &v6_addr,
-                  const std::string &duid, uint32_t iaid)
+                  const char *duid, size_t duid_len, uint32_t iaid)
 {
     auto si = dyn_leases_v6.find(interface);
     if (si == dyn_leases_v6.end()) return false;
 
     const auto iend = si->second.end();
     for (auto i = si->second.begin(); i != iend; ++i) {
-        if (i->addr == v6_addr && i->duid == duid && i->iaid == iaid) {
+        if (i->addr == v6_addr && !duid_compare(i->duid, i->duid_len, duid, duid_len) && i->iaid == iaid) {
             si->second.erase(i);
             return true;
         }
@@ -447,12 +455,12 @@ static inline std::string lc_string(const char *s, size_t slen)
     }
 
     action V4EntryEn {
-        emplace_dynlease_state(linenum, std::move(cps.interface), std::move(cps.v4_addr),
-                               std::move(cps.macaddr), cps.expire_time);
+        emplace_dynlease4_state(linenum, std::move(cps.interface), std::move(cps.v4_addr),
+                                std::move(cps.macaddr), cps.expire_time);
     }
     action V6EntryEn {
-        emplace_dynlease_state(linenum, std::move(cps.interface), std::move(cps.v6_addr),
-                               std::move(cps.duid), cps.iaid, cps.expire_time);
+        emplace_dynlease6_state(linenum, std::move(cps.interface), std::move(cps.v6_addr),
+                                cps.duid.data(), cps.duid.size(), cps.iaid, cps.expire_time);
     }
 
     interface = alnum+ >St %InterfaceEn;
