@@ -59,7 +59,7 @@ static inline std::string lc_string(const char *s, size_t slen)
 }
 
 
-#line 176 "cfg.rl"
+#line 177 "cfg.rl"
 
 
 
@@ -510,7 +510,7 @@ static const int cfg_line_m_error = 0;
 static const int cfg_line_m_en_main = 161;
 
 
-#line 178 "cfg.rl"
+#line 179 "cfg.rl"
 
 
 static int do_parse_cfg_line(cfg_parse_state &cps, const char *p, size_t plen,
@@ -525,7 +525,7 @@ const size_t linenum)
 		cps.cs = (int)cfg_line_m_start;
 	}
 	
-#line 186 "cfg.rl"
+#line 187 "cfg.rl"
 
 
 #line 523 "cfg.cpp"
@@ -860,7 +860,8 @@ const size_t linenum)
 #line 138 "cfg.rl"
 							
 							if (auto iaid = nk::from_string<uint32_t>(cps.iaid)) {
-								emplace_dhcp_state(linenum, cps.interface, std::move(cps.duid),
+								emplace_dhcp_state(linenum, cps.interface,
+								cps.duid.data(), cps.duid.size(),
 								*iaid, cps.ipaddr, cps.default_lifetime);
 							} else {
 								cps.parse_error = true;
@@ -868,7 +869,7 @@ const size_t linenum)
 							}
 						}
 						
-#line 840 "cfg.cpp"
+#line 841 "cfg.cpp"
 
 						break; 
 					}
@@ -892,7 +893,7 @@ const size_t linenum)
 		_out: {}
 	}
 	
-#line 187 "cfg.rl"
+#line 188 "cfg.rl"
 
 	
 	if (cps.parse_error) return -1;

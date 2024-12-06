@@ -341,7 +341,7 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, sbufs &ss,
     for (const auto &i: d6s.ias) {
         log_line("dhcp6: Querying duid='%s' iaid=%u...\n",
                  d6s.client_duid.c_str(), i.iaid);
-        if (auto x = query_dhcp_state(ifname_, d6s.client_duid, i.iaid)) {
+        if (auto x = query_dhcp_state(ifname_, d6s.client_duid.data(), d6s.client_duid.size(), i.iaid)) {
             ha = true;
             log_line("dhcp6: Found static address %s on %s\n", x->address.to_string().c_str(), ifname_);
             if (!emit_IA_addr(d6s, ss, x)) return false;
@@ -477,7 +477,7 @@ bool D6Listener::mark_addr_unused(const d6msg_state &d6s, sbufs &ss)
     for (const auto &i: d6s.ias) {
         bool freed_ia_addr{false};
         log_line("dhcp6: Marking duid='%s' iaid=%u unused on %s...\n", d6s.client_duid.c_str(), i.iaid, ifname_);
-        auto x = query_dhcp_state(ifname_, d6s.client_duid, i.iaid);
+        auto x = query_dhcp_state(ifname_, d6s.client_duid.data(), d6s.client_duid.size(), i.iaid);
         for (const auto &j: i.ia_na_addrs) {
             if (x && j.addr == x->address) {
                 log_line("dhcp6: found static lease on %s\n", ifname_);

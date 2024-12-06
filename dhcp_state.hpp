@@ -27,7 +27,8 @@ struct dhcpv4_entry {
 void create_blobs();
 bool emplace_bind(size_t linenum, std::string &&interface, bool is_v4);
 bool emplace_interface(size_t linenum, const char *interface, uint8_t preference);
-bool emplace_dhcp_state(size_t linenum, const char *interface, std::string &&duid,
+bool emplace_dhcp_state(size_t linenum, const char *interface,
+                        const char *duid, size_t duid_len,
                         uint32_t iaid, const std::string &v6_addr, uint32_t default_lifetime);
 bool emplace_dhcp_state(size_t linenum, const char *interface, const std::string &macaddr,
                         const std::string &v4_addr, uint32_t default_lifetime);
@@ -43,7 +44,8 @@ bool emplace_dynamic_range(size_t linenum, const char *interface,
                            uint32_t dynamic_lifetime);
 bool emplace_dynamic_v6(size_t linenum, const char *interface);
 bool emplace_dns_search(size_t linenum, const char *interface, std::string &&label);
-const dhcpv6_entry* query_dhcp_state(const char *interface, const std::string &duid,
+const dhcpv6_entry* query_dhcp_state(const char *interface,
+                                     const char *duid, size_t duid_len,
                                      uint32_t iaid);
 const dhcpv4_entry* query_dhcp_state(const char *interface, const uint8_t *hwaddr);
 const std::vector<nk::ip_address> *query_dns6_servers(const char *interface);

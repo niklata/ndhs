@@ -137,7 +137,8 @@ static inline std::string lc_string(const char *s, size_t slen)
     }
     action V6EntryEn {
         if (auto iaid = nk::from_string<uint32_t>(cps.iaid)) {
-            emplace_dhcp_state(linenum, cps.interface, std::move(cps.duid),
+            emplace_dhcp_state(linenum, cps.interface,
+                               cps.duid.data(), cps.duid.size(),
                                *iaid, cps.ipaddr, cps.default_lifetime);
         } else {
             cps.parse_error = true;

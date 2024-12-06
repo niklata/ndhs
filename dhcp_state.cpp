@@ -176,7 +176,8 @@ bool emplace_interface(size_t linenum, const char *interface, uint8_t preference
     return true;
 }
 
-bool emplace_dhcp_state(size_t linenum, const char *interface, std::string &&duid,
+bool emplace_dhcp_state(size_t linenum, const char *interface,
+                        const char *duid, size_t duid_len,
                         uint32_t iaid, const std::string &v6_addr, uint32_t default_lifetime)
 {
     auto si = interface_state.find(interface);
@@ -190,8 +191,8 @@ bool emplace_dhcp_state(size_t linenum, const char *interface, std::string &&dui
         return false;
     }
     si->second.duid_mapping.emplace
-        (std::make_pair(std::move(duid),
-                        std::make_unique<dhcpv6_entry>(iaid, ipa, default_lifetime)));
+           (std::make_pair(std::string(duid, duid_len),
+                           std::make_unique<dhcpv6_entry>(iaid, ipa, default_lifetime)));
     return true;
 }
 
@@ -374,12 +375,13 @@ bool emplace_dns_search(size_t linenum, const char *interface, std::string &&lab
     return true;
 }
 
-const dhcpv6_entry *query_dhcp_state(const char *interface, const std::string &duid,
+const dhcpv6_entry *query_dhcp_state(const char *interface,
+                                     const char *duid, size_t duid_len,
                                      uint32_t iaid)
 {
     auto si = interface_state.find(interface);
     if (si == interface_state.end()) return nullptr;
-    auto f = si->second.duid_mapping.equal_range(duid);
+    auto f = si->second.duid_mapping.equal_range(std::string(duid, duid_len));
     for (auto i = f.first; i != f.second; ++i) {
         if (i->second->iaid == iaid)
             return i->second.get();
