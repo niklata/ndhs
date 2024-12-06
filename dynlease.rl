@@ -379,8 +379,8 @@ bool dynlease_serialize(const char *path)
 // v4 <interface> <ip> <macaddr> <expire_time>
 // v6 <interface> <ip> <duid> <iaid> <expire_time>
 
-struct cfg_parse_state {
-    cfg_parse_state() : st(nullptr), cs(0), parse_error(false) {}
+struct dynlease_parse_state {
+    dynlease_parse_state() : st(nullptr), cs(0), parse_error(false) {}
     void newline() {
         duid.clear();
         macaddr.clear();
@@ -462,7 +462,7 @@ static inline std::string lc_string(const char *s, size_t slen)
 
 %% write data;
 
-static int do_parse_dynlease_line(cfg_parse_state &cps, const char *p, size_t plen,
+static int do_parse_dynlease_line(dynlease_parse_state &cps, const char *p, size_t plen,
                              const size_t linenum)
 {
     const char *pe = p + plen;
@@ -492,7 +492,7 @@ bool dynlease_deserialize(const char *path)
     dyn_leases_v4.clear();
     dyn_leases_v6.clear();
     size_t linenum = 0;
-    cfg_parse_state ps;
+    dynlease_parse_state ps;
     while (!feof(f)) {
         if (!fgets(buf, sizeof buf, f)) {
             if (!feof(f))
