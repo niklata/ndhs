@@ -6,14 +6,23 @@
 #include <cassert>
 #include "dhcp_state.hpp"
 extern "C" {
+#include <net/if.h>
 #include "nk/log.h"
 }
 
 struct interface_data
 {
-    interface_data(bool use_v4, bool use_v6)
+    interface_data(const char *interface_name, bool use_v4, bool use_v6)
         : dynamic_lifetime(0), preference(0), use_dhcpv4(use_v4), use_dhcpv6(use_v6),
-          use_dynamic_v4(false), use_dynamic_v6(false) {}
+          use_dynamic_v4(false), use_dynamic_v6(false)
+    {
+        size_t namelen = strlen(interface_name);
+        if (namelen >= sizeof name)
+            suicide("interface name too long: %s\n", interface_name);
+        memcpy(name, interface_name, namelen);
+        name[namelen] = 0;
+    }
+    char name[IFNAMSIZ];
     std::multimap<std::string, dhcpv6_entry> duid_mapping;
     std::map<std::string, dhcpv4_entry> macaddr_mapping;
     std::vector<nk::ip_address> gateway;
@@ -37,7 +46,7 @@ struct interface_data
     bool use_dynamic_v6:1;
 };
 
-static std::map<std::string, interface_data> interface_state;
+static std::vector<interface_data> interface_state;
 
 // Performs DNS label wire encoding cf RFC1035 3.1
 // Allocates memory frequently in order to make correctness easier to
@@ -146,77 +155,79 @@ static void create_ntp6_fqdns_blob(std::vector<std::string> &ntp_fqdns,
 void create_blobs()
 {
     for (auto &i: interface_state) {
-        create_dns_search_blob(i.second.dns_search, i.second.dns_search_blob);
-        create_ntp6_fqdns_blob(i.second.ntp6_fqdns, i.second.ntp6_fqdns_blob);
+        create_dns_search_blob(i.dns_search, i.dns_search_blob);
+        create_ntp6_fqdns_blob(i.ntp6_fqdns, i.ntp6_fqdns_blob);
     }
 }
 
-bool emplace_bind(size_t /* linenum */, std::string &&interface, bool is_v4)
+void emplace_bind(size_t /* linenum */, const char *interface, bool is_v4)
 {
-    if (interface.empty())
-        return false;
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) {
-        interface_state.emplace(std::make_pair(std::move(interface),
-                                               interface_data(is_v4, !is_v4)));
-        return true;
+    if (!strlen(interface)) return;
+    for (auto &i: interface_state) {
+        if (!strcmp(i.name, interface)) {
+            if (is_v4) i.use_dhcpv4 = true;
+            if (!is_v4) i.use_dhcpv6 = true;
+            return;
+        }
     }
-    if (is_v4) si->second.use_dhcpv4 = true;
-    if (!is_v4) si->second.use_dhcpv6 = true;
-    return true;
+    interface_state.emplace_back(interface, is_v4, !is_v4);
+    return;
 }
 
 bool emplace_interface(size_t linenum, const char *interface, uint8_t preference)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) {
-        log_line("interface specified at line %zu is not bound\n", linenum);
-        return false;
+    for (auto &i: interface_state) {
+        if (!strcmp(i.name, interface)) {
+            i.preference = preference;
+            return true;
+        }
     }
-    si->second.preference = preference;
-    return true;
+    log_line("interface specified at line %zu is not bound\n", linenum);
+    return false;
 }
 
 bool emplace_dhcp_state(size_t linenum, const char *interface,
                         const char *duid, size_t duid_len,
                         uint32_t iaid, const std::string &v6_addr, uint32_t default_lifetime)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) {
-        log_line("No interface specified at line %zu\n", linenum);
-        return false;
+    for (auto &i: interface_state) {
+        if (!strcmp(i.name, interface)) {
+            nk::ip_address ipa;
+            if (!ipa.from_string(v6_addr)) {
+                log_line("Bad IPv6 address at line %zu: %s\n", linenum, v6_addr.c_str());
+                return false;
+            }
+            i.duid_mapping.emplace
+                   (std::make_pair(std::string(duid, duid_len),
+                                   dhcpv6_entry(ipa, default_lifetime, iaid)));
+            return true;
+        }
     }
-    nk::ip_address ipa;
-    if (!ipa.from_string(v6_addr)) {
-        log_line("Bad IPv6 address at line %zu: %s\n", linenum, v6_addr.c_str());
-        return false;
-    }
-    si->second.duid_mapping.emplace
-           (std::make_pair(std::string(duid, duid_len),
-                           dhcpv6_entry(ipa, default_lifetime, iaid)));
-    return true;
+    log_line("No interface specified at line %zu\n", linenum);
+    return false;
 }
 
 bool emplace_dhcp_state(size_t linenum, const char *interface, const std::string &macaddr,
                         const std::string &v4_addr, uint32_t default_lifetime)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) {
-        log_line("No interface specified at line %zu\n", linenum);
-        return false;
+    for (auto &i: interface_state) {
+        if (!strcmp(i.name, interface)) {
+            nk::ip_address ipa;
+            if (!ipa.from_string(v4_addr) || !ipa.is_v4()) {
+                log_line("Bad IPv4 address at line %zu: %s\n", linenum, v4_addr.c_str());
+                return false;
+            }
+            uint8_t buf[7] = {0};
+            for (unsigned j = 0; j < 6; ++j)
+                buf[j] = strtol(macaddr.c_str() + 3*j, nullptr, 16);
+            i.macaddr_mapping.emplace
+                   (std::make_pair(std::string{reinterpret_cast<char *>(buf), 6},
+                                   dhcpv4_entry(ipa, default_lifetime)));
+            return true;
+        }
     }
-    nk::ip_address ipa;
-    if (!ipa.from_string(v4_addr) || !ipa.is_v4()) {
-        log_line("Bad IPv4 address at line %zu: %s\n", linenum, v4_addr.c_str());
-        return false;
-    }
-    uint8_t buf[7] = {0};
-    for (unsigned i = 0; i < 6; ++i)
-        buf[i] = strtol(macaddr.c_str() + 3*i, nullptr, 16);
-    si->second.macaddr_mapping.emplace
-        (std::make_pair(std::string{reinterpret_cast<char *>(buf), 6},
-                        dhcpv4_entry(ipa, default_lifetime)));
-    return true;
+    log_line("No interface specified at line %zu\n", linenum);
+    return false;
 }
 
 bool emplace_dns_server(size_t linenum, const char *interface,
@@ -226,27 +237,28 @@ bool emplace_dns_server(size_t linenum, const char *interface,
         log_line("Invalid address type at line %zu\n", linenum);
         return false;
     }
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) {
-        log_line("No interface specified at line %zu\n", linenum);
-        return false;
-    }
-    nk::ip_address ipa;
-    auto bad_addr = !ipa.from_string(addr);
-    if (atype == addr_type::v4) {
-        if (bad_addr || !ipa.is_v4()) {
-            log_line("Bad IPv4 address at line %zu: %s\n", linenum, addr.c_str());
-            return false;
+    for (auto &i: interface_state) {
+        if (!strcmp(i.name, interface)) {
+            nk::ip_address ipa;
+            auto bad_addr = !ipa.from_string(addr);
+            if (atype == addr_type::v4) {
+                if (bad_addr || !ipa.is_v4()) {
+                    log_line("Bad IPv4 address at line %zu: %s\n", linenum, addr.c_str());
+                    return false;
+                }
+                i.dns4_servers.emplace_back(std::move(ipa));
+            } else {
+                if (bad_addr || ipa.is_v4()) {
+                    log_line("Bad IPv6 address at line %zu: %s\n", linenum, addr.c_str());
+                    return false;
+                }
+                i.dns6_servers.emplace_back(std::move(ipa));
+            }
+            return true;
         }
-        si->second.dns4_servers.emplace_back(std::move(ipa));
-    } else {
-        if (bad_addr || ipa.is_v4()) {
-            log_line("Bad IPv6 address at line %zu: %s\n", linenum, addr.c_str());
-            return false;
-        }
-        si->second.dns6_servers.emplace_back(std::move(ipa));
     }
-    return true;
+    log_line("No interface specified at line %zu\n", linenum);
+    return false;
 }
 
 bool emplace_ntp_server(size_t linenum, const char *interface,
@@ -256,27 +268,28 @@ bool emplace_ntp_server(size_t linenum, const char *interface,
         log_line("Invalid address type at line %zu\n", linenum);
         return false;
     }
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) {
-        log_line("No interface specified at line %zu\n", linenum);
-        return false;
-    }
-    nk::ip_address ipa;
-    auto bad_addr = !ipa.from_string(addr);
-    if (atype == addr_type::v4) {
-        if (bad_addr || !ipa.is_v4()) {
-            log_line("Bad IPv4 address at line %zu: %s\n", linenum, addr.c_str());
-            return false;
+    for (auto &i: interface_state) {
+        if (!strcmp(i.name, interface)) {
+            nk::ip_address ipa;
+            auto bad_addr = !ipa.from_string(addr);
+            if (atype == addr_type::v4) {
+                if (bad_addr || !ipa.is_v4()) {
+                    log_line("Bad IPv4 address at line %zu: %s\n", linenum, addr.c_str());
+                    return false;
+                }
+                i.ntp4_servers.emplace_back(std::move(ipa));
+            } else {
+                if (bad_addr || ipa.is_v4()) {
+                    log_line("Bad IPv6 address at line %zu: %s\n", linenum, addr.c_str());
+                    return false;
+                }
+                i.ntp6_servers.emplace_back(std::move(ipa));
+            }
+            return true;
         }
-        si->second.ntp4_servers.emplace_back(std::move(ipa));
-    } else {
-        if (bad_addr || ipa.is_v4()) {
-            log_line("Bad IPv6 address at line %zu: %s\n", linenum, addr.c_str());
-            return false;
-        }
-        si->second.ntp6_servers.emplace_back(std::move(ipa));
     }
-    return true;
+    log_line("No interface specified at line %zu\n", linenum);
+    return false;
 }
 
 bool emplace_subnet(size_t linenum, const char *interface, const std::string &addr)
@@ -285,227 +298,243 @@ bool emplace_subnet(size_t linenum, const char *interface, const std::string &ad
         log_line("No interface specified at line %zu\n", linenum);
         return false;
     }
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) return false;
-    nk::ip_address ipa;
-    if (!ipa.from_string(addr) || !ipa.is_v4()) {
-        log_line("Bad IP address at line %zu: %s\n", linenum, addr.c_str());
-        return false;
+    for (auto &i: interface_state) {
+        if (!strcmp(i.name, interface)) {
+            nk::ip_address ipa;
+            if (!ipa.from_string(addr) || !ipa.is_v4()) {
+                log_line("Bad IP address at line %zu: %s\n", linenum, addr.c_str());
+                return false;
+            }
+            i.subnet = std::move(ipa);
+            return true;
+        }
     }
-    si->second.subnet = std::move(ipa);
-    return true;
+    return false;
 }
 
 bool emplace_gateway(size_t linenum, const char *interface, const std::string &addr)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) {
-        log_line("No interface specified at line %zu\n", linenum);
-        return false;
+    for (auto &i: interface_state) {
+        if (!strcmp(i.name, interface)) {
+            nk::ip_address ipa;
+            if (!ipa.from_string(addr) || !ipa.is_v4()) {
+                log_line("Bad IPv4 address at line %zu: %s\n", linenum, addr.c_str());
+                return false;
+            }
+            i.gateway.emplace_back(std::move(ipa));
+            return true;
+        }
     }
-    nk::ip_address ipa;
-    if (!ipa.from_string(addr) || !ipa.is_v4()) {
-        log_line("Bad IPv4 address at line %zu: %s\n", linenum, addr.c_str());
-        return false;
-    }
-    si->second.gateway.emplace_back(std::move(ipa));
-    return true;
+    log_line("No interface specified at line %zu\n", linenum);
+    return false;
 }
 
 bool emplace_broadcast(size_t linenum, const char *interface, const std::string &addr)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) {
-        log_line("No interface specified at line %zu\n", linenum);
-        return false;
+    for (auto &i: interface_state) {
+        if (!strcmp(i.name, interface)) {
+            nk::ip_address ipa;
+            if (!ipa.from_string(addr) || !ipa.is_v4()) {
+                log_line("Bad IPv4 address at line %zu: %s\n", linenum, addr.c_str());
+                return false;
+            }
+            i.broadcast = std::move(ipa);
+            return true;
+        }
     }
-    nk::ip_address ipa;
-    if (!ipa.from_string(addr) || !ipa.is_v4()) {
-        log_line("Bad IPv4 address at line %zu: %s\n", linenum, addr.c_str());
-        return false;
-    }
-    si->second.broadcast = std::move(ipa);
-    return true;
+    log_line("No interface specified at line %zu\n", linenum);
+    return false;
 }
 
 bool emplace_dynamic_range(size_t linenum, const char *interface,
                            const std::string &lo_addr, const std::string &hi_addr,
                            uint32_t dynamic_lifetime)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) {
-        log_line("No interface specified at line %zu\n", linenum);
-        return false;
+    for (auto &i: interface_state) {
+        if (!strcmp(i.name, interface)) {
+            nk::ip_address lo_ipa, hi_ipa;
+            if (!lo_ipa.from_string(lo_addr) || !lo_ipa.is_v4()) {
+                log_line("Bad IPv4 address at line %zu: %s\n", linenum, lo_addr.c_str());
+                return false;
+            }
+            if (!hi_ipa.from_string(hi_addr) || !hi_ipa.is_v4()) {
+                log_line("Bad IPv4 address at line %zu: %s\n", linenum, hi_addr.c_str());
+                return false;
+            }
+            if (lo_ipa > hi_ipa)
+                std::swap(lo_ipa, hi_ipa);
+            i.dynamic_range = std::make_pair(std::move(lo_ipa), std::move(hi_ipa));
+            i.dynamic_lifetime = dynamic_lifetime;
+            i.use_dynamic_v4 = true;
+            return true;
+        }
     }
-    nk::ip_address lo_ipa, hi_ipa;
-    if (!lo_ipa.from_string(lo_addr) || !lo_ipa.is_v4()) {
-        log_line("Bad IPv4 address at line %zu: %s\n", linenum, lo_addr.c_str());
-        return false;
-    }
-    if (!hi_ipa.from_string(hi_addr) || !hi_ipa.is_v4()) {
-        log_line("Bad IPv4 address at line %zu: %s\n", linenum, hi_addr.c_str());
-        return false;
-    }
-    if (lo_ipa > hi_ipa)
-        std::swap(lo_ipa, hi_ipa);
-    si->second.dynamic_range = std::make_pair(std::move(lo_ipa), std::move(hi_ipa));
-    si->second.dynamic_lifetime = dynamic_lifetime;
-    si->second.use_dynamic_v4 = true;
-    return true;
+    log_line("No interface specified at line %zu\n", linenum);
+    return false;
 }
 
 bool emplace_dynamic_v6(size_t linenum, const char *interface)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) {
-        log_line("No interface specified at line %zu\n", linenum);
-        return false;
+    for (auto &i: interface_state) {
+        if (!strcmp(i.name, interface)) {
+            i.use_dynamic_v6 = true;
+            return true;
+
+        }
     }
-    si->second.use_dynamic_v6 = true;
-    return true;
+    log_line("No interface specified at line %zu\n", linenum);
+    return false;
 }
 
 bool emplace_dns_search(size_t linenum, const char *interface, std::string &&label)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) {
-        log_line("No interface specified at line %zu\n", linenum);
-        return false;
+    for (auto &i: interface_state) {
+        if (!strcmp(i.name, interface)) {
+            i.dns_search.emplace_back(std::move(label));
+            return true;
+        }
     }
-    si->second.dns_search.emplace_back(std::move(label));
-    return true;
+    log_line("No interface specified at line %zu\n", linenum);
+    return false;
+}
+
+static interface_data *lookup_interface(const char *interface)
+{
+    for (auto &i: interface_state) {
+        if (!strcmp(i.name, interface)) return &i;
+    }
+    return nullptr;
 }
 
 const dhcpv6_entry *query_dhcp_state(const char *interface,
                                      const char *duid, size_t duid_len,
                                      uint32_t iaid)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) return nullptr;
-    auto f = si->second.duid_mapping.equal_range(std::string(duid, duid_len));
-    for (auto i = f.first; i != f.second; ++i) {
-        if (i->second.iaid == iaid)
-            return &i->second;
+    auto is = lookup_interface(interface);
+    if (!is) return nullptr;
+    auto f = is->duid_mapping.equal_range(std::string(duid, duid_len));
+    for (auto j = f.first; j != f.second; ++j) {
+        if (j->second.iaid == iaid)
+            return &j->second;
     }
     return nullptr;
 }
 
 const dhcpv4_entry* query_dhcp_state(const char *interface, const uint8_t *hwaddr)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) return nullptr;
-    auto f = si->second.macaddr_mapping.find(std::string(reinterpret_cast<const char *>(hwaddr), 6));
-    return f != si->second.macaddr_mapping.end() ? &f->second : nullptr;
+    auto is = lookup_interface(interface);
+    if (!is) return nullptr;
+    auto f = is->macaddr_mapping.find(std::string(reinterpret_cast<const char *>(hwaddr), 6));
+    return f != is->macaddr_mapping.end() ? &f->second : nullptr;
 }
 
 const std::vector<nk::ip_address> *query_dns6_servers(const char *interface)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) return nullptr;
-    return &si->second.dns6_servers;
+    auto is = lookup_interface(interface);
+    if (!is) return nullptr;
+    return &is->dns6_servers;
 }
 
 const std::vector<nk::ip_address> *query_dns4_servers(const char *interface)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) return nullptr;
-    return &si->second.dns4_servers;
+    auto is = lookup_interface(interface);
+    if (!is) return nullptr;
+    return &is->dns4_servers;
 }
 
 const std::vector<uint8_t> *query_dns6_search_blob(const char *interface)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) return nullptr;
-    return &si->second.dns_search_blob;
+    auto is = lookup_interface(interface);
+    if (!is) return nullptr;
+    return &is->dns_search_blob;
 }
 
 const std::vector<nk::ip_address> *query_ntp6_servers(const char *interface)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) return nullptr;
-    return &si->second.ntp6_servers;
+    auto is = lookup_interface(interface);
+    if (!is) return nullptr;
+    return &is->ntp6_servers;
 }
 
 const std::vector<nk::ip_address> *query_ntp4_servers(const char *interface)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) return nullptr;
-    return &si->second.ntp4_servers;
+    auto is = lookup_interface(interface);
+    if (!is) return nullptr;
+    return &is->ntp4_servers;
 }
 
 const std::vector<uint8_t> *query_ntp6_fqdns_blob(const char *interface)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) return nullptr;
-    return &si->second.ntp6_fqdns_blob;
+    auto is = lookup_interface(interface);
+    if (!is) return nullptr;
+    return &is->ntp6_fqdns_blob;
 }
 
 const std::vector<nk::ip_address> *query_ntp6_multicasts(const char *interface)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) return nullptr;
-    return &si->second.ntp6_multicasts;
+    auto is = lookup_interface(interface);
+    if (!is) return nullptr;
+    return &is->ntp6_multicasts;
 }
 
 const std::vector<nk::ip_address> *query_gateway(const char *interface)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) return nullptr;
-    return &si->second.gateway;
+    auto is = lookup_interface(interface);
+    if (!is) return nullptr;
+    return &is->gateway;
 }
 
 const nk::ip_address *query_subnet(const char *interface)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) return nullptr;
-    return &si->second.subnet;
+    auto is = lookup_interface(interface);
+    if (!is) return nullptr;
+    return &is->subnet;
 }
 
 const nk::ip_address *query_broadcast(const char *interface)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) return nullptr;
-    return &si->second.broadcast;
+    auto is = lookup_interface(interface);
+    if (!is) return nullptr;
+    return &is->broadcast;
 }
 
 const std::pair<nk::ip_address, nk::ip_address> *
 query_dynamic_range(const char *interface)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) return nullptr;
-    return &si->second.dynamic_range;
+    auto is = lookup_interface(interface);
+    if (!is) return nullptr;
+    return &is->dynamic_range;
 }
 
 const std::vector<std::string> *query_dns_search(const char *interface)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) return nullptr;
-    return &si->second.dns_search;
+    auto is = lookup_interface(interface);
+    if (!is) return nullptr;
+    return &is->dns_search;
 }
 
 bool query_use_dynamic_v4(const char *interface, uint32_t &dynamic_lifetime)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) return false;
-    dynamic_lifetime = si->second.dynamic_lifetime;
-    return si->second.use_dynamic_v4;
+    auto is = lookup_interface(interface);
+    if (!is) return false;
+    dynamic_lifetime = is->dynamic_lifetime;
+    return is->use_dynamic_v4;
 }
 
 bool query_use_dynamic_v6(const char *interface, uint32_t &dynamic_lifetime)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) return false;
-    dynamic_lifetime = si->second.dynamic_lifetime;
-    return si->second.use_dynamic_v6;
+    auto is = lookup_interface(interface);
+    if (!is) return false;
+    dynamic_lifetime = is->dynamic_lifetime;
+    return is->use_dynamic_v6;
 }
 
 bool query_unused_addr(const char *interface, const nk::ip_address &addr)
 {
-    auto si = interface_state.find(interface);
-    if (si == interface_state.end()) return true;
-
-    for (const auto &i: si->second.duid_mapping) {
-        if (i.second.address == addr)
+    auto is = lookup_interface(interface);
+    if (!is) return true;
+    for (const auto &j: is->duid_mapping) {
+        if (j.second.address == addr)
             return false;
     }
     return true;
@@ -520,13 +549,13 @@ std::vector<std::string> bound_interfaces_names()
 {
     std::vector<std::string> ret;
     for (const auto &i: interface_state)
-        ret.emplace_back(i.first);
+        ret.emplace_back(i.name);
     return ret;
 }
 
-void bound_interfaces_foreach(std::function<void(const std::string&, bool, bool, uint8_t)> fn)
+void bound_interfaces_foreach(std::function<void(const char *, bool, bool, uint8_t)> fn)
 {
     for (const auto &i: interface_state)
-        fn(i.first, i.second.use_dhcpv4, i.second.use_dhcpv6, i.second.preference);
+        fn(i.name, i.use_dhcpv4, i.use_dhcpv6, i.preference);
 }
 

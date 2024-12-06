@@ -74,8 +74,30 @@ static inline std::string lc_string(const char *s, size_t slen)
         cps.ipaddr = lc_string(MARKED_STRING());
         cps.last_addr = addr_type::v6;
     }
-    action Bind4En { emplace_bind(linenum, std::string(MARKED_STRING()), true); }
-    action Bind6En { emplace_bind(linenum, std::string(MARKED_STRING()), false); }
+    action Bind4En {
+        char buf[IFNAMSIZ];
+        ptrdiff_t blen = p - cps.st;
+        if (blen < 0 || blen >= IFNAMSIZ) {
+            log_line("interface name on line %zu is too long (>= %d)\n", linenum, IFNAMSIZ);
+            cps.parse_error = true;
+            fbreak;
+        }
+        memcpy(buf, cps.st, (size_t)blen);
+        buf[blen] = 0;
+        emplace_bind(linenum, buf, true);
+    }
+    action Bind6En {
+        char buf[IFNAMSIZ];
+        ptrdiff_t blen = p - cps.st;
+        if (blen < 0 || blen >= IFNAMSIZ) {
+            log_line("interface name on line %zu is too long (>= %d)\n", linenum, IFNAMSIZ);
+            cps.parse_error = true;
+            fbreak;
+        }
+        memcpy(buf, cps.st, (size_t)blen);
+        buf[blen] = 0;
+        emplace_bind(linenum, buf, false);
+    }
     action UserEn { set_user_runas(MARKED_STRING()); }
     action ChrootEn { set_chroot_path(MARKED_STRING()); }
     action S6NotifyEn {

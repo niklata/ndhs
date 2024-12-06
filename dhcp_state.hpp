@@ -21,7 +21,7 @@ struct dhcpv4_entry {
 };
 
 void create_blobs();
-bool emplace_bind(size_t linenum, std::string &&interface, bool is_v4);
+void emplace_bind(size_t linenum, const char *interface, bool is_v4);
 bool emplace_interface(size_t linenum, const char *interface, uint8_t preference);
 bool emplace_dhcp_state(size_t linenum, const char *interface,
                         const char *duid, size_t duid_len,
@@ -61,6 +61,6 @@ bool query_use_dynamic_v6(const char *interface, uint32_t &dynamic_lifetime);
 bool query_unused_addr(const char *interface, const nk::ip_address &addr);
 size_t bound_interfaces_count();
 std::vector<std::string> bound_interfaces_names();
-void bound_interfaces_foreach(std::function<void(const std::string&, bool, bool, uint8_t)> fn);
+void bound_interfaces_foreach(std::function<void(const char *, bool, bool, uint8_t)> fn);
 
 #endif

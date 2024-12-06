@@ -103,19 +103,19 @@ static void init_listeners()
     auto v6l = &v6_listeners;
     auto vr6l = &r6_listeners;
     auto v4l = &v4_listeners;
-    bound_interfaces_foreach([v6l, vr6l, v4l](const std::string &i, bool use_v4, bool use_v6,
+    bound_interfaces_foreach([v6l, vr6l, v4l](const char *ifname, bool use_v4, bool use_v6,
                                               uint8_t preference) {
         if (use_v6) {
             v6l->emplace_back(std::make_unique<D6Listener>());
-            if (!v6l->back()->init(i.c_str(), preference)) {
+            if (!v6l->back()->init(ifname, preference)) {
                 v6l->pop_back();
-                log_line("Can't bind to dhcpv6 interface: %s\n", i.c_str());
+                log_line("Can't bind to dhcpv6 interface: %s\n", ifname);
             } else {
                 vr6l->emplace_back(std::make_unique<RA6Listener>());
-                if (!vr6l->back()->init(i.c_str())) {
+                if (!vr6l->back()->init(ifname)) {
                     v6l->pop_back();
                     vr6l->pop_back();
-                    log_line("Can't bind to rav6 interface: %s\n", i.c_str());
+                    log_line("Can't bind to rav6 interface: %s\n", ifname);
                 } else {
                     struct pollfd pt;
                     pt.fd = v6l->back()->fd();
@@ -133,9 +133,9 @@ static void init_listeners()
         }
         if (use_v4) {
             v4l->emplace_back(std::make_unique<D4Listener>());
-            if (!v4l->back()->init(i.c_str())) {
+            if (!v4l->back()->init(ifname)) {
                 v4l->pop_back();
-                log_line("Can't bind to dhcpv4 interface: %s\n", i.c_str());
+                log_line("Can't bind to dhcpv4 interface: %s\n", ifname);
             } else {
                 struct pollfd pt;
                 pt.fd = v4l->back()->fd();
