@@ -1,8 +1,6 @@
 // Copyright 2011-2020 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <unistd.h>
-#include <map>
-#include <chrono>
 #include <sys/types.h>
 #include <net/if.h>
 #include <pwd.h>
@@ -21,42 +19,6 @@ extern "C" {
 // Expect a client to reply within this value in seconds
 #define CS_SWAP_INTERVAL 60
 
-// There are two hashtables, a 'new' and a 'marked for death' table.  If these
-// tables are not empty, a timer with period t will wake up and delete all
-// entries on the 'm4d' table and move the 'new' table to replace the 'm4d'
-// table.  If an entry on the 'm4d' table is accessed, it will be moved to the
-// 'new' table.  New entries will be added to the 'new' table.  If both tables
-// are emptied, the timer can stop until a new entry is added.  We optimize
-// the scheme by not actually performing moves: instead, we store an index
-// to the 'new' table, and the 'marked for death' table is the unindexed table.
-//
-// This scheme requires no per-item timestamping and will bound the lifetime of any
-// object to be p < lifetime < 2p.  A further refinement would be to scale
-// p to be inversely proportional to the number of entries on the 'new'
-// and 'm4d' tables.  This change would cause the deletion rate to increase
-// smoothly under heavy load, providing resistance to OOM DoS at the cost of
-// making it so that clients will need to complete their transactions quickly.
-struct ClientStates
-{
-    ClientStates();
-    ClientStates(const ClientStates &) = delete;
-    ClientStates &operator=(const ClientStates &) = delete;
-
-    void stateAdd(uint32_t xid, uint8_t *hwaddr, uint8_t state);
-    uint8_t stateGet(uint32_t xid, uint8_t *hwaddr);
-    void stateKill(uint8_t *hwaddr);
-private:
-    void maybe_swap(void);
-    struct StateItem
-    {
-        uint32_t xid_;
-        uint8_t state_;
-    };
-    std::chrono::steady_clock::time_point expires_;
-    std::map<uint64_t, StateItem> map_[2];
-    int currentMap_; // Either 0 or 1.
-};
-
 // hwaddr must be exactly 6 bytes
 static uint64_t hwaddr_to_int64(uint8_t *hwaddr)
 {
@@ -67,6 +29,8 @@ static uint64_t hwaddr_to_int64(uint8_t *hwaddr)
            ((uint64_t)hwaddr[4] << 32) |
            ((uint64_t)hwaddr[5] << 40);
 }
+
+namespace detail {
 
 ClientStates::ClientStates() : currentMap_(0)
 {
@@ -124,17 +88,10 @@ void ClientStates::maybe_swap(void)
     currentMap_ = killMap;
 }
 
+} // detail
+
 extern NLSocket nl_socket;
 extern int64_t get_current_ts();
-
-// XXX: The table should be per-interface.
-static std::unique_ptr<ClientStates> client_states_v4;
-static void init_client_states_v4()
-{
-    static bool was_initialized;
-    if (was_initialized) return;
-    client_states_v4 = std::make_unique<ClientStates>();
-}
 
 // Must be called after ifname_ is set.
 bool D4Listener::create_dhcp4_socket()
@@ -193,7 +150,6 @@ bool D4Listener::init(const char *ifname)
     }
     *static_cast<char *>(mempcpy(ifname_, ifname, ifname_src_size)) = 0;
 
-    init_client_states_v4();
     if (!create_dhcp4_socket()) return false;
 
     {
@@ -461,7 +417,7 @@ void D4Listener::reply_request()
     if (create_reply(reply, dhcpmsg_.chaddr, true)) {
         send_reply(reply);
     }
-    client_states_v4->stateKill(dhcpmsg_.chaddr);
+    state_.stateKill(dhcpmsg_.chaddr);
 }
 
 static nk::ip_address zero_v4;
@@ -522,13 +478,13 @@ void D4Listener::process_receive(const char *buf, size_t buflen)
     if (!msgtype)
         return;
 
-    auto cs = client_states_v4->stateGet(dhcpmsg_.xid, dhcpmsg_.chaddr);
+    auto cs = state_.stateGet(dhcpmsg_.xid, dhcpmsg_.chaddr);
     if (cs == DHCPNULL) {
         switch (msgtype) {
         case DHCPREQUEST:
         case DHCPDISCOVER:
             cs = msgtype;
-            client_states_v4->stateAdd(dhcpmsg_.xid, dhcpmsg_.chaddr, cs);
+            state_.stateAdd(dhcpmsg_.xid, dhcpmsg_.chaddr, cs);
             break;
         case DHCPINFORM:
             // No need to track state since we just INFORM => ACK
