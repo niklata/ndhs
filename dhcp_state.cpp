@@ -406,7 +406,9 @@ const dhcpv4_entry* query_dhcp_state(const char *interface, const uint8_t *hwadd
 {
     auto is = lookup_interface(interface);
     if (!is) return nullptr;
-    auto f = is->macaddr_mapping.find(std::string(reinterpret_cast<const char *>(hwaddr), 6));
+    char buf[6];
+    memcpy(buf, hwaddr, sizeof buf);
+    auto f = is->macaddr_mapping.find(std::string(buf, 6));
     return f != is->macaddr_mapping.end() ? &f->second : nullptr;
 }
 

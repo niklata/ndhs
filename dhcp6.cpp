@@ -60,7 +60,7 @@ bool D6Listener::create_dhcp6_socket()
     memset(&sai, 0, sizeof sai); // s6_addr is set to any here
     sai.sin6_family = AF_INET6;
     sai.sin6_port = htons(547);
-    if (bind(tfd(), reinterpret_cast<const sockaddr *>(&sai), sizeof sai)) {
+    if (bind(tfd(), (const sockaddr *)&sai, sizeof sai)) {
         log_line("dhcp6: Failed to bind to UDP 547 on %s: %s\n", ifname_, strerror(errno));
         return false;
     }
@@ -115,7 +115,7 @@ void D6Listener::process_input()
     for (;;) {
         sockaddr_storage sai;
         socklen_t sailen = sizeof sai;
-        auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, reinterpret_cast<sockaddr *>(&sai), &sailen);
+        auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, (sockaddr *)&sai, &sailen);
         if (buflen < 0) {
             int err = errno;
             if (err == EINTR) continue;
@@ -879,7 +879,7 @@ void D6Listener::process_receive(char *buf, size_t buflen,
      memcpy(&sao, &sai, sizeof sao);
      sao.sin6_port = htons(546);
      size_t slen = ss.si > sbuf ? static_cast<size_t>(ss.si - sbuf) : 0;
-     if (safe_sendto(fd_(), sbuf, slen, 0, reinterpret_cast<const sockaddr *>(&sao), sizeof sao) < 0) {
+     if (safe_sendto(fd_(), sbuf, slen, 0, (const sockaddr *)&sao, sizeof sao) < 0) {
          log_line("dhcp6: sendto (%s) failed on %s: %s\n", sip_str, ifname_, strerror(errno));
          return;
      }

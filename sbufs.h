@@ -38,7 +38,7 @@ static inline bool sa6_from_string(sockaddr_in6 *sin, const char *str)
 static inline bool sa6_to_string(char *buf, size_t buflen, const void *sin, socklen_t sinlen)
 {
     if (sinlen < sizeof(sockaddr_in6)) return false;
-    return !!inet_ntop(AF_INET6, &(reinterpret_cast<const sockaddr_in6 *>(sin))->sin6_addr, buf, buflen);
+    return !!inet_ntop(AF_INET6, &((const sockaddr_in6 *)sin)->sin6_addr, buf, buflen);
 }
 
 #endif

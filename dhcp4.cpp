@@ -122,7 +122,7 @@ bool D4Listener::create_dhcp4_socket()
     sai.sin_family = AF_INET;
     sai.sin_port = htons(67);
     sai.sin_addr.s_addr = 0; // any
-    if (bind(tfd(), reinterpret_cast<const sockaddr *>(&sai), sizeof sai)) {
+    if (bind(tfd(), (const sockaddr *)&sai, sizeof sai)) {
         log_line("dhcp4: Failed to bind to UDP 67 on %s: %s\n", ifname_, strerror(errno));
         return false;
     }
@@ -184,7 +184,7 @@ void D4Listener::process_input()
     for (;;) {
         sockaddr_storage sai;
         socklen_t sailen = sizeof sai;
-        auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, reinterpret_cast<sockaddr *>(&sai), &sailen);
+        auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, (sockaddr *)&sai, &sailen);
         if (buflen < 0) {
             int err = errno;
             if (err == EINTR) continue;
@@ -226,7 +226,7 @@ bool D4Listener::send_to(const void *buf, size_t len, uint32_t addr, int port)
     sai.sin_family = AF_INET;
     sai.sin_port = htons(port);
     sai.sin_addr.s_addr = addr;
-    const auto r = safe_sendto(fd_(), static_cast<const char *>(buf), len, 0, reinterpret_cast<const sockaddr *>(&sai), sizeof sai);
+    const auto r = safe_sendto(fd_(), static_cast<const char *>(buf), len, 0, (const sockaddr *)&sai, sizeof sai);
     if (r < 0) {
         log_line("dhcp4: D4Listener sendto failed: %s\n", strerror(errno));
         return false;

@@ -24,7 +24,7 @@ extern "C" {
 
 static inline void toggle_bit(bool v, void *data, size_t arrayidx, unsigned char bitidx)
 {
-    auto d = reinterpret_cast<unsigned char *>(data);
+    auto d = static_cast<unsigned char *>(data);
     if (v) d[arrayidx] |= bitidx;
     else d[arrayidx] &= ~bitidx;
 }
@@ -350,7 +350,7 @@ bool RA6Listener::init(const char *ifname)
     sockaddr_in6 sai;
     memset(&sai, 0, sizeof sai); // s6_addr, s6_port are set to any/0 here
     sai.sin6_family = AF_INET6;
-    if (bind(tfd(), reinterpret_cast<const sockaddr *>(&sai), sizeof sai)) {
+    if (bind(tfd(), (const sockaddr *)&sai, sizeof sai)) {
         log_line("ra6: Failed to bind ICMP route advertisement listener on %s: %s\n", ifname_, strerror(errno));
         return false;
     }
@@ -369,7 +369,7 @@ void RA6Listener::process_input()
     for (;;) {
         sockaddr_storage sai;
         socklen_t sailen = sizeof sai;
-        auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, reinterpret_cast<sockaddr *>(&sai), &sailen);
+        auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, (sockaddr *)&sai, &sailen);
         if (buflen < 0) {
             int err = errno;
             if (err == EINTR) continue;
@@ -530,7 +530,7 @@ bool RA6Listener::send_advert()
     }
     const size_t slen = ss.si > sbuf ? static_cast<size_t>(ss.si - sbuf) : 0;
 
-    if (safe_sendto(fd_(), sbuf, slen, 0, reinterpret_cast<const sockaddr *>(&mc6_allhosts), sizeof mc6_allhosts) < 0) {
+    if (safe_sendto(fd_(), sbuf, slen, 0, (const sockaddr *)&mc6_allhosts, sizeof mc6_allhosts) < 0) {
         log_line("ra6: sendto failed on %s: %s\n", ifname_, strerror(errno));
         return false;
     }
