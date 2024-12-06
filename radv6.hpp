@@ -24,14 +24,14 @@ struct RA6Listener
 private:
     void process_receive(char *buf, size_t buflen,
                          const sockaddr_storage &sai, socklen_t sailen);
-    void set_advi_s_max(unsigned int v);
+    void set_advi_s_max(unsigned v);
     void set_next_advert_ts();
     [[nodiscard]] bool send_advert();
     void attach_bpf(int fd);
     struct timespec advert_ts_;
     char ifname_[IFNAMSIZ];
     nk::sys::handle fd_;
-    unsigned int advi_s_max_;
+    unsigned advi_s_max_;
     bool using_bpf_:1;
 };
 

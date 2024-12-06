@@ -2,15 +2,14 @@
 // SPDX-License-Identifier: MIT
 #include <unistd.h>
 #include <sys/types.h>
-#include <random> // uniform_int_distribution
 #include <net/if.h>
 #include <pwd.h>
-#include "rng.hpp"
 #include "dhcp4.hpp"
 #include "dhcp_state.hpp"
 #include "nlsocket.hpp"
 #include "dynlease.hpp"
 #include "sbufs.h"
+#include "rng.hpp"
 extern "C" {
 #include "nk/log.h"
 #include "nk/io.h"
@@ -333,9 +332,8 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     al = ntohl(al);
     ah = ntohl(ah);
     const uint64_t ar = ah > al ? ah - al : al - ah;
-    std::uniform_int_distribution<uint64_t> dist(0, ar);
-    random_u64_wrapper r64w;
-    const auto rqs = dist(r64w);
+    // The extremely small distribution skew does not matter here.
+    const auto rqs = nk_random_u64() % (ar + 1);
 
     // OK, here we have bisected our range using rqs.
     // [al .. ah] => [al .. rqs .. ah]

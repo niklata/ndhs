@@ -18,7 +18,7 @@ extern "C" {
 
 void NLSocket::init()
 {
-    nlseq_ = random_u64();
+    nlseq_ = nk_random_u64();
     got_newlink_ = false;
     query_ifindex_ = -1;
 

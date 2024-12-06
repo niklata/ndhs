@@ -3,8 +3,9 @@
 #ifndef NDHS_SBUFS_H_
 #define NDHS_SBUFS_H_
 
-#include <cstring>
-#include <cstddef>
+#include <string.h>
+#include <stddef.h>
+#include <errno.h>
 #include <arpa/inet.h>
 extern "C" {
 #include "nk/log.h"

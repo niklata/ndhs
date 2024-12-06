@@ -25,8 +25,7 @@ static nk::ip_address mask_v6_addr(const nk::ip_address &addr, uint8_t mask)
     const auto keep_bytes = mask / 8u;
     const auto keep_r_bits = mask % 8u;
     b[keep_bytes] &= ~(0xffu >> keep_r_bits);
-    for (unsigned i = keep_bytes + 1; i < 16; ++i)
-        b[i] = 0u;
+    for (unsigned i = keep_bytes + 1; i < 16; ++i) b[i] = 0u;
     ret.from_v6bytes(b);
     return ret;
 }
@@ -38,9 +37,8 @@ static nk::ip_address v6_addr_random(const nk::ip_address &prefix, uint8_t prefi
     const auto keep_r_bits = prefixlen % 8u;
     prefix.raw_v6bytes(b);
     unsigned i = 15;
-    for (; i > keep_bytes; --i)
-        b[i] = random_u64();
-    uint8_t c = random_u64();
+    for (; i > keep_bytes; --i) b[i] = nk_random_u64();
+    uint8_t c = nk_random_u64();
     b[i] |= c & (0xff >> keep_r_bits);
     ret.from_v6bytes(b);
     return ret;

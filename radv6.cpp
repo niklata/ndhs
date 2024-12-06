@@ -1,7 +1,6 @@
 // Copyright 2014-2020 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <algorithm>
-#include <random>
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -16,8 +15,8 @@
 #include "dhcp6.hpp"
 #include "multicast6.hpp"
 #include "attach_bpf.h"
-#include "rng.hpp"
 #include "sbufs.h"
+#include "rng.hpp"
 
 extern "C" {
 #include "nk/net_checksum16.h"
@@ -388,7 +387,7 @@ void RA6Listener::attach_bpf(int fd)
     using_bpf_ = attach_bpf_icmp6_ra(fd, ifname_);
 }
 
-void RA6Listener::set_advi_s_max(unsigned int v)
+void RA6Listener::set_advi_s_max(unsigned v)
 {
     v = std::max(v, 4U);
     v = std::min(v, 1800U);
@@ -397,10 +396,9 @@ void RA6Listener::set_advi_s_max(unsigned int v)
 
 void RA6Listener::set_next_advert_ts()
 {
-    unsigned int advi_s_min = std::max(advi_s_max_ / 3, 3U);
-    std::uniform_int_distribution<unsigned> dist(advi_s_min, advi_s_max_);
-    random_u64_wrapper r64w;
-    auto advi_s = dist(r64w);
+    unsigned advi_s_min = std::max(advi_s_max_ / 3, 3U);
+    // The extremely small distribution skew does not matter here.
+    unsigned advi_s = (unsigned)(nk_random_u64() % (advi_s_max_ - advi_s_min)) + advi_s_min;
     clock_gettime(CLOCK_BOOTTIME, &advert_ts_);
     advert_ts_.tv_sec += advi_s;
 }
