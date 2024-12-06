@@ -8,9 +8,9 @@
 extern "C" {
 #include "nk/log.h"
 }
-extern void set_user_runas(size_t linenum, std::string &&username);
-extern void set_chroot_path(size_t linenum, std::string &&path);
-extern void set_s6_notify_fd(size_t linenum, int fd);
+extern void set_user_runas(const char *username, size_t len);
+extern void set_chroot_path(const char *path, size_t len);
+extern void set_s6_notify_fd(int fd);
 
 #define MAX_LINE 2048
 
@@ -75,10 +75,10 @@ static inline std::string lc_string(const char *s, size_t slen)
     }
     action Bind4En { emplace_bind(linenum, std::string(MARKED_STRING()), true); }
     action Bind6En { emplace_bind(linenum, std::string(MARKED_STRING()), false); }
-    action UserEn { set_user_runas(linenum, std::string(MARKED_STRING())); }
-    action ChrootEn { set_chroot_path(linenum, std::string(MARKED_STRING())); }
+    action UserEn { set_user_runas(MARKED_STRING()); }
+    action ChrootEn { set_chroot_path(MARKED_STRING()); }
     action S6NotifyEn {
-        if (auto t = nk::from_string<int>(MARKED_STRING())) set_s6_notify_fd(linenum, *t); else {
+        if (auto t = nk::from_string<int>(MARKED_STRING())) set_s6_notify_fd(*t); else {
             cps.parse_error = true;
             fbreak;
         }

@@ -54,7 +54,7 @@ struct pfd_meta
 };
 
 static const char *configfile = "/etc/ndhs.conf";
-static std::string chroot_path;
+static char *chroot_path;
 static uid_t ndhs_uid;
 static gid_t ndhs_gid;
 static std::optional<int> s6_notify_fd;
@@ -156,16 +156,21 @@ int64_t get_current_ts()
     return ts.tv_sec;
 }
 
-void set_user_runas(size_t /* linenum */, std::string &&username)
+void set_user_runas(const char *username, size_t len)
 {
-    if (nk_uidgidbyname(username.c_str(), &ndhs_uid, &ndhs_gid))
-        suicide("invalid user '%s' specified\n", username.c_str());
+    char buf[256];
+    if (len >= sizeof buf)
+        suicide("user %.*s is too long: %zu\n", (int)len, username, len);
+    memcpy(buf, username, len);
+    buf[len] = 0;
+    if (nk_uidgidbyname(buf, &ndhs_uid, &ndhs_gid))
+        suicide("invalid user '%s' specified\n", buf);
 }
-void set_chroot_path(size_t /* linenum */, std::string &&path)
+void set_chroot_path(const char *path, size_t len)
 {
-    chroot_path = std::move(path);
+    chroot_path = strndup(path, len);
 }
-void set_s6_notify_fd(size_t /* linenum */, int fd)
+void set_s6_notify_fd(int fd)
 {
     s6_notify_fd = fd;
 }
@@ -270,7 +275,7 @@ static void process_options(int ac, char *av[])
         suicide("No interfaces have been bound\n");
     if (!ndhs_uid || !ndhs_gid)
         suicide("No non-root user account is specified.\n");
-    if (chroot_path.empty())
+    if (!chroot_path)
         suicide("No chroot path is specified.\n");
 
     init_listeners();
@@ -278,7 +283,7 @@ static void process_options(int ac, char *av[])
     umask(077);
     setup_signals_ndhs();
 
-    nk_set_chroot(chroot_path.c_str());
+    nk_set_chroot(chroot_path);
     duid_load_from_file();
     dynlease_deserialize(LEASEFILE_PATH);
     nk_set_uidgid(ndhs_uid, ndhs_gid, nullptr, 0);
