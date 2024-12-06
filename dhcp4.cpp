@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include <unistd.h>
 #include <sys/types.h>
+#include <random> // uniform_int_distribution
 #include <net/if.h>
 #include <pwd.h>
 #include "rng.hpp"
@@ -34,7 +35,8 @@ namespace detail {
 
 ClientStates::ClientStates() : currentMap_(0)
 {
-    expires_ = std::chrono::steady_clock::now() + std::chrono::seconds(CS_SWAP_INTERVAL);
+    clock_gettime(CLOCK_BOOTTIME, &expires_);
+    expires_.tv_sec += CS_SWAP_INTERVAL;
 }
 
 void ClientStates::stateAdd(uint32_t xid, uint8_t *hwaddr, uint8_t state)
@@ -79,10 +81,13 @@ void ClientStates::stateKill(uint8_t *hwaddr)
 
 void ClientStates::maybe_swap(void)
 {
-    const auto now = std::chrono::steady_clock::now();
-    if (now < expires_) return;
+    struct timespec now;
+    clock_gettime(CLOCK_BOOTTIME, &now);
+    if (now.tv_sec < expires_.tv_sec) return;
+    if (now.tv_sec == expires_.tv_sec && now.tv_nsec < expires_.tv_nsec) return;
 
-    expires_ = now + std::chrono::seconds(CS_SWAP_INTERVAL);
+    now.tv_sec += CS_SWAP_INTERVAL;
+    expires_ = now;
     const int killMap = !currentMap_;
     map_[killMap].clear();
     currentMap_ = killMap;

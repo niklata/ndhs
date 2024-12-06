@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 #include <map> // ClientStates
-#include <chrono> // ClientStates
+#include <time.h> // ClientStates
 #include <nk/net/ip_address.hpp>
 #include <nk/sys/posix/handle.hpp>
 #include "dhcp.h"
@@ -47,7 +47,7 @@ private:
         uint32_t xid_;
         uint8_t state_;
     };
-    std::chrono::steady_clock::time_point expires_;
+    struct timespec expires_;
     std::map<uint64_t, StateItem> map_[2];
     int currentMap_; // Either 0 or 1.
 };
