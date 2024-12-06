@@ -1,9 +1,9 @@
 // Copyright 2016-2020 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <string>
-#include <cstdio>
+#include <stdio.h>
+#include <inttypes.h>
 #include <nk/scopeguard.hpp>
-#include <nk/from_string.hpp>
 #include "dhcp_state.hpp"
 extern "C" {
 #include "nk/log.h"
@@ -79,19 +79,42 @@ static inline std::string lc_string(const char *s, size_t slen)
     action UserEn { set_user_runas(MARKED_STRING()); }
     action ChrootEn { set_chroot_path(MARKED_STRING()); }
     action S6NotifyEn {
-        if (auto t = nk::from_string<int>(MARKED_STRING())) set_s6_notify_fd(*t); else {
+        char buf[64];
+        ptrdiff_t blen = p - cps.st;
+        if (blen < 0 || blen >= (int)sizeof buf) {
             cps.parse_error = true;
             fbreak;
         }
+        memcpy(buf, p, (size_t)blen); buf[blen] = 0;
+        int fd;
+        if (sscanf(cps.st, "%d", &fd) != 1) {
+            cps.parse_error = true;
+            fbreak;
+        }
+        set_s6_notify_fd(fd);
     }
     action DefLifeEn {
-        if (auto t = nk::from_string<uint32_t>(MARKED_STRING())) cps.default_lifetime = *t; else {
+        char buf[64];
+        ptrdiff_t blen = p - cps.st;
+        if (blen < 0 || blen >= (int)sizeof buf) {
+            cps.parse_error = true;
+            fbreak;
+        }
+        memcpy(buf, p, (size_t)blen); buf[blen] = 0;
+        if (sscanf(cps.st, SCNu32, &cps.default_lifetime) != 1) {
             cps.parse_error = true;
             fbreak;
         }
     }
     action DefPrefEn {
-        if (auto t = nk::from_string<uint8_t>(MARKED_STRING())) cps.default_preference = *t; else {
+        char buf[64];
+        ptrdiff_t blen = p - cps.st;
+        if (blen < 0 || blen >= (int)sizeof buf) {
+            cps.parse_error = true;
+            fbreak;
+        }
+        memcpy(buf, p, (size_t)blen); buf[blen] = 0;
+        if (sscanf(cps.st, SCNu8, &cps.default_preference) != 1) {
             log_line("default_preference on line %zu out of range [0,255]: %s\n",
                      linenum, std::string(MARKED_STRING()).c_str());
             cps.parse_error = true;
@@ -99,14 +122,14 @@ static inline std::string lc_string(const char *s, size_t slen)
         }
     }
     action InterfaceEn {
-        size_t len = (size_t)(p - cps.st);
-        if (p <= cps.st || len >= IFNAMSIZ) {
+        ptrdiff_t blen = p - cps.st;
+        if (blen < 0 || blen >= IFNAMSIZ) {
             log_line("interface name on line %zu is too long (>= %d)\n", linenum, IFNAMSIZ);
             cps.parse_error = true;
             fbreak;
         }
-        memcpy(cps.interface, cps.st, len);
-        cps.interface[len] = 0;
+        memcpy(cps.interface, cps.st, (size_t)blen);
+        cps.interface[blen] = 0;
         emplace_interface(linenum, cps.interface, cps.default_preference);
     }
     action DnsServerEn {
@@ -136,14 +159,14 @@ static inline std::string lc_string(const char *s, size_t slen)
                            cps.default_lifetime);
     }
     action V6EntryEn {
-        if (auto iaid = nk::from_string<uint32_t>(cps.iaid)) {
-            emplace_dhcp_state(linenum, cps.interface,
-                               cps.duid.data(), cps.duid.size(),
-                               *iaid, cps.ipaddr, cps.default_lifetime);
-        } else {
+        uint32_t iaid;
+        if (sscanf(cps.iaid.c_str(), SCNu32, &iaid) != 1) {
             cps.parse_error = true;
             fbreak;
         }
+        emplace_dhcp_state(linenum, cps.interface,
+                           cps.duid.data(), cps.duid.size(),
+                           iaid, cps.ipaddr, cps.default_lifetime);
     }
 
     duid = (xdigit+ | (xdigit{2} ('-' xdigit{2})*)+) >St %DuidEn;

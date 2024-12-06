@@ -25,7 +25,6 @@
 #include <signal.h>
 #include <poll.h>
 #include <errno.h>
-#include <nk/from_string.hpp>
 extern "C" {
 #include "nk/log.h"
 #include "nk/privs.h"

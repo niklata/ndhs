@@ -2,9 +2,9 @@
 // Copyright 2016-2020 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <string>
-#include <cstdio>
+#include <stdio.h>
+#include <inttypes.h>
 #include <nk/scopeguard.hpp>
-#include <nk/from_string.hpp>
 #include "dhcp_state.hpp"
 extern "C" {
 #include "nk/log.h"
@@ -59,7 +59,7 @@ static inline std::string lc_string(const char *s, size_t slen)
 }
 
 
-#line 177 "cfg.rl"
+#line 200 "cfg.rl"
 
 
 
@@ -510,7 +510,7 @@ static const int cfg_line_m_error = 0;
 static const int cfg_line_m_en_main = 161;
 
 
-#line 179 "cfg.rl"
+#line 202 "cfg.rl"
 
 
 static int do_parse_cfg_line(cfg_parse_state &cps, const char *p, size_t plen,
@@ -525,7 +525,7 @@ const size_t linenum)
 		cps.cs = (int)cfg_line_m_start;
 	}
 	
-#line 187 "cfg.rl"
+#line 210 "cfg.rl"
 
 
 #line 523 "cfg.cpp"
@@ -706,35 +706,58 @@ const size_t linenum)
 							{
 #line 81 "cfg.rl"
 							
-							if (auto t = nk::from_string<int>(MARKED_STRING())) set_s6_notify_fd(*t); else {
+							char buf[64];
+							ptrdiff_t blen = p - cps.st;
+							if (blen < 0 || blen >= (int)sizeof buf) {
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
+							memcpy(buf, p, (size_t)blen); buf[blen] = 0;
+							int fd;
+							if (sscanf(cps.st, "%d", &fd) != 1) {
+								cps.parse_error = true;
+								{p += 1; goto _out; }
+							}
+							set_s6_notify_fd(fd);
 						}
 						
-#line 696 "cfg.cpp"
+#line 705 "cfg.cpp"
 
 						break; 
 					}
 					case 11:  {
 							{
-#line 87 "cfg.rl"
+#line 96 "cfg.rl"
 							
-							if (auto t = nk::from_string<uint32_t>(MARKED_STRING())) cps.default_lifetime = *t; else {
+							char buf[64];
+							ptrdiff_t blen = p - cps.st;
+							if (blen < 0 || blen >= (int)sizeof buf) {
+								cps.parse_error = true;
+								{p += 1; goto _out; }
+							}
+							memcpy(buf, p, (size_t)blen); buf[blen] = 0;
+							if (sscanf(cps.st, SCNu32, &cps.default_lifetime) != 1) {
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
 						}
 						
-#line 709 "cfg.cpp"
+#line 725 "cfg.cpp"
 
 						break; 
 					}
 					case 12:  {
 							{
-#line 93 "cfg.rl"
+#line 109 "cfg.rl"
 							
-							if (auto t = nk::from_string<uint8_t>(MARKED_STRING())) cps.default_preference = *t; else {
+							char buf[64];
+							ptrdiff_t blen = p - cps.st;
+							if (blen < 0 || blen >= (int)sizeof buf) {
+								cps.parse_error = true;
+								{p += 1; goto _out; }
+							}
+							memcpy(buf, p, (size_t)blen); buf[blen] = 0;
+							if (sscanf(cps.st, SCNu8, &cps.default_preference) != 1) {
 								log_line("default_preference on line %zu out of range [0,255]: %s\n",
 								linenum, std::string(MARKED_STRING()).c_str());
 								cps.parse_error = true;
@@ -742,134 +765,134 @@ const size_t linenum)
 							}
 						}
 						
-#line 724 "cfg.cpp"
+#line 747 "cfg.cpp"
 
 						break; 
 					}
 					case 13:  {
 							{
-#line 101 "cfg.rl"
+#line 124 "cfg.rl"
 							
-							size_t len = (size_t)(p - cps.st);
-							if (p <= cps.st || len >= IFNAMSIZ) {
+							ptrdiff_t blen = p - cps.st;
+							if (blen < 0 || blen >= IFNAMSIZ) {
 								log_line("interface name on line %zu is too long (>= %d)\n", linenum, IFNAMSIZ);
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
-							memcpy(cps.interface, cps.st, len);
-							cps.interface[len] = 0;
+							memcpy(cps.interface, cps.st, (size_t)blen);
+							cps.interface[blen] = 0;
 							emplace_interface(linenum, cps.interface, cps.default_preference);
 						}
 						
-#line 742 "cfg.cpp"
+#line 765 "cfg.cpp"
 
 						break; 
 					}
 					case 14:  {
 							{
-#line 112 "cfg.rl"
+#line 135 "cfg.rl"
 							
 							emplace_dns_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
 						}
 						
-#line 752 "cfg.cpp"
+#line 775 "cfg.cpp"
 
 						break; 
 					}
 					case 15:  {
 							{
-#line 115 "cfg.rl"
+#line 138 "cfg.rl"
 							
 							emplace_dns_search(linenum, cps.interface, std::string(MARKED_STRING()));
 						}
 						
-#line 762 "cfg.cpp"
+#line 785 "cfg.cpp"
 
 						break; 
 					}
 					case 16:  {
 							{
-#line 118 "cfg.rl"
+#line 141 "cfg.rl"
 							
 							emplace_ntp_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
 						}
 						
-#line 772 "cfg.cpp"
+#line 795 "cfg.cpp"
 
 						break; 
 					}
 					case 17:  {
 							{
-#line 121 "cfg.rl"
+#line 144 "cfg.rl"
 							
 							emplace_gateway(linenum, cps.interface, cps.ipaddr);
 						}
 						
-#line 782 "cfg.cpp"
+#line 805 "cfg.cpp"
 
 						break; 
 					}
 					case 18:  {
 							{
-#line 124 "cfg.rl"
+#line 147 "cfg.rl"
 							
 							cps.ipaddr2 = std::move(cps.ipaddr);
 						}
 						
-#line 792 "cfg.cpp"
+#line 815 "cfg.cpp"
 
 						break; 
 					}
 					case 19:  {
 							{
-#line 127 "cfg.rl"
+#line 150 "cfg.rl"
 							
 							emplace_dynamic_range(linenum, cps.interface, cps.ipaddr2, cps.ipaddr,
 							cps.default_lifetime);
 						}
 						
-#line 803 "cfg.cpp"
+#line 826 "cfg.cpp"
 
 						break; 
 					}
 					case 20:  {
 							{
-#line 131 "cfg.rl"
+#line 154 "cfg.rl"
 							
 							emplace_dynamic_v6(linenum, cps.interface);
 						}
 						
-#line 813 "cfg.cpp"
+#line 836 "cfg.cpp"
 
 						break; 
 					}
 					case 21:  {
 							{
-#line 134 "cfg.rl"
+#line 157 "cfg.rl"
 							
 							emplace_dhcp_state(linenum, cps.interface, cps.macaddr, cps.ipaddr,
 							cps.default_lifetime);
 						}
 						
-#line 824 "cfg.cpp"
+#line 847 "cfg.cpp"
 
 						break; 
 					}
 					case 22:  {
 							{
-#line 138 "cfg.rl"
+#line 161 "cfg.rl"
 							
-							if (auto iaid = nk::from_string<uint32_t>(cps.iaid)) {
-								emplace_dhcp_state(linenum, cps.interface,
-								cps.duid.data(), cps.duid.size(),
-								*iaid, cps.ipaddr, cps.default_lifetime);
-							} else {
+							uint32_t iaid;
+							if (sscanf(cps.iaid.c_str(), SCNu32, &iaid) != 1) {
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
+							emplace_dhcp_state(linenum, cps.interface,
+							cps.duid.data(), cps.duid.size(),
+							iaid, cps.ipaddr, cps.default_lifetime);
 						}
 						
-#line 841 "cfg.cpp"
+#line 864 "cfg.cpp"
 
 						break; 
 					}
@@ -893,7 +916,7 @@ const size_t linenum)
 		_out: {}
 	}
 	
-#line 188 "cfg.rl"
+#line 211 "cfg.rl"
 
 	
 	if (cps.parse_error) return -1;
