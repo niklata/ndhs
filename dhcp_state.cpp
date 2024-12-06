@@ -1,9 +1,8 @@
 // Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <map>
-#include <memory>
 #include <string>
-#include <cassert>
+#include <assert.h>
 #include "dhcp_state.hpp"
 extern "C" {
 #include <net/if.h>

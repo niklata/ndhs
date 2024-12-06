@@ -3,7 +3,6 @@
 #ifndef NDHS_MULTICAST6_HPP_
 #define NDHS_MULTICAST6_HPP_
 
-#include <memory>
 #include <net/if.h>
 #include <nk/net/ip_address.hpp>
 #include "nlsocket.hpp"
