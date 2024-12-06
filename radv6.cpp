@@ -401,7 +401,8 @@ void RA6Listener::set_next_advert_ts()
     std::uniform_int_distribution<unsigned> dist(advi_s_min, advi_s_max_);
     random_u64_wrapper r64w;
     auto advi_s = dist(r64w);
-    advert_ts_ = std::chrono::steady_clock::now() + std::chrono::seconds(advi_s);
+    clock_gettime(CLOCK_BOOTTIME, &advert_ts_);
+    advert_ts_.tv_sec += advi_s;
 }
 
 bool RA6Listener::send_advert()
@@ -542,13 +543,15 @@ bool RA6Listener::send_advert()
 
 int RA6Listener::send_periodic_advert()
 {
-    const auto now = std::chrono::steady_clock::now();
-    if (now >= advert_ts_) {
+    struct timespec now;
+    clock_gettime(CLOCK_BOOTTIME, &now);
+    if (now.tv_sec > advert_ts_.tv_sec
+        || (now.tv_sec == advert_ts_.tv_sec && now.tv_nsec > advert_ts_.tv_nsec)) {
         if (!send_advert())
             log_line("ra6: Failed to send periodic router advertisement on %s\n", ifname_);
         set_next_advert_ts();
     }
-    return std::chrono::duration_cast<std::chrono::milliseconds>(advert_ts_ - now).count();
+    return 1000 + (advert_ts_.tv_sec - now.tv_sec) * 1000; // Always wait at least 1s
 }
 
 bool ip6_is_unspecified(const sockaddr_storage &sa)

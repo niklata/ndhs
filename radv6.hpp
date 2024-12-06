@@ -3,16 +3,15 @@
 #ifndef NDHS_RADV6_HPP_
 #define NDHS_RADV6_HPP_
 
-#include <chrono>
+#include <time.h>
 #include <nk/sys/posix/handle.hpp>
 #include "sbufs.h"
 extern "C" {
 #include <net/if.h>
 }
 
-class RA6Listener
+struct RA6Listener
 {
-public:
     RA6Listener() {}
     RA6Listener(const RA6Listener &) = delete;
     RA6Listener &operator=(const RA6Listener &) = delete;
@@ -29,7 +28,7 @@ private:
     void set_next_advert_ts();
     [[nodiscard]] bool send_advert();
     void attach_bpf(int fd);
-    std::chrono::steady_clock::time_point advert_ts_;
+    struct timespec advert_ts_;
     char ifname_[IFNAMSIZ];
     nk::sys::handle fd_;
     unsigned int advi_s_max_;
