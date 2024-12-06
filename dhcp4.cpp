@@ -279,15 +279,16 @@ void D4Listener::send_reply(const dhcpmsg &reply)
 static bool iplist_option(dhcpmsg *reply, uint8_t code,
                           const std::vector<nk::ip_address> &addrs)
 {
-    std::string iplist;
-    iplist.reserve(addrs.size() * 4);
+    char buf[256]; // max option size is 255 bytes
+    size_t off = 0;
     for (const auto &i: addrs) {
-        char ip8[4];
-        if (!i.raw_v4bytes(ip8)) return false;
-        iplist.append(ip8, 4);
+        if (off + 4 >= sizeof buf) break; // silently drop if too many
+        if (!i.raw_v4bytes(buf + off)) return false;
+        off += 4;
     }
-    if (!iplist.size()) return false;
-    add_option_string(reply, code, iplist.c_str(), iplist.size());
+    buf[off] = 0;
+    if (!off) return false;
+    add_option_string(reply, code, buf, off);
     return true;
 }
 
