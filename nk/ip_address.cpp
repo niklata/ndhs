@@ -1,6 +1,5 @@
 #include <nk/net/ip_address.hpp>
 #include <nk/endian.hpp>
-#include <algorithm>
 #include <limits>
 #include <cassert>
 #ifndef _WIN32

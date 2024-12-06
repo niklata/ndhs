@@ -7,7 +7,6 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include <algorithm>
 #include <cassert>
 #include <nk/scopeguard.hpp>
 #include <nk/from_string.hpp>

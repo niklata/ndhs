@@ -1,7 +1,5 @@
 // Copyright 2014-2020 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
-#include <algorithm>
-
 #include <unistd.h>
 #include <sys/types.h>
 #include <pwd.h>

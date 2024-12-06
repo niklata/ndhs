@@ -2,7 +2,6 @@
 #define NCMLIB_RNG_PRNG_HPP_
 
 #include <cstdint>
-#include <algorithm>
 #include <tuple>
 #include <limits>
 extern "C" {
