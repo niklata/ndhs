@@ -25,18 +25,18 @@ void emplace_bind(size_t linenum, const char *interface, bool is_v4);
 bool emplace_interface(size_t linenum, const char *interface, uint8_t preference);
 bool emplace_dhcp_state(size_t linenum, const char *interface,
                         const char *duid, size_t duid_len,
-                        uint32_t iaid, const std::string &v6_addr, uint32_t default_lifetime);
+                        uint32_t iaid, std::string_view v6_addr, uint32_t default_lifetime);
 bool emplace_dhcp_state(size_t linenum, const char *interface, const std::string &macaddr,
-                        const std::string &v4_addr, uint32_t default_lifetime);
+                        std::string_view v4_addr, uint32_t default_lifetime);
 bool emplace_dns_server(size_t linenum, const char *interface,
-                        const std::string &addr, addr_type atype);
+                        std::string_view addr, addr_type atype);
 bool emplace_ntp_server(size_t linenum, const char *interface,
-                        const std::string &addr, addr_type atype);
-bool emplace_subnet(size_t linenum, const char *interface, const std::string &addr);
-bool emplace_gateway(size_t linenum, const char *interface, const std::string &addr);
-bool emplace_broadcast(size_t linenum, const char *interface, const std::string &addr);
+                        std::string_view addr, addr_type atype);
+bool emplace_subnet(size_t linenum, const char *interface, std::string_view addr);
+bool emplace_gateway(size_t linenum, const char *interface, std::string_view addr);
+bool emplace_broadcast(size_t linenum, const char *interface, std::string_view addr);
 bool emplace_dynamic_range(size_t linenum, const char *interface,
-                           const std::string &lo_addr, const std::string &hi_addr,
+                           std::string_view lo_addr, std::string_view hi_addr,
                            uint32_t dynamic_lifetime);
 bool emplace_dynamic_v6(size_t linenum, const char *interface);
 bool emplace_dns_search(size_t linenum, const char *interface, std::string &&label);

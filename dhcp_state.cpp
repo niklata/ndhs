@@ -188,13 +188,13 @@ bool emplace_interface(size_t linenum, const char *interface, uint8_t preference
 
 bool emplace_dhcp_state(size_t linenum, const char *interface,
                         const char *duid, size_t duid_len,
-                        uint32_t iaid, const std::string &v6_addr, uint32_t default_lifetime)
+                        uint32_t iaid, std::string_view v6_addr, uint32_t default_lifetime)
 {
     for (auto &i: interface_state) {
         if (!strcmp(i.name, interface)) {
             nk::ip_address ipa;
             if (!ipa.from_string(v6_addr)) {
-                log_line("Bad IPv6 address at line %zu: %s\n", linenum, v6_addr.c_str());
+                log_line("Bad IPv6 address at line %zu: %.*s\n", linenum, (int)v6_addr.size(), v6_addr.data());
                 return false;
             }
             i.duid_mapping.emplace
@@ -208,13 +208,13 @@ bool emplace_dhcp_state(size_t linenum, const char *interface,
 }
 
 bool emplace_dhcp_state(size_t linenum, const char *interface, const std::string &macaddr,
-                        const std::string &v4_addr, uint32_t default_lifetime)
+                        std::string_view v4_addr, uint32_t default_lifetime)
 {
     for (auto &i: interface_state) {
         if (!strcmp(i.name, interface)) {
             nk::ip_address ipa;
             if (!ipa.from_string(v4_addr) || !ipa.is_v4()) {
-                log_line("Bad IPv4 address at line %zu: %s\n", linenum, v4_addr.c_str());
+                log_line("Bad IPv4 address at line %zu: %.*s\n", linenum, (int)v4_addr.size(), v4_addr.data());
                 return false;
             }
             uint8_t buf[7] = {0};
@@ -231,7 +231,7 @@ bool emplace_dhcp_state(size_t linenum, const char *interface, const std::string
 }
 
 bool emplace_dns_server(size_t linenum, const char *interface,
-                        const std::string &addr, addr_type atype)
+                        std::string_view addr, addr_type atype)
 {
     if (atype == addr_type::null) {
         log_line("Invalid address type at line %zu\n", linenum);
@@ -241,17 +241,13 @@ bool emplace_dns_server(size_t linenum, const char *interface,
         if (!strcmp(i.name, interface)) {
             nk::ip_address ipa;
             auto bad_addr = !ipa.from_string(addr);
+            if (bad_addr || (atype == addr_type::v4 && !ipa.is_v4()) || (atype == addr_type::v6 && ipa.is_v4())) {
+                log_line("Bad IP address at line %zu: %.*s\n", linenum, (int)addr.size(), addr.data());
+                return false;
+            }
             if (atype == addr_type::v4) {
-                if (bad_addr || !ipa.is_v4()) {
-                    log_line("Bad IPv4 address at line %zu: %s\n", linenum, addr.c_str());
-                    return false;
-                }
                 i.dns4_servers.emplace_back(std::move(ipa));
             } else {
-                if (bad_addr || ipa.is_v4()) {
-                    log_line("Bad IPv6 address at line %zu: %s\n", linenum, addr.c_str());
-                    return false;
-                }
                 i.dns6_servers.emplace_back(std::move(ipa));
             }
             return true;
@@ -262,7 +258,7 @@ bool emplace_dns_server(size_t linenum, const char *interface,
 }
 
 bool emplace_ntp_server(size_t linenum, const char *interface,
-                        const std::string &addr, addr_type atype)
+                        std::string_view addr, addr_type atype)
 {
     if (atype == addr_type::null) {
         log_line("Invalid address type at line %zu\n", linenum);
@@ -272,17 +268,13 @@ bool emplace_ntp_server(size_t linenum, const char *interface,
         if (!strcmp(i.name, interface)) {
             nk::ip_address ipa;
             auto bad_addr = !ipa.from_string(addr);
+            if (bad_addr || (atype == addr_type::v4 && !ipa.is_v4()) || (atype == addr_type::v6 && ipa.is_v4())) {
+                log_line("Bad IP address at line %zu: %.*s\n", linenum, (int)addr.size(), addr.data());
+                return false;
+            }
             if (atype == addr_type::v4) {
-                if (bad_addr || !ipa.is_v4()) {
-                    log_line("Bad IPv4 address at line %zu: %s\n", linenum, addr.c_str());
-                    return false;
-                }
                 i.ntp4_servers.emplace_back(std::move(ipa));
             } else {
-                if (bad_addr || ipa.is_v4()) {
-                    log_line("Bad IPv6 address at line %zu: %s\n", linenum, addr.c_str());
-                    return false;
-                }
                 i.ntp6_servers.emplace_back(std::move(ipa));
             }
             return true;
@@ -292,7 +284,7 @@ bool emplace_ntp_server(size_t linenum, const char *interface,
     return false;
 }
 
-bool emplace_subnet(size_t linenum, const char *interface, const std::string &addr)
+bool emplace_subnet(size_t linenum, const char *interface, std::string_view addr)
 {
     if (strlen(interface) == 0) {
         log_line("No interface specified at line %zu\n", linenum);
@@ -302,7 +294,7 @@ bool emplace_subnet(size_t linenum, const char *interface, const std::string &ad
         if (!strcmp(i.name, interface)) {
             nk::ip_address ipa;
             if (!ipa.from_string(addr) || !ipa.is_v4()) {
-                log_line("Bad IP address at line %zu: %s\n", linenum, addr.c_str());
+                log_line("Bad IP address at line %zu: %.*s\n", linenum, (int)addr.size(), addr.data());
                 return false;
             }
             i.subnet = std::move(ipa);
@@ -312,13 +304,13 @@ bool emplace_subnet(size_t linenum, const char *interface, const std::string &ad
     return false;
 }
 
-bool emplace_gateway(size_t linenum, const char *interface, const std::string &addr)
+bool emplace_gateway(size_t linenum, const char *interface, std::string_view addr)
 {
     for (auto &i: interface_state) {
         if (!strcmp(i.name, interface)) {
             nk::ip_address ipa;
             if (!ipa.from_string(addr) || !ipa.is_v4()) {
-                log_line("Bad IPv4 address at line %zu: %s\n", linenum, addr.c_str());
+                log_line("Bad IP address at line %zu: %.*s\n", linenum, (int)addr.size(), addr.data());
                 return false;
             }
             i.gateway.emplace_back(std::move(ipa));
@@ -329,13 +321,13 @@ bool emplace_gateway(size_t linenum, const char *interface, const std::string &a
     return false;
 }
 
-bool emplace_broadcast(size_t linenum, const char *interface, const std::string &addr)
+bool emplace_broadcast(size_t linenum, const char *interface, std::string_view addr)
 {
     for (auto &i: interface_state) {
         if (!strcmp(i.name, interface)) {
             nk::ip_address ipa;
             if (!ipa.from_string(addr) || !ipa.is_v4()) {
-                log_line("Bad IPv4 address at line %zu: %s\n", linenum, addr.c_str());
+                log_line("Bad IP address at line %zu: %.*s\n", linenum, (int)addr.size(), addr.data());
                 return false;
             }
             i.broadcast = std::move(ipa);
@@ -347,18 +339,18 @@ bool emplace_broadcast(size_t linenum, const char *interface, const std::string 
 }
 
 bool emplace_dynamic_range(size_t linenum, const char *interface,
-                           const std::string &lo_addr, const std::string &hi_addr,
+                           std::string_view lo_addr, std::string_view hi_addr,
                            uint32_t dynamic_lifetime)
 {
     for (auto &i: interface_state) {
         if (!strcmp(i.name, interface)) {
             nk::ip_address lo_ipa, hi_ipa;
             if (!lo_ipa.from_string(lo_addr) || !lo_ipa.is_v4()) {
-                log_line("Bad IPv4 address at line %zu: %s\n", linenum, lo_addr.c_str());
+                log_line("Bad IPv4 address at line %zu: %.*s\n", linenum, (int)lo_addr.size(), hi_addr.data());
                 return false;
             }
             if (!hi_ipa.from_string(hi_addr) || !hi_ipa.is_v4()) {
-                log_line("Bad IPv4 address at line %zu: %s\n", linenum, hi_addr.c_str());
+                log_line("Bad IPv4 address at line %zu: %.*s\n", linenum, (int)hi_addr.size(), hi_addr.data());
                 return false;
             }
             if (lo_ipa > hi_ipa)
