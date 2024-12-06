@@ -42,8 +42,8 @@ void ClientStates::stateAdd(uint32_t xid, uint8_t *hwaddr, uint8_t state)
     maybe_swap();
     if (!state) return;
     uint64_t key = hwaddr_to_int64(hwaddr);
+    map_[currentMap_].insert_or_assign(key, StateItem{ xid, state });
     map_[!currentMap_].erase(key);
-    map_[currentMap_][key] = StateItem{ xid, state };
 }
 
 uint8_t ClientStates::stateGet(uint32_t xid, uint8_t *hwaddr)
