@@ -25,31 +25,10 @@ extern int64_t get_current_ts();
 
 struct lease_state_v4
 {
-    lease_state_v4(nk::ip_address &&addr_, const std::string &ma, int64_t et)
-        : addr(std::move(addr_)), expire_time(et)
-    {
-        assert(ma.size() == 6);
-        for (unsigned i = 0; i < 6; ++i)
-            macaddr[i] = static_cast<uint8_t>(ma[i]);
-    }
-    lease_state_v4(nk::ip_address &&addr_, const uint8_t *ma, int64_t et)
-        : addr(std::move(addr_)), expire_time(et)
-    {
-        for (unsigned i = 0; i < 6; ++i)
-            macaddr[i] = ma[i];
-    }
-    lease_state_v4(const nk::ip_address &addr_, const std::string &ma, int64_t et)
+    lease_state_v4(const nk::ip_address &addr_, const char *macaddr_, int64_t et)
         : addr(addr_), expire_time(et)
     {
-        assert(ma.size() == 6);
-        for (unsigned i = 0; i < 6; ++i)
-            macaddr[i] = static_cast<uint8_t>(ma[i]);
-    }
-    lease_state_v4(const nk::ip_address &addr_, const uint8_t *ma, int64_t et)
-        : addr(addr_), expire_time(et)
-    {
-        for (unsigned i = 0; i < 6; ++i)
-            macaddr[i] = ma[i];
+        memcpy(macaddr, macaddr_, 6);
     }
     nk::ip_address addr;
     uint8_t macaddr[6];
@@ -79,7 +58,7 @@ static std::unordered_map<std::string, dynlease_map_v4> dyn_leases_v4;
 static std::unordered_map<std::string, dynlease_map_v6> dyn_leases_v6;
 
 static bool emplace_dynlease4_state(size_t linenum, std::string &&interface,
-                                    std::string &&v4_addr, const std::string &macaddr,
+                                    std::string &&v4_addr, const char *macaddr,
                                     int64_t expire_time)
 {
     auto si = dyn_leases_v4.find(interface);
@@ -161,7 +140,9 @@ bool dynlease4_add(const char *interface, const nk::ip_address &v4_addr, const u
             return false;
         }
     }
-    si->second.emplace_back(std::move(v4_addr), macaddr, expire_time);
+    char tmac[6];
+    memcpy(tmac, macaddr, sizeof tmac);
+    si->second.emplace_back(std::move(v4_addr), tmac, expire_time);
     return true;
 }
 
@@ -386,7 +367,7 @@ struct dynlease_parse_state {
     dynlease_parse_state() : st(nullptr), cs(0), parse_error(false) {}
     void newline() {
         duid.clear();
-        macaddr.clear();
+        memset(macaddr, 0, sizeof macaddr);
         v4_addr.clear();
         v6_addr.clear();
         interface.clear();
@@ -398,13 +379,13 @@ struct dynlease_parse_state {
     int cs;
 
     std::string duid;
-    std::string macaddr;
     std::string v4_addr;
     std::string v6_addr;
     std::string interface;
     int64_t expire_time;
     uint32_t iaid;
     bool parse_error;
+    char macaddr[6];
 };
 
 #define MARKED_STRING() cps.st, (p > cps.st ? static_cast<size_t>(p - cps.st) : 0)
@@ -437,7 +418,15 @@ static inline std::string lc_string(const char *s, size_t slen)
             fbreak;
         }
     }
-    action MacAddrEn { cps.macaddr = lc_string(MARKED_STRING()); }
+    action MacAddrEn {
+        ptrdiff_t blen = p - cps.st;
+        if (blen < 0 || blen >= (int)sizeof cps.macaddr) {
+            cps.parse_error = true;
+            fbreak;
+        }
+        memcpy(cps.macaddr, cps.st, 6);
+        for (size_t i = 0; i < 6; ++i) cps.macaddr[i] = tolower(cps.macaddr[i]);
+    }
     action V4AddrEn { cps.v4_addr = lc_string(MARKED_STRING()); }
     action V6AddrEn { cps.v6_addr = lc_string(MARKED_STRING()); }
     action ExpireTimeEn {
@@ -456,7 +445,7 @@ static inline std::string lc_string(const char *s, size_t slen)
 
     action V4EntryEn {
         emplace_dynlease4_state(linenum, std::move(cps.interface), std::move(cps.v4_addr),
-                                std::move(cps.macaddr), cps.expire_time);
+                                cps.macaddr, cps.expire_time);
     }
     action V6EntryEn {
         emplace_dynlease6_state(linenum, std::move(cps.interface), std::move(cps.v6_addr),
