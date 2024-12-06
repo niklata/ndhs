@@ -30,7 +30,7 @@ bool dynlease_del(const char *interface, const nk::ip_address &addr,
 
 bool dynlease_unused_addr(const char *interface, const nk::ip_address &addr);
 
-bool dynlease_serialize(const std::string &path);
-bool dynlease_deserialize(const std::string &path);
+bool dynlease_serialize(const char *path);
+bool dynlease_deserialize(const char *path);
 
 #endif

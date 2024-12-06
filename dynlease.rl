@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <cstdio>
+#include <limits.h>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -292,16 +293,21 @@ bool dynlease_unused_addr(const char *interface, const nk::ip_address &addr)
 // v4 <interface> <ip> <macaddr> <expire_time>
 // v6 <interface> <ip> <duid> <iaid> <expire_time>
 
-bool dynlease_serialize(const std::string &path)
+bool dynlease_serialize(const char *path)
 {
-    const auto tmp_path = path + ".tmp";
-    const auto f = fopen(tmp_path.c_str(), "w");
+    char tmp_path[PATH_MAX];
+    size_t pathlen = strlen(path);
+    if (pathlen + 5 > sizeof tmp_path) abort();
+    memcpy(tmp_path, path, pathlen);
+    memcpy(tmp_path + pathlen, ".tmp", 5);
+
+    const auto f = fopen(tmp_path, "w");
     if (!f) {
         log_line("%s: failed to open '%s' for dynamic lease serialization\n",
-                 __func__, path.c_str());
+                 __func__, path);
         return false;
     }
-    SCOPE_EXIT{ fclose(f); unlink(tmp_path.c_str()); };
+    SCOPE_EXIT{ fclose(f); unlink(tmp_path); };
     for (const auto &i: dyn_leases_v4) {
         const auto &iface = i.first;
         const auto &ls = i.second;
@@ -363,7 +369,7 @@ bool dynlease_serialize(const std::string &path)
         log_line("%s: fdatasync failed: %s\n", __func__, strerror(errno));
         return false;
     }
-    if (rename(tmp_path.c_str(), path.c_str())) {
+    if (rename(tmp_path, path)) {
         log_line("%s: rename failed: %s\n", __func__, strerror(errno));
         return false;
     }
@@ -473,13 +479,13 @@ static int do_parse_dynlease_line(cfg_parse_state &cps, const char *p, size_t pl
     return -2;
 }
 
-bool dynlease_deserialize(const std::string &path)
+bool dynlease_deserialize(const char *path)
 {
     char buf[MAX_LINE];
-    const auto f = fopen(path.c_str(), "r");
+    const auto f = fopen(path, "r");
     if (!f) {
         log_line("%s: failed to open '%s' for dynamic lease deserialization\n",
-                 __func__, path.c_str());
+                 __func__, path);
         return false;
     }
     SCOPE_EXIT{ fclose(f); };
@@ -490,7 +496,7 @@ bool dynlease_deserialize(const std::string &path)
     while (!feof(f)) {
         if (!fgets(buf, sizeof buf, f)) {
             if (!feof(f))
-                log_line("%s: io error fetching line of '%s'\n", __func__, path.c_str());
+                log_line("%s: io error fetching line of '%s'\n", __func__, path);
             break;
         }
         auto llen = strlen(buf);
