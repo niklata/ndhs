@@ -4,12 +4,12 @@
 #include <time.h>
 #include <cstdio>
 #include <limits.h>
+#include <inttypes.h>
 #include <string>
 #include <vector>
 #include <unordered_map>
 #include <cassert>
 #include <nk/scopeguard.hpp>
-#include <nk/from_string.hpp>
 #include <nk/net/ip_address.hpp>
 extern "C" {
 #include "nk/log.h"
@@ -421,7 +421,14 @@ static inline std::string lc_string(const char *s, size_t slen)
     action InterfaceEn { cps.interface = std::string(MARKED_STRING()); }
     action DuidEn { cps.duid = lc_string(MARKED_STRING()); }
     action IaidEn {
-        if (auto t = nk::from_string<uint32_t>(lc_string(MARKED_STRING()))) cps.iaid = *t; else {
+        char buf[64];
+        ptrdiff_t blen = p - cps.st;
+        if (blen < 0 || blen >= (int)sizeof buf) {
+            cps.parse_error = true;
+            fbreak;
+        }
+        memcpy(buf, p, (size_t)blen); buf[blen] = 0;
+        if (sscanf(cps.st, SCNu32, &cps.iaid) != 1) {
             cps.parse_error = true;
             fbreak;
         }
@@ -430,7 +437,14 @@ static inline std::string lc_string(const char *s, size_t slen)
     action V4AddrEn { cps.v4_addr = lc_string(MARKED_STRING()); }
     action V6AddrEn { cps.v6_addr = lc_string(MARKED_STRING()); }
     action ExpireTimeEn {
-        if (auto t = nk::from_string<int64_t>(std::string(MARKED_STRING()))) cps.expire_time = *t; else {
+        char buf[64];
+        ptrdiff_t blen = p - cps.st;
+        if (blen < 0 || blen >= (int)sizeof buf) {
+            cps.parse_error = true;
+            fbreak;
+        }
+        memcpy(buf, p, (size_t)blen); buf[blen] = 0;
+        if (sscanf(cps.st, SCNi64, &cps.expire_time) != 1) {
             cps.parse_error = true;
             fbreak;
         }
