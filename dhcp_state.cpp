@@ -3,24 +3,21 @@
 #include <string>
 #include <assert.h>
 #include "dhcp_state.hpp"
+#include <nlsocket.hpp>
 extern "C" {
 #include <net/if.h>
 #include "nk/log.h"
 }
 
+extern NLSocket nl_socket;
+
 struct interface_data
 {
-    interface_data(const char *interface_name, bool use_v4, bool use_v6)
-        : dynamic_lifetime(0), preference(0), use_dhcpv4(use_v4), use_dhcpv6(use_v6),
+    interface_data(int ifindex_, bool use_v4, bool use_v6)
+        : ifindex(ifindex_), dynamic_lifetime(0), preference(0), use_dhcpv4(use_v4), use_dhcpv6(use_v6),
           use_dynamic_v4(false), use_dynamic_v6(false)
-    {
-        size_t namelen = strlen(interface_name);
-        if (namelen >= sizeof name)
-            suicide("interface name too long: %s\n", interface_name);
-        memcpy(name, interface_name, namelen);
-        name[namelen] = 0;
-    }
-    char name[IFNAMSIZ];
+    {}
+    int ifindex;
     std::vector<dhcpv6_entry> s6addrs; // static assigned v6 leases
     std::vector<dhcpv4_entry> s4addrs; // static assigned v4 leases
     std::vector<nk::ip_address> gateway;
@@ -160,8 +157,11 @@ void create_blobs()
 
 static interface_data *lookup_interface(const char *interface)
 {
+    auto ifinfo = nl_socket.get_ifinfo(interface);
+    if (!ifinfo) return nullptr;
+    int ifindex = ifinfo->index;
     for (auto &i: interface_state) {
-        if (!strcmp(i.name, interface)) return &i;
+        if (i.ifindex == ifindex) return &i;
     }
     return nullptr;
 }
@@ -175,7 +175,9 @@ void emplace_bind(size_t /* linenum */, const char *interface, bool is_v4)
         if (!is_v4) is->use_dhcpv6 = true;
         return;
     }
-    interface_state.emplace_back(interface, is_v4, !is_v4);
+    auto ifinfo = nl_socket.get_ifinfo(interface);
+    if (!ifinfo) return;
+    interface_state.emplace_back(ifinfo->index, is_v4, !is_v4);
 }
 
 bool emplace_interface(size_t linenum, const char *interface, uint8_t preference)
@@ -538,14 +540,20 @@ size_t bound_interfaces_count()
 std::vector<std::string> bound_interfaces_names()
 {
     std::vector<std::string> ret;
-    for (const auto &i: interface_state)
-        ret.emplace_back(i.name);
+    for (const auto &i: interface_state) {
+        auto ifinfo = nl_socket.get_ifinfo(i.ifindex);
+        if (!ifinfo) continue;
+        ret.emplace_back(ifinfo->name);
+    }
     return ret;
 }
 
 void bound_interfaces_foreach(std::function<void(const char *, bool, bool, uint8_t)> fn)
 {
-    for (const auto &i: interface_state)
-        fn(i.name, i.use_dhcpv4, i.use_dhcpv6, i.preference);
+    for (const auto &i: interface_state) {
+        auto ifinfo = nl_socket.get_ifinfo(i.ifindex);
+        if (!ifinfo) continue;
+        fn(ifinfo->name, i.use_dhcpv4, i.use_dhcpv6, i.preference);
+    }
 }
 
