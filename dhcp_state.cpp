@@ -1,6 +1,5 @@
 // Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
-#include <map>
 #include <string>
 #include <assert.h>
 #include "dhcp_state.hpp"
@@ -22,8 +21,8 @@ struct interface_data
         name[namelen] = 0;
     }
     char name[IFNAMSIZ];
-    std::multimap<std::string, dhcpv6_entry> duid_mapping;
-    std::map<std::string, dhcpv4_entry> macaddr_mapping;
+    std::vector<dhcpv6_entry> s6addrs; // static assigned v6 leases
+    std::vector<dhcpv4_entry> s4addrs; // static assigned v4 leases
     std::vector<nk::ip_address> gateway;
     std::vector<nk::ip_address> dns6_servers;
     std::vector<nk::ip_address> dns4_servers;
@@ -201,9 +200,14 @@ bool emplace_dhcp_state(size_t linenum, const char *interface,
             log_line("Bad IPv6 address at line %zu: %.*s\n", linenum, (int)v6_addr.size(), v6_addr.data());
             return false;
         }
-        is->duid_mapping.emplace
-               (std::make_pair(std::string(duid, duid_len),
-                               dhcpv6_entry(ipa, default_lifetime, iaid)));
+        dhcpv6_entry t;
+        if (duid_len > sizeof t.duid) abort();
+        memcpy(t.duid, duid, duid_len);
+        t.address = ipa;
+        t.duid_len = duid_len;
+        t.lifetime = default_lifetime;
+        t.iaid = iaid;
+        is->s6addrs.push_back(t);
         return true;
     }
     log_line("No interface specified at line %zu\n", linenum);
@@ -221,15 +225,16 @@ bool emplace_dhcp_state(size_t linenum, const char *interface, const char *macst
             return false;
         }
 
+        dhcpv4_entry t;
         uint8_t u[6];
-        char buf[6];
         if (sscanf(macstr, "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx", &u[0], &u[1], &u[2], &u[3], &u[4], &u[5]) != 6) {
             log_line("Bad MAC address at line %zu: %s\n", linenum, macstr);
             return false;
         }
-        memcpy(buf, u, sizeof buf);
-
-        is->macaddr_mapping.emplace(std::make_pair(std::string(buf, 6), dhcpv4_entry(ipa, default_lifetime)));
+        memcpy(t.macaddr, u, sizeof t.macaddr);
+        t.address = ipa;
+        t.lifetime = default_lifetime;
+        is->s4addrs.push_back(t);
         return true;
     }
     log_line("No interface specified at line %zu\n", linenum);
@@ -393,10 +398,11 @@ const dhcpv6_entry *query_dhcp_state(const char *interface,
 {
     auto is = lookup_interface(interface);
     if (!is) return nullptr;
-    auto f = is->duid_mapping.equal_range(std::string(duid, duid_len));
-    for (auto j = f.first; j != f.second; ++j) {
-        if (j->second.iaid == iaid)
-            return &j->second;
+    for (auto &i: is->s6addrs) {
+        if (i.duid_len == duid_len && i.iaid == iaid &&
+            !memcmp(i.duid, duid, duid_len)) {
+            return &i;
+        }
     }
     return nullptr;
 }
@@ -407,8 +413,10 @@ const dhcpv4_entry* query_dhcp_state(const char *interface, const uint8_t *hwadd
     if (!is) return nullptr;
     char buf[6];
     memcpy(buf, hwaddr, sizeof buf);
-    auto f = is->macaddr_mapping.find(std::string(buf, 6));
-    return f != is->macaddr_mapping.end() ? &f->second : nullptr;
+    for (auto &i: is->s4addrs) {
+        if (!memcmp(i.macaddr, hwaddr, sizeof i.macaddr)) return &i;
+    }
+    return nullptr;
 }
 
 const std::vector<nk::ip_address> *query_dns6_servers(const char *interface)
@@ -512,13 +520,12 @@ bool query_use_dynamic_v6(const char *interface, uint32_t &dynamic_lifetime)
     return is->use_dynamic_v6;
 }
 
-bool query_unused_addr(const char *interface, const nk::ip_address &addr)
+bool query_unused_addr_v6(const char *interface, const nk::ip_address &addr)
 {
     auto is = lookup_interface(interface);
     if (!is) return true;
-    for (const auto &j: is->duid_mapping) {
-        if (j.second.address == addr)
-            return false;
+    for (const auto &i: is->s6addrs) {
+        if (i.address == addr) return false;
     }
     return true;
 }

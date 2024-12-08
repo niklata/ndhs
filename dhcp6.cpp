@@ -198,7 +198,13 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
 
     auto v6a = dynlease6_query_refresh(ifname_, d6s.client_duid.data(), d6s.client_duid.size(), iaid, expire_time);
     if (v6a != nk::ip_address(nk::ip_address::any{})) {
-        dhcpv6_entry de(v6a, dynamic_lifetime, iaid);
+        dhcpv6_entry de;
+        de.duid_len = d6s.client_duid.size();
+        if (de.duid_len > sizeof de.duid) abort();
+        memcpy(de.duid, d6s.client_duid.data(), de.duid_len);
+        de.address = v6a;
+        de.lifetime = dynamic_lifetime;
+        de.iaid = iaid;
         if (!emit_IA_addr(d6s, ss, &de)) return false;
         log_line("dhcp6: Assigned existing dynamic IP (%s) on %s\n", v6a.to_string().c_str(), ifname_);
         use_dynamic = true;
@@ -219,11 +225,17 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
     // dynamic lease to the random address and return it.
     for (unsigned attempt = 0; attempt < MAX_DYN_ATTEMPTS; ++attempt) {
         v6a = v6_addr_random(local_ip_prefix_, prefixlen_);
-        if (!query_unused_addr(ifname_, v6a)) continue;
+        if (!query_unused_addr_v6(ifname_, v6a)) continue;
         const auto assigned = dynlease6_add(ifname_, v6a, d6s.client_duid.data(),
                                             d6s.client_duid.size(), iaid, expire_time);
         if (assigned) {
-            dhcpv6_entry de(v6a, dynamic_lifetime, iaid);
+            dhcpv6_entry de;
+            de.duid_len = d6s.client_duid.size();
+            if (de.duid_len > sizeof de.duid) abort();
+            memcpy(de.duid, d6s.client_duid.data(), de.duid_len);
+            de.address = v6a;
+            de.lifetime = dynamic_lifetime;
+            de.iaid = iaid;
             if (!emit_IA_addr(d6s, ss, &de)) return false;
             use_dynamic = true;
             return true;

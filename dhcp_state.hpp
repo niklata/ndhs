@@ -10,12 +10,15 @@
 enum class addr_type { null, v4, v6 };
 
 struct dhcpv6_entry {
+    char duid[128];
     nk::ip_address address;
+    size_t duid_len;
     uint32_t lifetime;
     uint32_t iaid;
 };
 
 struct dhcpv4_entry {
+    char macaddr[6];
     nk::ip_address address;
     uint32_t lifetime;
 };
@@ -58,7 +61,7 @@ const std::pair<nk::ip_address, nk::ip_address> *query_dynamic_range(const char 
 const std::vector<std::string> *query_dns_search(const char *interface);
 bool query_use_dynamic_v4(const char *interface, uint32_t &dynamic_lifetime);
 bool query_use_dynamic_v6(const char *interface, uint32_t &dynamic_lifetime);
-bool query_unused_addr(const char *interface, const nk::ip_address &addr);
+bool query_unused_addr_v6(const char *interface, const nk::ip_address &addr);
 size_t bound_interfaces_count();
 std::vector<std::string> bound_interfaces_names();
 void bound_interfaces_foreach(std::function<void(const char *, bool, bool, uint8_t)> fn);
