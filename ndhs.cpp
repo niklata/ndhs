@@ -73,17 +73,14 @@ static void init_listeners()
 {
     {
         nl_socket.init();
-        {
-            auto bn = bound_interfaces_names();
-            for (auto &i: bn) {
-                if (!nl_socket.add_interface(i.c_str())) {
-                    // XXX: Maybe this should be a fatal error?  It indicates
-                    //      the kernel changed the list of interfaces between
-                    //      bound_interfaces_names() and now.
-                    log_line("Interface %s does not exist!\n", i.c_str());
-                }
+        bound_interfaces_foreach([](const char *ifname, bool,  bool, uint8_t) {
+            if (!nl_socket.add_interface(ifname)) {
+                // XXX: Maybe this should be a fatal error?  It indicates
+                //      the kernel changed the list of interfaces between
+                //      bound_interfaces_names() and now.
+                log_line("Interface %s does not exist!\n", ifname);
             }
-        }
+        });
         struct pollfd pt;
         pt.fd = nl_socket.fd();
         pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;

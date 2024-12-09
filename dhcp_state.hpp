@@ -64,7 +64,6 @@ bool query_use_dynamic_v4(int ifindex, uint32_t *dynamic_lifetime);
 bool query_use_dynamic_v6(int ifindex, uint32_t *dynamic_lifetime);
 bool query_unused_addr_v6(int ifindex, const nk::ip_address &addr);
 size_t bound_interfaces_count();
-std::vector<std::string> bound_interfaces_names();
 void bound_interfaces_foreach(std::function<void(const char *, bool, bool, uint8_t)> fn);
 
 #endif

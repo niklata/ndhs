@@ -563,17 +563,6 @@ size_t bound_interfaces_count()
     return interface_state.size();
 }
 
-std::vector<std::string> bound_interfaces_names()
-{
-    std::vector<std::string> ret;
-    for (const auto &i: interface_state) {
-        auto ifinfo = nl_socket.get_ifinfo(i.ifindex);
-        if (!ifinfo) continue;
-        ret.emplace_back(ifinfo->name);
-    }
-    return ret;
-}
-
 void bound_interfaces_foreach(std::function<void(const char *, bool, bool, uint8_t)> fn)
 {
     for (const auto &i: interface_state) {
