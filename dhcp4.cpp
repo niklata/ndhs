@@ -301,7 +301,7 @@ static nk::ip_address u32_ipaddr(uint32_t v)
 bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do_assign)
 {
     uint32_t dynamic_lifetime;
-    if (!query_use_dynamic_v4(ifname_, dynamic_lifetime))
+    if (!query_use_dynamic_v4(ifname_, &dynamic_lifetime))
         return false;
 
     log_line("dhcp4: Checking dynamic IP.\n");

@@ -186,7 +186,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
                                   d6_statuscode::code failcode, bool &use_dynamic)
 {
     uint32_t dynamic_lifetime;
-    if (!query_use_dynamic_v6(ifname_, dynamic_lifetime)) {
+    if (!query_use_dynamic_v6(ifname_, &dynamic_lifetime)) {
         if (!emit_IA_code(d6s, ss, iaid, failcode)) return false;
         use_dynamic = false;
         return true;

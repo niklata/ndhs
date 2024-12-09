@@ -527,19 +527,19 @@ const std::vector<std::string> *query_dns_search(const char *interface)
     return &is->dns_search;
 }
 
-bool query_use_dynamic_v4(const char *interface, uint32_t &dynamic_lifetime)
+bool query_use_dynamic_v4(const char *interface, uint32_t *dynamic_lifetime)
 {
     auto is = lookup_interface(interface);
     if (!is) return false;
-    dynamic_lifetime = is->dynamic_lifetime;
+    *dynamic_lifetime = is->dynamic_lifetime;
     return is->use_dynamic_v4;
 }
 
-bool query_use_dynamic_v6(const char *interface, uint32_t &dynamic_lifetime)
+bool query_use_dynamic_v6(const char *interface, uint32_t *dynamic_lifetime)
 {
     auto is = lookup_interface(interface);
     if (!is) return false;
-    dynamic_lifetime = is->dynamic_lifetime;
+    *dynamic_lifetime = is->dynamic_lifetime;
     return is->use_dynamic_v6;
 }
 
