@@ -44,25 +44,25 @@ bool emplace_dynamic_range(size_t linenum, const char *interface,
                            uint32_t dynamic_lifetime);
 bool emplace_dynamic_v6(size_t linenum, const char *interface);
 bool emplace_dns_search(size_t linenum, const char *interface, std::string &&label);
-const dhcpv6_entry* query_dhcp_state(const char *interface,
-                                     const char *duid, size_t duid_len,
-                                     uint32_t iaid);
-const dhcpv4_entry* query_dhcp_state(const char *interface, const uint8_t *hwaddr);
-const std::vector<nk::ip_address> *query_dns6_servers(const char *interface);
-const std::vector<nk::ip_address> *query_dns4_servers(const char *interface);
-const std::vector<uint8_t> *query_dns6_search_blob(const char *interface);
-const std::vector<nk::ip_address> *query_ntp6_servers(const char *interface);
-const std::vector<nk::ip_address> *query_ntp4_servers(const char *interface);
-const std::vector<uint8_t> *query_ntp6_fqdns_blob(const char *interface);
-const std::vector<nk::ip_address> *query_ntp6_multicasts(const char *interface);
-const std::vector<nk::ip_address> *query_gateway(const char *interface);
-const nk::ip_address *query_subnet(const char *interface);
-const nk::ip_address *query_broadcast(const char *interface);
-const std::pair<nk::ip_address, nk::ip_address> *query_dynamic_range(const char *interface);
-const std::vector<std::string> *query_dns_search(const char *interface);
-bool query_use_dynamic_v4(const char *interface, uint32_t *dynamic_lifetime);
-bool query_use_dynamic_v6(const char *interface, uint32_t *dynamic_lifetime);
-bool query_unused_addr_v6(const char *interface, const nk::ip_address &addr);
+const dhcpv6_entry *query_dhcp6_state(int ifindex,
+                                      const char *duid, size_t duid_len,
+                                      uint32_t iaid);
+const dhcpv4_entry *query_dhcp4_state(int ifindex, const uint8_t *hwaddr);
+const std::vector<nk::ip_address> *query_dns6_servers(int ifindex);
+const std::vector<nk::ip_address> *query_dns4_servers(int ifindex);
+const std::vector<uint8_t> *query_dns6_search_blob(int ifindex);
+const std::vector<std::string> *query_dns_search(int ifindex);
+const std::vector<nk::ip_address> *query_ntp6_servers(int ifindex);
+const std::vector<nk::ip_address> *query_ntp4_servers(int ifindex);
+const std::vector<uint8_t> *query_ntp6_fqdns_blob(int ifindex);
+const std::vector<nk::ip_address> *query_ntp6_multicasts(int ifindex);
+const std::vector<nk::ip_address> *query_gateway(int ifindex);
+const nk::ip_address *query_subnet(int ifindex);
+const nk::ip_address *query_broadcast(int ifindex);
+const std::pair<nk::ip_address, nk::ip_address> *query_dynamic_range(int ifindex);
+bool query_use_dynamic_v4(int ifindex, uint32_t *dynamic_lifetime);
+bool query_use_dynamic_v6(int ifindex, uint32_t *dynamic_lifetime);
+bool query_unused_addr_v6(int ifindex, const nk::ip_address &addr);
 size_t bound_interfaces_count();
 std::vector<std::string> bound_interfaces_names();
 void bound_interfaces_foreach(std::function<void(const char *, bool, bool, uint8_t)> fn);

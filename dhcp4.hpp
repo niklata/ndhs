@@ -84,6 +84,7 @@ private:
     nk::sys::handle fd_;
     struct dhcpmsg dhcpmsg_;
     char ifname_[IFNAMSIZ];
+    int ifindex_;
     nk::ip_address local_ip_;
     detail::ClientStates state_;
 };

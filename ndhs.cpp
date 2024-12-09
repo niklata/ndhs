@@ -92,14 +92,6 @@ static void init_listeners()
         poll_meta.emplace_back(pfd_type::netlink, &nl_socket);
     }
 
-    {
-        auto bin = bound_interfaces_names();
-        for (const auto &i: bin)
-            log_line("Detected %s broadcast: %s subnet: %s\n", i.c_str(),
-                     query_broadcast(i.c_str())->to_string().c_str(),
-                     query_subnet(i.c_str())->to_string().c_str());
-    }
-
     auto v6l = &v6_listeners;
     auto vr6l = &r6_listeners;
     auto v4l = &v4_listeners;

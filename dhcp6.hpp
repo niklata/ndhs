@@ -254,10 +254,11 @@ private:
     nk::ip_address local_ip_prefix_;
     nk::ip_address link_local_ip_;
     char ifname_[IFNAMSIZ];
+    int ifindex_;
     nk::sys::handle fd_;
-    bool using_bpf_:1;
     unsigned char prefixlen_;
     uint8_t preference_;
+    bool using_bpf_:1;
 
     [[nodiscard]] bool options_consume(d6msg_state &d6s, size_t v);
 };

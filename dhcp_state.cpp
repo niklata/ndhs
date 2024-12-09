@@ -155,15 +155,20 @@ void create_blobs()
     }
 }
 
-static interface_data *lookup_interface(const char *interface)
+// Faster and should be preferred
+static interface_data *lookup_interface(int ifindex)
 {
-    auto ifinfo = nl_socket.get_ifinfo(interface);
-    if (!ifinfo) return nullptr;
-    int ifindex = ifinfo->index;
     for (auto &i: interface_state) {
         if (i.ifindex == ifindex) return &i;
     }
     return nullptr;
+}
+
+static interface_data *lookup_interface(const char *interface)
+{
+    auto ifinfo = nl_socket.get_ifinfo(interface);
+    if (!ifinfo) return nullptr;
+    return lookup_interface(ifinfo->index);
 }
 
 static interface_data *lookup_or_create_interface(const char *interface)
@@ -415,11 +420,11 @@ bool emplace_dns_search(size_t linenum, const char *interface, std::string &&lab
     return false;
 }
 
-const dhcpv6_entry *query_dhcp_state(const char *interface,
-                                     const char *duid, size_t duid_len,
-                                     uint32_t iaid)
+const dhcpv6_entry *query_dhcp6_state(int ifindex,
+                                      const char *duid, size_t duid_len,
+                                      uint32_t iaid)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     for (auto &i: is->s6addrs) {
         if (i.duid_len == duid_len && i.iaid == iaid &&
@@ -430,9 +435,9 @@ const dhcpv6_entry *query_dhcp_state(const char *interface,
     return nullptr;
 }
 
-const dhcpv4_entry* query_dhcp_state(const char *interface, const uint8_t *hwaddr)
+const dhcpv4_entry *query_dhcp4_state(int ifindex, const uint8_t *hwaddr)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     char buf[6];
     memcpy(buf, hwaddr, sizeof buf);
@@ -442,110 +447,110 @@ const dhcpv4_entry* query_dhcp_state(const char *interface, const uint8_t *hwadd
     return nullptr;
 }
 
-const std::vector<nk::ip_address> *query_dns6_servers(const char *interface)
+const std::vector<nk::ip_address> *query_dns6_servers(int ifindex)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->dns6_servers;
 }
 
-const std::vector<nk::ip_address> *query_dns4_servers(const char *interface)
+const std::vector<nk::ip_address> *query_dns4_servers(int ifindex)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->dns4_servers;
 }
 
-const std::vector<uint8_t> *query_dns6_search_blob(const char *interface)
+const std::vector<uint8_t> *query_dns6_search_blob(int ifindex)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->dns_search_blob;
 }
 
-const std::vector<nk::ip_address> *query_ntp6_servers(const char *interface)
+const std::vector<std::string> *query_dns_search(int ifindex)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
+    if (!is) return nullptr;
+    return &is->dns_search;
+}
+
+const std::vector<nk::ip_address> *query_ntp6_servers(int ifindex)
+{
+    auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->ntp6_servers;
 }
 
-const std::vector<nk::ip_address> *query_ntp4_servers(const char *interface)
+const std::vector<nk::ip_address> *query_ntp4_servers(int ifindex)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->ntp4_servers;
 }
 
-const std::vector<uint8_t> *query_ntp6_fqdns_blob(const char *interface)
+const std::vector<uint8_t> *query_ntp6_fqdns_blob(int ifindex)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->ntp6_fqdns_blob;
 }
 
-const std::vector<nk::ip_address> *query_ntp6_multicasts(const char *interface)
+const std::vector<nk::ip_address> *query_ntp6_multicasts(int ifindex)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->ntp6_multicasts;
 }
 
-const std::vector<nk::ip_address> *query_gateway(const char *interface)
+const std::vector<nk::ip_address> *query_gateway(int ifindex)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->gateway;
 }
 
-const nk::ip_address *query_subnet(const char *interface)
+const nk::ip_address *query_subnet(int ifindex)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->subnet;
 }
 
-const nk::ip_address *query_broadcast(const char *interface)
+const nk::ip_address *query_broadcast(int ifindex)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->broadcast;
 }
 
 const std::pair<nk::ip_address, nk::ip_address> *
-query_dynamic_range(const char *interface)
+query_dynamic_range(int ifindex)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->dynamic_range;
 }
 
-const std::vector<std::string> *query_dns_search(const char *interface)
+bool query_use_dynamic_v4(int ifindex, uint32_t *dynamic_lifetime)
 {
-    auto is = lookup_interface(interface);
-    if (!is) return nullptr;
-    return &is->dns_search;
-}
-
-bool query_use_dynamic_v4(const char *interface, uint32_t *dynamic_lifetime)
-{
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (!is) return false;
     *dynamic_lifetime = is->dynamic_lifetime;
     return is->use_dynamic_v4;
 }
 
-bool query_use_dynamic_v6(const char *interface, uint32_t *dynamic_lifetime)
+bool query_use_dynamic_v6(int ifindex, uint32_t *dynamic_lifetime)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (!is) return false;
     *dynamic_lifetime = is->dynamic_lifetime;
     return is->use_dynamic_v6;
 }
 
-bool query_unused_addr_v6(const char *interface, const nk::ip_address &addr)
+bool query_unused_addr_v6(int ifindex, const nk::ip_address &addr)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (!is) return true;
     for (const auto &i: is->s6addrs) {
         if (i.address == addr) return false;

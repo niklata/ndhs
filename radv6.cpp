@@ -414,6 +414,12 @@ bool RA6Listener::send_advert()
     uint32_t pktl(sizeof icmp_hdr + sizeof ra6adv_hdr + sizeof ra6_slla
                   + sizeof ra6_mtu);
 
+    auto ifinfo = nl_socket.get_ifinfo(ifname_);
+    if (!ifinfo) {
+        log_line("ra6: Failed to get interface index for %s\n", ifname_);
+        return false;
+    }
+
     icmp_hdr.type(134);
     icmp_hdr.code(0);
     icmp_hdr.checksum(0);
@@ -428,43 +434,35 @@ bool RA6Listener::send_advert()
     csum = net_checksum16_add
         (csum, net_checksum16(&ra6adv_hdr, sizeof ra6adv_hdr));
 
-    {
-        auto ifinfo = nl_socket.get_ifinfo(ifname_);
-        if (!ifinfo) {
-            log_line("ra6: Failed to get interface index for %s\n", ifname_);
-            return false;
-        }
+    ra6_slla.macaddr(ifinfo->macaddr, sizeof ifinfo->macaddr);
+    csum = net_checksum16_add
+           (csum, net_checksum16(&ra6_slla, sizeof ra6_slla));
+    ra6_mtu.mtu(ifinfo->mtu);
+    csum = net_checksum16_add
+           (csum, net_checksum16(&ra6_mtu, sizeof ra6_mtu));
 
-        ra6_slla.macaddr(ifinfo->macaddr, sizeof ifinfo->macaddr);
-        csum = net_checksum16_add
-            (csum, net_checksum16(&ra6_slla, sizeof ra6_slla));
-        ra6_mtu.mtu(ifinfo->mtu);
-        csum = net_checksum16_add
-            (csum, net_checksum16(&ra6_mtu, sizeof ra6_mtu));
-
-        // Prefix Information
-        for (const auto &i: ifinfo->addrs) {
-            if (i.scope == netif_addr::Scope::Global && !i.address.is_v4()) {
-                ra6_prefix_info_opt ra6_pfxi;
-                ra6_pfxi.prefix(i.address, i.prefixlen);
-                ra6_pfxi.on_link(true);
-                ra6_pfxi.auto_addr_cfg(false);
-                ra6_pfxi.router_addr_flag(true);
-                ra6_pfxi.valid_lifetime(2592000);
-                ra6_pfxi.preferred_lifetime(604800);
-                ra6_pfxs.push_back(ra6_pfxi);
-                csum = net_checksum16_add
-                    (csum, net_checksum16(&ra6_pfxi, sizeof ra6_pfxi));
-                pktl += sizeof ra6_pfxi;
-                break;
-            }
+    // Prefix Information
+    for (const auto &i: ifinfo->addrs) {
+        if (i.scope == netif_addr::Scope::Global && !i.address.is_v4()) {
+            ra6_prefix_info_opt ra6_pfxi;
+            ra6_pfxi.prefix(i.address, i.prefixlen);
+            ra6_pfxi.on_link(true);
+            ra6_pfxi.auto_addr_cfg(false);
+            ra6_pfxi.router_addr_flag(true);
+            ra6_pfxi.valid_lifetime(2592000);
+            ra6_pfxi.preferred_lifetime(604800);
+            ra6_pfxs.push_back(ra6_pfxi);
+            csum = net_checksum16_add
+                   (csum, net_checksum16(&ra6_pfxi, sizeof ra6_pfxi));
+            pktl += sizeof ra6_pfxi;
+            break;
         }
     }
 
     const std::vector<nk::ip_address> *dns6_servers{nullptr};
     const std::vector<uint8_t> *dns_search_blob{nullptr};
-    dns6_servers = query_dns6_servers(ifname_);
-    dns_search_blob = query_dns6_search_blob(ifname_);
+    dns6_servers = query_dns6_servers(ifinfo->index);
+    dns_search_blob = query_dns6_search_blob(ifinfo->index);
 
     if (dns6_servers && dns6_servers->size()) {
         ra6_dns.length(dns6_servers->size());

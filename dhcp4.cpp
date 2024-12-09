@@ -156,20 +156,20 @@ bool D4Listener::init(const char *ifname)
 
     if (!create_dhcp4_socket()) return false;
 
-    {
-        auto ifinfo = nl_socket.get_ifinfo(ifname);
-        if (!ifinfo) {
-            log_line("dhcp4: Failed to get interface index for %s\n", ifname);
-            return false;
-        }
+    auto ifinfo = nl_socket.get_ifinfo(ifname);
+    if (!ifinfo) {
+        log_line("dhcp4: Failed to get interface index for %s\n", ifname);
+        return false;
+    }
+    ifindex_ = ifinfo->index;
 
-        for (const auto &i: ifinfo->addrs) {
-            if (i.address.is_v4()) {
-                local_ip_ = i.address;
-                log_line("dhcp4: IP address for %s is %s\n", ifname, local_ip_.to_string().c_str());
-            }
+    for (const auto &i: ifinfo->addrs) {
+        if (i.address.is_v4()) {
+            local_ip_ = i.address;
+            log_line("dhcp4: IP address for %s is %s\n", ifname, local_ip_.to_string().c_str());
         }
     }
+
     if (!local_ip_.is_v4()) {
         log_line("dhcp4: Interface (%s) has no IP address\n", ifname);
         return false;
@@ -245,7 +245,7 @@ void D4Listener::send_reply_do(const dhcpmsg &dm, SendReplyType srt)
         send_to(&dm, dmlen, dhcpmsg_.ciaddr, 68);
         break;
     case SendReplyType::Broadcast: {
-        const auto broadcast = query_broadcast(ifname_);
+        const auto broadcast = query_broadcast(ifindex_);
         if (!broadcast) suicide("dhcp4: misconfigured -- must have a broadcast address\n");
         uint32_t bcaddr;
         if (!broadcast->raw_v4bytes(&bcaddr)) suicide("dhcp4: broadcast address to raw bytes failed\n");
@@ -301,12 +301,12 @@ static nk::ip_address u32_ipaddr(uint32_t v)
 bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do_assign)
 {
     uint32_t dynamic_lifetime;
-    if (!query_use_dynamic_v4(ifname_, &dynamic_lifetime))
+    if (!query_use_dynamic_v4(ifindex_, &dynamic_lifetime))
         return false;
 
     log_line("dhcp4: Checking dynamic IP.\n");
 
-    const auto dr = query_dynamic_range(ifname_);
+    const auto dr = query_dynamic_range(ifindex_);
     if (!dr) {
         log_line("dhcp4: No dynamic range is associated.  Can't assign an IP.\n");
         return false;
@@ -365,7 +365,7 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
 
 bool D4Listener::create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_assign)
 {
-    auto dv4s = query_dhcp_state(ifname_, hwaddr);
+    auto dv4s = query_dhcp4_state(ifindex_, hwaddr);
     if (!dv4s) {
         if (!allot_dynamic_ip(reply, hwaddr, do_assign))
             return false;
@@ -374,13 +374,13 @@ bool D4Listener::create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_ass
             return false;
         add_u32_option(&reply, DCODE_LEASET, htonl(dv4s->lifetime));
     }
-    const auto subnet = query_subnet(ifname_);
+    const auto subnet = query_subnet(ifindex_);
     if (!subnet) return false;
     uint32_t subnet_addr;
     if (!subnet->raw_v4bytes(&subnet_addr)) return false;
     add_option_subnet_mask(&reply, subnet_addr);
 
-    const auto broadcast = query_broadcast(ifname_);
+    const auto broadcast = query_broadcast(ifindex_);
     if (!broadcast) return false;
     uint32_t broadcast_addr;
     if (!broadcast->raw_v4bytes(&broadcast_addr)) return false;
@@ -389,13 +389,13 @@ bool D4Listener::create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_ass
     log_line("dhcp4: Sending reply %u.%u.%u.%u\n", reply.yiaddr & 255,
              (reply.yiaddr >> 8) & 255, (reply.yiaddr >> 16) & 255, (reply.yiaddr >> 24) & 255);
 
-    const auto routers = query_gateway(ifname_);
-    const auto dns4 = query_dns4_servers(ifname_);
-    const auto ntp4 = query_ntp4_servers(ifname_);
+    const auto routers = query_gateway(ifindex_);
+    const auto dns4 = query_dns4_servers(ifindex_);
+    const auto ntp4 = query_ntp4_servers(ifindex_);
     if (routers) iplist_option(&reply, DCODE_ROUTER, *routers);
     if (dns4) iplist_option(&reply, DCODE_DNS, *dns4);
     if (ntp4) iplist_option(&reply, DCODE_NTPSVR, *ntp4);
-    const auto dns_search = query_dns_search(ifname_);
+    const auto dns_search = query_dns_search(ifindex_);
     if (dns_search && dns_search->size()) {
         const auto &dn = dns_search->front();
         add_option_domain_name(&reply, dn.c_str(), dn.size());

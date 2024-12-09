@@ -80,30 +80,30 @@ bool D6Listener::init(const char *ifname, uint8_t preference)
     }
     *static_cast<char *>(mempcpy(ifname_, ifname, ifname_src_size)) = 0;
 
-    {
-        auto ifinfo = nl_socket.get_ifinfo(ifname_);
-        if (!ifinfo) {
-            log_line("dhcp6: Failed to get interface index for %s\n", ifname_);
-            return false;
-        }
+    auto ifinfo = nl_socket.get_ifinfo(ifname_);
+    if (!ifinfo) {
+        log_line("dhcp6: Failed to get interface index for %s\n", ifname_);
+        return false;
+    }
+    ifindex_ = ifinfo->index;
 
-        log_line("dhcp6: DHCPv6 Preference is %u on %s\n", preference_, ifname_);
+    log_line("dhcp6: DHCPv6 Preference is %u on %s\n", preference_, ifname_);
 
-        for (const auto &i: ifinfo->addrs) {
-            if (i.scope == netif_addr::Scope::Global && !i.address.is_v4()) {
-                local_ip_ = i.address;
-                prefixlen_ = i.prefixlen;
-                local_ip_prefix_ = mask_v6_addr(local_ip_, prefixlen_);
-                log_line("dhcp6: IP address for %s is %s/%u.  Prefix is %s.\n",
-                         ifname, local_ip_.to_string().c_str(), +prefixlen_,
-                         local_ip_prefix_.to_string().c_str());
-            } else if (i.scope == netif_addr::Scope::Link && !i.address.is_v4()) {
-                link_local_ip_ = i.address;
-                log_line("dhcp6: Link-local IP address for %s is %s.\n",
-                         ifname, link_local_ip_.to_string().c_str());
-            }
+    for (const auto &i: ifinfo->addrs) {
+        if (i.scope == netif_addr::Scope::Global && !i.address.is_v4()) {
+            local_ip_ = i.address;
+            prefixlen_ = i.prefixlen;
+            local_ip_prefix_ = mask_v6_addr(local_ip_, prefixlen_);
+            log_line("dhcp6: IP address for %s is %s/%u.  Prefix is %s.\n",
+                     ifname, local_ip_.to_string().c_str(), +prefixlen_,
+                     local_ip_prefix_.to_string().c_str());
+        } else if (i.scope == netif_addr::Scope::Link && !i.address.is_v4()) {
+            link_local_ip_ = i.address;
+            log_line("dhcp6: Link-local IP address for %s is %s.\n",
+                     ifname, link_local_ip_.to_string().c_str());
         }
     }
+
     if (!create_dhcp6_socket()) return false;
 
     return true;
@@ -186,7 +186,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
                                   d6_statuscode::code failcode, bool &use_dynamic)
 {
     uint32_t dynamic_lifetime;
-    if (!query_use_dynamic_v6(ifname_, &dynamic_lifetime)) {
+    if (!query_use_dynamic_v6(ifindex_, &dynamic_lifetime)) {
         if (!emit_IA_code(d6s, ss, iaid, failcode)) return false;
         use_dynamic = false;
         return true;
@@ -225,7 +225,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
     // dynamic lease to the random address and return it.
     for (unsigned attempt = 0; attempt < MAX_DYN_ATTEMPTS; ++attempt) {
         v6a = v6_addr_random(local_ip_prefix_, prefixlen_);
-        if (!query_unused_addr_v6(ifname_, v6a)) continue;
+        if (!query_unused_addr_v6(ifindex_, v6a)) continue;
         const auto assigned = dynlease6_add(ifname_, v6a, d6s.client_duid.data(),
                                             d6s.client_duid.size(), iaid, expire_time);
         if (assigned) {
@@ -354,7 +354,7 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, sbufs &ss,
     for (const auto &i: d6s.ias) {
         log_line("dhcp6: Querying duid='%s' iaid=%u...\n",
                  d6s.client_duid.c_str(), i.iaid);
-        if (auto x = query_dhcp_state(ifname_, d6s.client_duid.data(), d6s.client_duid.size(), i.iaid)) {
+        if (auto x = query_dhcp6_state(ifindex_, d6s.client_duid.data(), d6s.client_duid.size(), i.iaid)) {
             ha = true;
             log_line("dhcp6: Found static address %s on %s\n", x->address.to_string().c_str(), ifname_);
             if (!emit_IA_addr(d6s, ss, x)) return false;
@@ -374,7 +374,7 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, sbufs &ss,
 // see if it is in the opt_req before adding it to the reply.
 bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
 {
-    const auto dns6_servers = query_dns6_servers(ifname_);
+    const auto dns6_servers = query_dns6_servers(ifindex_);
     if (!dns6_servers) return true;
 
     if (d6s.optreq_dns && dns6_servers->size()) {
@@ -391,7 +391,7 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
             }
         }
     }
-    const auto dns6_search_blob = query_dns6_search_blob(ifname_);
+    const auto dns6_search_blob = query_dns6_search_blob(ifindex_);
     if (d6s.optreq_dns_search && (dns6_search_blob && dns6_search_blob->size())) {
         dhcp6_opt send_dns_search;
         send_dns_search.type(24);
@@ -402,9 +402,9 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
             *ss.si++ = static_cast<char>(i);
         }
     }
-    const auto ntp6_servers = query_ntp6_servers(ifname_);
-    const auto ntp6_multicasts = query_ntp6_multicasts(ifname_);
-    const auto ntp6_fqdns_blob = query_ntp6_fqdns_blob(ifname_);
+    const auto ntp6_servers = query_ntp6_servers(ifindex_);
+    const auto ntp6_multicasts = query_ntp6_multicasts(ifindex_);
+    const auto ntp6_fqdns_blob = query_ntp6_fqdns_blob(ifindex_);
     if (d6s.optreq_ntp
         && ((ntp6_servers && ntp6_servers->size())
             || (ntp6_multicasts && ntp6_multicasts->size())
@@ -490,7 +490,7 @@ bool D6Listener::mark_addr_unused(const d6msg_state &d6s, sbufs &ss)
     for (const auto &i: d6s.ias) {
         bool freed_ia_addr{false};
         log_line("dhcp6: Marking duid='%s' iaid=%u unused on %s...\n", d6s.client_duid.c_str(), i.iaid, ifname_);
-        auto x = query_dhcp_state(ifname_, d6s.client_duid.data(), d6s.client_duid.size(), i.iaid);
+        auto x = query_dhcp6_state(ifindex_, d6s.client_duid.data(), d6s.client_duid.size(), i.iaid);
         for (const auto &j: i.ia_na_addrs) {
             if (x && j.addr == x->address) {
                 log_line("dhcp6: found static lease on %s\n", ifname_);
