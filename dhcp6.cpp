@@ -1,5 +1,6 @@
 // Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
+#include <array>
 #include "rng.hpp"
 #include "nlsocket.hpp"
 #include "multicast6.hpp"

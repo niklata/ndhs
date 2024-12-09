@@ -69,72 +69,75 @@ static std::vector<pfd_meta> poll_meta;
 
 extern bool parse_config(const char *path);
 
-static void init_listeners()
+static void add_interface_to_nlsocket(const struct netif_info *ifinfo, bool, bool, uint8_t, void *)
 {
-    {
-        nl_socket.init();
-        bound_interfaces_foreach([](const char *ifname, bool,  bool, uint8_t) {
-            if (!nl_socket.add_interface(ifname)) {
-                // XXX: Maybe this should be a fatal error?  It indicates
-                //      the kernel changed the list of interfaces between
-                //      bound_interfaces_names() and now.
-                log_line("Interface %s does not exist!\n", ifname);
-            }
-        });
-        struct pollfd pt;
-        pt.fd = nl_socket.fd();
-        pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
-        pt.revents = 0;
-        poll_vector.push_back(pt);
-        poll_meta.emplace_back(pfd_type::netlink, &nl_socket);
+    if (!nl_socket.add_interface(ifinfo->name)) {
+        // XXX: Maybe this should be a fatal error?  It indicates
+        //      the kernel changed the list of interfaces between
+        //      bound_interfaces_names() and now.
+        log_line("Interface %s does not exist!\n", ifinfo->name);
     }
+}
 
-    auto v6l = &v6_listeners;
-    auto vr6l = &r6_listeners;
-    auto v4l = &v4_listeners;
-    bound_interfaces_foreach([v6l, vr6l, v4l](const char *ifname, bool use_v4, bool use_v6,
-                                              uint8_t preference) {
-        if (use_v6) {
-            v6l->emplace_back(std::make_unique<D6Listener>());
-            if (!v6l->back()->init(ifname, preference)) {
-                v6l->pop_back();
-                log_line("Can't bind to dhcpv6 interface: %s\n", ifname);
-            } else {
-                vr6l->emplace_back(std::make_unique<RA6Listener>());
-                if (!vr6l->back()->init(ifname)) {
-                    v6l->pop_back();
-                    vr6l->pop_back();
-                    log_line("Can't bind to rav6 interface: %s\n", ifname);
-                } else {
-                    struct pollfd pt;
-                    pt.fd = v6l->back()->fd();
-                    pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
-                    pt.revents = 0;
-                    poll_vector.push_back(pt);
-                    poll_meta.emplace_back(pfd_type::dhcp6, v6l->back().get());
-                    pt.fd = vr6l->back()->fd();
-                    pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
-                    pt.revents = 0;
-                    poll_vector.push_back(pt);
-                    poll_meta.emplace_back(pfd_type::radv6, vr6l->back().get());
-                }
-            }
-        }
-        if (use_v4) {
-            v4l->emplace_back(std::make_unique<D4Listener>());
-            if (!v4l->back()->init(ifname)) {
-                v4l->pop_back();
-                log_line("Can't bind to dhcpv4 interface: %s\n", ifname);
+static void create_interface_listener(const struct netif_info *ifinfo,
+                                      bool use_v4, bool use_v6,
+                                      uint8_t preference, void *)
+{
+    if (use_v6) {
+        v6_listeners.emplace_back(std::make_unique<D6Listener>());
+        if (!v6_listeners.back()->init(ifinfo->name, preference)) {
+            v6_listeners.pop_back();
+            log_line("Can't bind to dhcpv6 interface: %s\n", ifinfo->name);
+        } else {
+            r6_listeners.emplace_back(std::make_unique<RA6Listener>());
+            if (!r6_listeners.back()->init(ifinfo->name)) {
+                v6_listeners.pop_back();
+                r6_listeners.pop_back();
+                log_line("Can't bind to rav6 interface: %s\n", ifinfo->name);
             } else {
                 struct pollfd pt;
-                pt.fd = v4l->back()->fd();
+                pt.fd = v6_listeners.back()->fd();
                 pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
                 pt.revents = 0;
                 poll_vector.push_back(pt);
-                poll_meta.emplace_back(pfd_type::dhcp4, v4l->back().get());
+                poll_meta.emplace_back(pfd_type::dhcp6, v6_listeners.back().get());
+                pt.fd = r6_listeners.back()->fd();
+                pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+                pt.revents = 0;
+                poll_vector.push_back(pt);
+                poll_meta.emplace_back(pfd_type::radv6, r6_listeners.back().get());
             }
         }
-    });
+    }
+    if (use_v4) {
+        v4_listeners.emplace_back(std::make_unique<D4Listener>());
+        if (!v4_listeners.back()->init(ifinfo->name)) {
+            v4_listeners.pop_back();
+            log_line("Can't bind to dhcpv4 interface: %s\n", ifinfo->name);
+        } else {
+            struct pollfd pt;
+            pt.fd = v4_listeners.back()->fd();
+            pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+            pt.revents = 0;
+            poll_vector.push_back(pt);
+            poll_meta.emplace_back(pfd_type::dhcp4, v4_listeners.back().get());
+        }
+    }
+}
+
+static void init_listeners()
+{
+    nl_socket.init();
+    bound_interfaces_foreach(add_interface_to_nlsocket, nullptr);
+
+    struct pollfd pt;
+    pt.fd = nl_socket.fd();
+    pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+    pt.revents = 0;
+    poll_vector.push_back(pt);
+    poll_meta.emplace_back(pfd_type::netlink, &nl_socket);
+
+    bound_interfaces_foreach(create_interface_listener, nullptr);
 }
 
 int64_t get_current_ts()

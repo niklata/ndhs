@@ -6,6 +6,7 @@
 
 #include <net/if.h>
 #include <sys/socket.h>
+#include <array>
 
 #include <nk/netbits.hpp>
 #include "radv6.hpp"

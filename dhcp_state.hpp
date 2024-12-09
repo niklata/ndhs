@@ -4,8 +4,8 @@
 #define NDHS_DHCP_STATE_HPP_
 
 #include <vector>
-#include <functional>
 #include <nk/net/ip_address.hpp>
+#include <nlsocket.hpp>
 
 enum class addr_type { null, v4, v6 };
 
@@ -64,6 +64,6 @@ bool query_use_dynamic_v4(int ifindex, uint32_t *dynamic_lifetime);
 bool query_use_dynamic_v6(int ifindex, uint32_t *dynamic_lifetime);
 bool query_unused_addr_v6(int ifindex, const nk::ip_address &addr);
 size_t bound_interfaces_count();
-void bound_interfaces_foreach(std::function<void(const char *, bool, bool, uint8_t)> fn);
+void bound_interfaces_foreach(void (*fn)(const struct netif_info *, bool, bool, uint8_t, void *), void *userptr);
 
 #endif

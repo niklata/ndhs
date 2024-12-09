@@ -3,7 +3,6 @@
 #include <string>
 #include <assert.h>
 #include "dhcp_state.hpp"
-#include <nlsocket.hpp>
 extern "C" {
 #include <net/if.h>
 #include "nk/log.h"
@@ -563,12 +562,11 @@ size_t bound_interfaces_count()
     return interface_state.size();
 }
 
-void bound_interfaces_foreach(std::function<void(const char *, bool, bool, uint8_t)> fn)
+void bound_interfaces_foreach(void (*fn)(const struct netif_info *, bool, bool, uint8_t, void *), void *userptr)
 {
     for (const auto &i: interface_state) {
         auto ifinfo = nl_socket.get_ifinfo(i.ifindex);
         if (!ifinfo) continue;
-        fn(ifinfo->name, i.use_dhcpv4, i.use_dhcpv6, i.preference);
+        fn(ifinfo, i.use_dhcpv4, i.use_dhcpv6, i.preference, userptr);
     }
 }
-
