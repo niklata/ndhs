@@ -46,9 +46,9 @@ void NLSocket::init()
     }
 }
 
-bool NLSocket::add_interface(const char *ifname)
+bool NLSocket::get_interface_addresses(int ifindex)
 {
-    query_ifindex_ = get_ifindex(ifname);
+    query_ifindex_ = ifindex;
     if (query_ifindex_ < 0) return false;
     request_addrs(query_ifindex_);
 

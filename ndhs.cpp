@@ -69,9 +69,9 @@ static std::vector<pfd_meta> poll_meta;
 
 extern bool parse_config(const char *path);
 
-static void add_interface_to_nlsocket(const struct netif_info *ifinfo, bool, bool, uint8_t, void *)
+static void get_interface_addresses(const struct netif_info *ifinfo, bool, bool, uint8_t, void *)
 {
-    if (!nl_socket.add_interface(ifinfo->name)) {
+    if (!nl_socket.get_interface_addresses(ifinfo->index)) {
         // XXX: Maybe this should be a fatal error?  It indicates
         //      the kernel changed the list of interfaces between
         //      bound_interfaces_names() and now.
@@ -128,7 +128,7 @@ static void create_interface_listener(const struct netif_info *ifinfo,
 static void init_listeners()
 {
     nl_socket.init();
-    bound_interfaces_foreach(add_interface_to_nlsocket, nullptr);
+    bound_interfaces_foreach(get_interface_addresses, nullptr);
 
     struct pollfd pt;
     pt.fd = nl_socket.fd();

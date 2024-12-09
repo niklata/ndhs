@@ -57,7 +57,7 @@ struct NLSocket
     NLSocket &operator=(const NLSocket &) = delete;
 
     void init();
-    [[nodiscard]] bool add_interface(const char *ifname);
+    [[nodiscard]] bool get_interface_addresses(int ifindex);
 
     void process_input();
     auto fd() const { return fd_(); }
