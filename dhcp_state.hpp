@@ -24,13 +24,14 @@ struct dhcpv4_entry {
 };
 
 void create_blobs();
-void emplace_bind(size_t linenum, const char *interface, bool is_v4);
+bool emplace_bind4(size_t linenum, const char *interface);
+bool emplace_bind6(size_t linenum, const char *interface);
 bool emplace_interface(size_t linenum, const char *interface, uint8_t preference);
-bool emplace_dhcp_state(size_t linenum, const char *interface,
-                        const char *duid, size_t duid_len,
-                        uint32_t iaid, std::string_view v6_addr, uint32_t default_lifetime);
-bool emplace_dhcp_state(size_t linenum, const char *interface, const char *macstr,
-                        std::string_view v4_addr, uint32_t default_lifetime);
+bool emplace_dhcp6_state(size_t linenum, const char *interface,
+                         const char *duid, size_t duid_len,
+                         uint32_t iaid, std::string_view v6_addr, uint32_t default_lifetime);
+bool emplace_dhcp4_state(size_t linenum, const char *interface, const char *macstr,
+                         std::string_view v4_addr, uint32_t default_lifetime);
 bool emplace_dns_server(size_t linenum, const char *interface,
                         std::string_view addr, addr_type atype);
 bool emplace_ntp_server(size_t linenum, const char *interface,

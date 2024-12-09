@@ -84,7 +84,7 @@ static inline std::string lc_string(const char *s, size_t slen)
         }
         memcpy(buf, cps.st, (size_t)blen);
         buf[blen] = 0;
-        emplace_bind(linenum, buf, true);
+        emplace_bind4(linenum, buf);
     }
     action Bind6En {
         char buf[IFNAMSIZ];
@@ -96,7 +96,7 @@ static inline std::string lc_string(const char *s, size_t slen)
         }
         memcpy(buf, cps.st, (size_t)blen);
         buf[blen] = 0;
-        emplace_bind(linenum, buf, false);
+        emplace_bind6(linenum, buf);
     }
     action UserEn { set_user_runas(MARKED_STRING()); }
     action ChrootEn { set_chroot_path(MARKED_STRING()); }
@@ -177,8 +177,8 @@ static inline std::string lc_string(const char *s, size_t slen)
         emplace_dynamic_v6(linenum, cps.interface);
     }
     action V4EntryEn {
-        emplace_dhcp_state(linenum, cps.interface, cps.macaddr.c_str(), cps.ipaddr,
-                           cps.default_lifetime);
+        emplace_dhcp4_state(linenum, cps.interface, cps.macaddr.c_str(), cps.ipaddr,
+                            cps.default_lifetime);
     }
     action V6EntryEn {
         uint32_t iaid;
@@ -186,9 +186,9 @@ static inline std::string lc_string(const char *s, size_t slen)
             cps.parse_error = true;
             fbreak;
         }
-        emplace_dhcp_state(linenum, cps.interface,
-                           cps.duid.data(), cps.duid.size(),
-                           iaid, cps.ipaddr, cps.default_lifetime);
+        emplace_dhcp6_state(linenum, cps.interface,
+                            cps.duid.data(), cps.duid.size(),
+                            iaid, cps.ipaddr, cps.default_lifetime);
     }
 
     duid = (xdigit+ | (xdigit{2} ('-' xdigit{2})*)+) >St %DuidEn;

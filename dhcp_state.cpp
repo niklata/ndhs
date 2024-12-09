@@ -13,8 +13,8 @@ extern NLSocket nl_socket;
 
 struct interface_data
 {
-    interface_data(int ifindex_, bool use_v4, bool use_v6)
-        : ifindex(ifindex_), dynamic_lifetime(0), preference(0), use_dhcpv4(use_v4), use_dhcpv6(use_v6),
+    interface_data(int ifindex_)
+        : ifindex(ifindex_), dynamic_lifetime(0), preference(0), use_dhcpv4(false), use_dhcpv6(false),
           use_dynamic_v4(false), use_dynamic_v6(false)
     {}
     int ifindex;
@@ -166,18 +166,39 @@ static interface_data *lookup_interface(const char *interface)
     return nullptr;
 }
 
-void emplace_bind(size_t /* linenum */, const char *interface, bool is_v4)
+static interface_data *lookup_or_create_interface(const char *interface)
 {
-    if (!strlen(interface)) return;
+    if (!strlen(interface)) return nullptr;
     auto is = lookup_interface(interface);
-    if (is) {
-        if (is_v4) is->use_dhcpv4 = true;
-        if (!is_v4) is->use_dhcpv6 = true;
-        return;
+    if (!is) {
+        auto ifinfo = nl_socket.get_ifinfo(interface);
+        if (!ifinfo) return nullptr;
+        interface_state.emplace_back(ifinfo->index);
+        is = &interface_state.back();
     }
-    auto ifinfo = nl_socket.get_ifinfo(interface);
-    if (!ifinfo) return;
-    interface_state.emplace_back(ifinfo->index, is_v4, !is_v4);
+    return is;
+}
+
+bool emplace_bind4(size_t linenum, const char *interface)
+{
+    auto is = lookup_or_create_interface(interface);
+    if (!is) {
+        log_line("interface specified at line %zu does not exist\n", linenum);
+        return false;
+    }
+    is->use_dhcpv4 = true;
+    return true;
+}
+
+bool emplace_bind6(size_t linenum, const char *interface)
+{
+    auto is = lookup_or_create_interface(interface);
+    if (!is) {
+        log_line("interface specified at line %zu does not exist\n", linenum);
+        return false;
+    }
+    is->use_dhcpv6 = true;
+    return true;
 }
 
 bool emplace_interface(size_t linenum, const char *interface, uint8_t preference)
@@ -191,9 +212,9 @@ bool emplace_interface(size_t linenum, const char *interface, uint8_t preference
     return false;
 }
 
-bool emplace_dhcp_state(size_t linenum, const char *interface,
-                        const char *duid, size_t duid_len,
-                        uint32_t iaid, std::string_view v6_addr, uint32_t default_lifetime)
+bool emplace_dhcp6_state(size_t linenum, const char *interface,
+                         const char *duid, size_t duid_len,
+                         uint32_t iaid, std::string_view v6_addr, uint32_t default_lifetime)
 {
     auto is = lookup_interface(interface);
     if (is) {
@@ -216,8 +237,8 @@ bool emplace_dhcp_state(size_t linenum, const char *interface,
     return false;
 }
 
-bool emplace_dhcp_state(size_t linenum, const char *interface, const char *macstr,
-                        std::string_view v4_addr, uint32_t default_lifetime)
+bool emplace_dhcp4_state(size_t linenum, const char *interface, const char *macstr,
+                         std::string_view v4_addr, uint32_t default_lifetime)
 {
     auto is = lookup_interface(interface);
     if (is) {

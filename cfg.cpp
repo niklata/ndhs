@@ -679,7 +679,7 @@ const size_t linenum)
 							}
 							memcpy(buf, cps.st, (size_t)blen);
 							buf[blen] = 0;
-							emplace_bind(linenum, buf, true);
+							emplace_bind4(linenum, buf);
 						}
 						
 #line 670 "cfg.cpp"
@@ -699,7 +699,7 @@ const size_t linenum)
 							}
 							memcpy(buf, cps.st, (size_t)blen);
 							buf[blen] = 0;
-							emplace_bind(linenum, buf, false);
+							emplace_bind6(linenum, buf);
 						}
 						
 #line 689 "cfg.cpp"
@@ -892,7 +892,7 @@ const size_t linenum)
 							{
 #line 179 "cfg.rl"
 							
-							emplace_dhcp_state(linenum, cps.interface, cps.macaddr.c_str(), cps.ipaddr,
+							emplace_dhcp4_state(linenum, cps.interface, cps.macaddr.c_str(), cps.ipaddr,
 							cps.default_lifetime);
 						}
 						
@@ -909,7 +909,7 @@ const size_t linenum)
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
-							emplace_dhcp_state(linenum, cps.interface,
+							emplace_dhcp6_state(linenum, cps.interface,
 							cps.duid.data(), cps.duid.size(),
 							iaid, cps.ipaddr, cps.default_lifetime);
 						}
