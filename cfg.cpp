@@ -1,4 +1,5 @@
 #line 1 "cfg.rl"
+// -*- c++ -*-
 // Copyright 2016-2020 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <string>
@@ -57,11 +58,11 @@ static inline void lc_string_inplace(char *s, size_t len)
 }
 
 
-#line 231 "cfg.rl"
+#line 232 "cfg.rl"
 
 
 
-#line 62 "cfg.cpp"
+#line 63 "cfg.cpp"
 static const signed char _cfg_line_m_actions[] = {
 	0, 1, 0, 1, 1, 1, 2, 1,
 	3, 1, 4, 1, 5, 1, 6, 1,
@@ -508,7 +509,7 @@ static const int cfg_line_m_error = 0;
 static const int cfg_line_m_en_main = 161;
 
 
-#line 233 "cfg.rl"
+#line 234 "cfg.rl"
 
 
 static int do_parse_cfg_line(cfg_parse_state &cps, const char *p, size_t plen,
@@ -518,15 +519,15 @@ const size_t linenum)
 	const char *eof = pe;
 	
 
-#line 516 "cfg.cpp"
+#line 517 "cfg.cpp"
 	{
 		cps.cs = (int)cfg_line_m_start;
 	}
 	
-#line 241 "cfg.rl"
+#line 242 "cfg.rl"
 
 
-#line 521 "cfg.cpp"
+#line 522 "cfg.cpp"
 	{
 		int _klen;
 		unsigned int _trans = 0;
@@ -606,78 +607,78 @@ const size_t linenum)
 				{
 					case 0:  {
 							{
-#line 62 "cfg.rl"
+#line 63 "cfg.rl"
 							cps.st = p; }
 						
-#line 603 "cfg.cpp"
+#line 604 "cfg.cpp"
 
 						break; 
 					}
 					case 1:  {
 							{
-#line 64 "cfg.rl"
+#line 65 "cfg.rl"
 							
 							cps.duid = std::string(MARKED_STRING());
 							lc_string_inplace(cps.duid.data(), cps.duid.size());
 						}
 						
-#line 614 "cfg.cpp"
+#line 615 "cfg.cpp"
 
 						break; 
 					}
 					case 2:  {
 							{
-#line 68 "cfg.rl"
+#line 69 "cfg.rl"
 							
 							cps.iaid = std::string(MARKED_STRING());
 							lc_string_inplace(cps.iaid.data(), cps.iaid.size());
 						}
 						
-#line 625 "cfg.cpp"
+#line 626 "cfg.cpp"
 
 						break; 
 					}
 					case 3:  {
 							{
-#line 72 "cfg.rl"
+#line 73 "cfg.rl"
 							
 							cps.macaddr = std::string(MARKED_STRING());
 							lc_string_inplace(cps.macaddr.data(), cps.macaddr.size());
 						}
 						
-#line 636 "cfg.cpp"
+#line 637 "cfg.cpp"
 
 						break; 
 					}
 					case 4:  {
 							{
-#line 76 "cfg.rl"
+#line 77 "cfg.rl"
 							
 							cps.ipaddr = std::string(MARKED_STRING());
 							lc_string_inplace(cps.ipaddr.data(), cps.ipaddr.size());
 							cps.last_addr = addr_type::v4;
 						}
 						
-#line 648 "cfg.cpp"
+#line 649 "cfg.cpp"
 
 						break; 
 					}
 					case 5:  {
 							{
-#line 81 "cfg.rl"
+#line 82 "cfg.rl"
 							
 							cps.ipaddr = std::string(MARKED_STRING());
 							lc_string_inplace(cps.ipaddr.data(), cps.ipaddr.size());
 							cps.last_addr = addr_type::v6;
 						}
 						
-#line 660 "cfg.cpp"
+#line 661 "cfg.cpp"
 
 						break; 
 					}
 					case 6:  {
 							{
-#line 86 "cfg.rl"
+#line 87 "cfg.rl"
 							
 							char buf[IFNAMSIZ];
 							ptrdiff_t blen = p - cps.st;
@@ -691,13 +692,13 @@ const size_t linenum)
 							emplace_bind4(linenum, buf);
 						}
 						
-#line 679 "cfg.cpp"
+#line 680 "cfg.cpp"
 
 						break; 
 					}
 					case 7:  {
 							{
-#line 98 "cfg.rl"
+#line 99 "cfg.rl"
 							
 							char buf[IFNAMSIZ];
 							ptrdiff_t blen = p - cps.st;
@@ -711,31 +712,31 @@ const size_t linenum)
 							emplace_bind6(linenum, buf);
 						}
 						
-#line 698 "cfg.cpp"
+#line 699 "cfg.cpp"
 
 						break; 
 					}
 					case 8:  {
 							{
-#line 110 "cfg.rl"
+#line 111 "cfg.rl"
 							set_user_runas(MARKED_STRING()); }
 						
-#line 706 "cfg.cpp"
+#line 707 "cfg.cpp"
 
 						break; 
 					}
 					case 9:  {
 							{
-#line 111 "cfg.rl"
+#line 112 "cfg.rl"
 							set_chroot_path(MARKED_STRING()); }
 						
-#line 714 "cfg.cpp"
+#line 715 "cfg.cpp"
 
 						break; 
 					}
 					case 10:  {
 							{
-#line 112 "cfg.rl"
+#line 113 "cfg.rl"
 							
 							char buf[64];
 							ptrdiff_t blen = p - cps.st;
@@ -752,13 +753,13 @@ const size_t linenum)
 							set_s6_notify_fd(fd);
 						}
 						
-#line 736 "cfg.cpp"
+#line 737 "cfg.cpp"
 
 						break; 
 					}
 					case 11:  {
 							{
-#line 127 "cfg.rl"
+#line 128 "cfg.rl"
 							
 							char buf[64];
 							ptrdiff_t blen = p - cps.st;
@@ -773,13 +774,13 @@ const size_t linenum)
 							}
 						}
 						
-#line 756 "cfg.cpp"
+#line 757 "cfg.cpp"
 
 						break; 
 					}
 					case 12:  {
 							{
-#line 140 "cfg.rl"
+#line 141 "cfg.rl"
 							
 							char buf[64];
 							ptrdiff_t blen = p - cps.st;
@@ -796,13 +797,13 @@ const size_t linenum)
 							}
 						}
 						
-#line 778 "cfg.cpp"
+#line 779 "cfg.cpp"
 
 						break; 
 					}
 					case 13:  {
 							{
-#line 155 "cfg.rl"
+#line 156 "cfg.rl"
 							
 							ptrdiff_t blen = p - cps.st;
 							if (blen < 0 || blen >= IFNAMSIZ) {
@@ -815,103 +816,103 @@ const size_t linenum)
 							emplace_interface(linenum, cps.interface, cps.default_preference);
 						}
 						
-#line 796 "cfg.cpp"
+#line 797 "cfg.cpp"
 
 						break; 
 					}
 					case 14:  {
 							{
-#line 166 "cfg.rl"
+#line 167 "cfg.rl"
 							
 							emplace_dns_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
 						}
 						
-#line 806 "cfg.cpp"
+#line 807 "cfg.cpp"
 
 						break; 
 					}
 					case 15:  {
 							{
-#line 169 "cfg.rl"
+#line 170 "cfg.rl"
 							
 							emplace_dns_search(linenum, cps.interface, std::string(MARKED_STRING()));
 						}
 						
-#line 816 "cfg.cpp"
+#line 817 "cfg.cpp"
 
 						break; 
 					}
 					case 16:  {
 							{
-#line 172 "cfg.rl"
+#line 173 "cfg.rl"
 							
 							emplace_ntp_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
 						}
 						
-#line 826 "cfg.cpp"
+#line 827 "cfg.cpp"
 
 						break; 
 					}
 					case 17:  {
 							{
-#line 175 "cfg.rl"
+#line 176 "cfg.rl"
 							
 							emplace_gateway(linenum, cps.interface, cps.ipaddr);
 						}
 						
-#line 836 "cfg.cpp"
+#line 837 "cfg.cpp"
 
 						break; 
 					}
 					case 18:  {
 							{
-#line 178 "cfg.rl"
+#line 179 "cfg.rl"
 							
 							cps.ipaddr2 = std::move(cps.ipaddr);
 						}
 						
-#line 846 "cfg.cpp"
+#line 847 "cfg.cpp"
 
 						break; 
 					}
 					case 19:  {
 							{
-#line 181 "cfg.rl"
+#line 182 "cfg.rl"
 							
 							emplace_dynamic_range(linenum, cps.interface, cps.ipaddr2, cps.ipaddr,
 							cps.default_lifetime);
 						}
 						
-#line 857 "cfg.cpp"
+#line 858 "cfg.cpp"
 
 						break; 
 					}
 					case 20:  {
 							{
-#line 185 "cfg.rl"
+#line 186 "cfg.rl"
 							
 							emplace_dynamic_v6(linenum, cps.interface);
 						}
 						
-#line 867 "cfg.cpp"
+#line 868 "cfg.cpp"
 
 						break; 
 					}
 					case 21:  {
 							{
-#line 188 "cfg.rl"
+#line 189 "cfg.rl"
 							
 							emplace_dhcp4_state(linenum, cps.interface, cps.macaddr.c_str(), cps.ipaddr,
 							cps.default_lifetime);
 						}
 						
-#line 878 "cfg.cpp"
+#line 879 "cfg.cpp"
 
 						break; 
 					}
 					case 22:  {
 							{
-#line 192 "cfg.rl"
+#line 193 "cfg.rl"
 							
 							uint32_t iaid;
 							if (sscanf(cps.iaid.c_str(), SCNu32, &iaid) != 1) {
@@ -923,7 +924,7 @@ const size_t linenum)
 							iaid, cps.ipaddr, cps.default_lifetime);
 						}
 						
-#line 895 "cfg.cpp"
+#line 896 "cfg.cpp"
 
 						break; 
 					}
@@ -947,7 +948,7 @@ const size_t linenum)
 		_out: {}
 	}
 	
-#line 242 "cfg.rl"
+#line 243 "cfg.rl"
 
 	
 	if (cps.parse_error) return -1;

@@ -1,3 +1,4 @@
+// -*- c++ -*-
 // Copyright 2016-2020 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <string>

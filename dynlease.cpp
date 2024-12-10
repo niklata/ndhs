@@ -1,4 +1,5 @@
 #line 1 "dynlease.rl"
+// -*- c++ -*-
 // Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <unistd.h>
