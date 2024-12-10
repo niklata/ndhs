@@ -102,33 +102,33 @@ static auto create_new_dynlease6_state(const char *interface)
 	return &dyn_leases_v6.back().state;
 }
 
-static bool emplace_dynlease4_state(size_t linenum, std::string &&interface,
-std::string &&v4_addr, const char *macaddr,
+static bool emplace_dynlease4_state(size_t linenum, const char *interface,
+const char *v4_addr, const char *macaddr,
 int64_t expire_time)
 {
-	auto is = lease_state4_by_name(interface.c_str());
-	if (!is) is = create_new_dynlease4_state(interface.c_str());
+	auto is = lease_state4_by_name(interface);
+	if (!is) is = create_new_dynlease4_state(interface);
 		nk::ip_address ipa;
 	if (!ipa.from_string(v4_addr)) {
-		log_line("Bad IP address at line %zu: %s\n", linenum, v4_addr.c_str());
+		log_line("Bad IP address at line %zu: %s\n", linenum, v4_addr);
 		return false;
 	}
 	// We won't get duplicates unless someone manually edits the file.  If they do,
 	// then they get what they deserve.
-	is->emplace_back(std::move(ipa), macaddr, expire_time);
+	is->emplace_back(ipa, macaddr, expire_time);
 	return true;
 }
 
-static bool emplace_dynlease6_state(size_t linenum, std::string &&interface,
-std::string &&v6_addr,
+static bool emplace_dynlease6_state(size_t linenum, const char *interface,
+const char *v6_addr,
 const char *duid, size_t duid_len,
 uint32_t iaid, int64_t expire_time)
 {
-	auto is = lease_state6_by_name(interface.c_str());
-	if (!is) is = create_new_dynlease6_state(interface.c_str());
+	auto is = lease_state6_by_name(interface);
+	if (!is) is = create_new_dynlease6_state(interface);
 		nk::ip_address ipa;
 	if (!ipa.from_string(v6_addr)) {
-		log_line("Bad IP address at line %zu: %s\n", linenum, v6_addr.c_str());
+		log_line("Bad IP address at line %zu: %s\n", linenum, v6_addr);
 		return false;
 	}
 	is->emplace_back(ipa, duid, duid_len, iaid, expire_time);
@@ -1195,7 +1195,7 @@ const size_t linenum)
 			{
 #line 454 "dynlease.rl"
 			
-			emplace_dynlease4_state(linenum, std::move(cps.interface), std::move(cps.v4_addr),
+			emplace_dynlease4_state(linenum, cps.interface.c_str(), cps.v4_addr.c_str(),
 			cps.macaddr, cps.expire_time);
 		}
 		
@@ -1248,7 +1248,7 @@ const size_t linenum)
 			{
 #line 454 "dynlease.rl"
 			
-			emplace_dynlease4_state(linenum, std::move(cps.interface), std::move(cps.v4_addr),
+			emplace_dynlease4_state(linenum, cps.interface.c_str(), cps.v4_addr.c_str(),
 			cps.macaddr, cps.expire_time);
 		}
 		
@@ -1643,7 +1643,7 @@ const size_t linenum)
 			{
 #line 458 "dynlease.rl"
 			
-			emplace_dynlease6_state(linenum, std::move(cps.interface), std::move(cps.v6_addr),
+			emplace_dynlease6_state(linenum, cps.interface.c_str(), cps.v6_addr.c_str(),
 			cps.duid.data(), cps.duid.size(), cps.iaid, cps.expire_time);
 		}
 		
@@ -1696,7 +1696,7 @@ const size_t linenum)
 			{
 #line 458 "dynlease.rl"
 			
-			emplace_dynlease6_state(linenum, std::move(cps.interface), std::move(cps.v6_addr),
+			emplace_dynlease6_state(linenum, cps.interface.c_str(), cps.v6_addr.c_str(),
 			cps.duid.data(), cps.duid.size(), cps.iaid, cps.expire_time);
 		}
 		
