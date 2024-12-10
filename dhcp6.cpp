@@ -1,6 +1,5 @@
 // Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
-#include <array>
 #include "rng.hpp"
 #include "nlsocket.hpp"
 #include "multicast6.hpp"
@@ -392,12 +391,9 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
         send_dns.length(dns6_servers->size() * 16);
         if (!send_dns.write(ss)) return false;
         for (const auto &i: *dns6_servers) {
-            std::array<char, 16> d6b;
-            i.raw_v6bytes(d6b.data());
-            for (const auto &j: d6b) {
-                if (ss.si == ss.se) return false;
-                *ss.si++ = j;
-            }
+            if (ss.se - ss.si < 16) return false;
+            i.raw_v6bytes(ss.si);
+            ss.si += 16;
         }
     }
     const auto dns6_search_blob = query_dns6_search_blob(ifindex_);
@@ -432,24 +428,18 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
             n6_svr.type(1);
             n6_svr.length(16);
             if (!n6_svr.write(ss)) return false;
-            std::array<char, 16> n6b;
-            i.raw_v6bytes(n6b.data());
-            for (const auto &j: n6b) {
-                if (ss.si == ss.se) return false;
-                *ss.si++ = j;
-            }
+            if (ss.se - ss.si < 16) return false;
+            i.raw_v6bytes(ss.si);
+            ss.si += 16;
         }
         for (const auto &i: *ntp6_multicasts) {
             dhcp6_opt n6_mc;
             n6_mc.type(2);
             n6_mc.length(16);
             if (!n6_mc.write(ss)) return false;
-            std::array<char, 16> n6b;
-            i.raw_v6bytes(n6b.data());
-            for (const auto &j: n6b) {
-                if (ss.si == ss.se) return false;
-                *ss.si++ = j;
-            }
+            if (ss.se - ss.si < 16) return false;
+            i.raw_v6bytes(ss.si);
+            ss.si += 16;
         }
         for (const auto &i: *ntp6_fqdns_blob) {
             if (ss.si == ss.se) return false;
@@ -464,12 +454,9 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
         send_sntp.length(len);
         if (!send_sntp.write(ss)) return false;
         for (const auto &i: *ntp6_servers) {
-            std::array<char, 16> n6b;
-            i.raw_v6bytes(n6b.data());
-            for (const auto &j: n6b) {
-                if (ss.si == ss.se) return false;
-                *ss.si++ = j;
-            }
+            if (ss.se - ss.si < 16) return false;
+            i.raw_v6bytes(ss.si);
+            ss.si += 16;
         }
     }
     return true;
