@@ -692,19 +692,12 @@ void D6Listener::process_receive(char *buf, size_t buflen,
                 log_line("dhcp6: DUID %s on %s\n", d6s.client_duid.c_str(), ifname_);
          } else if (ot == 2) { // ServerID
              d6s.server_duid_blob.reserve(l);
-             std::string tmpstr;
              while (l--) {
                  uint8_t c;
                  memcpy(&c, rs.si++, 1);
                  d6s.server_duid_blob.push_back(c);
-                 char tbuf[16];
-                 snprintf(tbuf, sizeof tbuf, "%.2hhx", c); // fixed len, safe
-                 tmpstr.append(tbuf);
                  OPTIONS_CONSUME(1);
              }
-             if (tmpstr.size() > 0)
-                log_line("dhcp6: Server DUID '%s' len %zu on %s\n", tmpstr.c_str(),
-                         d6s.server_duid_blob.size(), ifname_);
          } else if (ot == 3) { // Option_IA_NA
              if (l < 12) {
                  log_line("dhcp6: Client-sent option IA_NA has a bad length on %s\n", ifname_);
