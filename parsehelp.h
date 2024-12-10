@@ -1,6 +1,8 @@
 #ifndef NDHS_PARSEHELP_H_
 #define NDHS_PARSEHELP_H_
 
+#include <ctype.h>
+
 static inline void lc_string_inplace(char *s, size_t len)
 {
     for (size_t i = 0; i < len; ++i) s[i] = tolower(s[i]);

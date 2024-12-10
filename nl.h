@@ -7,6 +7,7 @@
 
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <errno.h>
 
 static inline int nlmsg_get_error(const struct nlmsghdr *nlh)
 {

@@ -179,14 +179,16 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
                 }
                 // Otherwise add it.
                 if (nia.addr_type == AF_INET) {
-                    emplace_broadcast(0, nia.if_name, nia.broadcast_address.to_string());
+                    emplace_broadcast(0, nia.if_name, nia.broadcast_address);
 
                     uint32_t subnet = 0xffffffffu;
                     for (unsigned j = 0, jend = 32 - nia.prefixlen; j < jend; ++j) subnet <<= 1;
                     subnet = htonl(subnet);
                     char sbuf[INET_ADDRSTRLEN+1];
                     if (inet_ntop(AF_INET, &subnet, sbuf, sizeof sbuf)) {
-                        emplace_subnet(0, nia.if_name, sbuf);
+                        nk::ip_address taddr;
+                        if (!taddr.from_string(sbuf)) abort();
+                        emplace_subnet(0, nia.if_name, taddr);
                     }
                 }
                 i.addrs.emplace_back(std::move(nia));

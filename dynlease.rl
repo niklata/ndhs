@@ -327,8 +327,10 @@ bool dynlease_serialize(const char *path)
             // Don't write out dynamic leases that have expired.
             if (get_current_ts() >= j.expire_time)
                 continue;
+            char abuf[48];
+            if (!j.addr.to_string(abuf, sizeof abuf)) return false;
             if (fprintf(f, "v4 %s %s %2.x%2.x%2.x%2.x%2.x%2.x %zu\n",
-                        iface, j.addr.to_string().c_str(),
+                        iface, abuf,
                         j.macaddr[0], j.macaddr[1], j.macaddr[2],
                         j.macaddr[3], j.macaddr[4], j.macaddr[5], j.expire_time) < 0) {
                 log_line("%s: fprintf failed: %s\n", __func__, strerror(errno));
@@ -344,7 +346,9 @@ bool dynlease_serialize(const char *path)
             if (get_current_ts() >= j.expire_time)
                 continue;
 
-            if (fprintf(f, "v6 %s %s ", iface, j.addr.to_string().c_str()) < 0) goto err0;
+            char abuf[48];
+            if (!j.addr.to_string(abuf, sizeof abuf)) return false;
+            if (fprintf(f, "v6 %s %s ", iface, abuf) < 0) goto err0;
             for (const auto &k: j.duid) if (fprintf(f, "%.2hhx", k) < 0) goto err0;
             if (fprintf(f, " %u %lu\n", j.iaid, j.expire_time) < 0) goto err0;
             continue;

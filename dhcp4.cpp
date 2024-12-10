@@ -166,7 +166,9 @@ bool D4Listener::init(const char *ifname)
     for (const auto &i: ifinfo->addrs) {
         if (i.address.is_v4()) {
             local_ip_ = i.address;
-            log_line("dhcp4: IP address for %s is %s\n", ifname, local_ip_.to_string().c_str());
+            char abuf[48];
+            if (!local_ip_.to_string(abuf, sizeof abuf)) abort();
+            log_line("dhcp4: IP address for %s is %s\n", ifname, abuf);
         }
     }
 
@@ -211,8 +213,10 @@ void D4Listener::dhcpmsg_init(dhcpmsg &dm, uint8_t type, uint32_t xid) const
 
 uint32_t D4Listener::local_ip() const
 {
+    char abuf[48];
     uint32_t ret;
-    if (inet_pton(AF_INET, local_ip_.to_string().c_str(), &ret) != 1) {
+    if (!local_ip_.to_string(abuf, sizeof abuf)) abort();
+    if (inet_pton(AF_INET, abuf, &ret) != 1) {
         log_line("dhcp4: inet_pton failed: %s\n", strerror(errno));
         return 0;
     }
@@ -320,7 +324,9 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
             return false;
         }
         add_u32_option(&reply, DCODE_LEASET, htonl(dynamic_lifetime));
-        log_line("dhcp4: Assigned existing dynamic IP: %s\n", v4a.to_string().c_str());
+        char abuf[48];
+        if (!v4a.to_string(abuf, sizeof abuf)) abort();
+        log_line("dhcp4: Assigned existing dynamic IP: %s\n", abuf);
         return true;
     }
     log_line("dhcp4: Selecting an unused dynamic IP.\n");

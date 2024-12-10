@@ -55,6 +55,15 @@ struct cfg_parse_state {
 
 #include "parsehelp.h"
 
+bool string_to_ipaddr(nk::ip_address *r, const std::string &s, size_t linenum)
+{
+    if (!r->from_string(s.c_str())) {
+        log_line("ip address on line %zu is invalid\n", linenum);
+        return false;
+    }
+    return true;
+}
+
 %%{
     machine cfg_line_m;
     access cps.;
@@ -179,30 +188,58 @@ struct cfg_parse_state {
         emplace_interface(linenum, cps.interface, cps.default_preference);
     }
     action DnsServerEn {
-        emplace_dns_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
+        nk::ip_address t;
+        if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
+            cps.parse_error = true;
+            fbreak;
+        }
+        emplace_dns_server(linenum, cps.interface, t, cps.last_addr);
     }
     action DnsSearchEn {
         emplace_dns_search(linenum, cps.interface, MARKED_STRING());
     }
     action NtpServerEn {
-        emplace_ntp_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
+        nk::ip_address t;
+        if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
+            cps.parse_error = true;
+            fbreak;
+        }
+        emplace_ntp_server(linenum, cps.interface, t, cps.last_addr);
     }
     action GatewayEn {
-        emplace_gateway(linenum, cps.interface, cps.ipaddr);
+        nk::ip_address t;
+        if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
+            cps.parse_error = true;
+            fbreak;
+        }
+        emplace_gateway(linenum, cps.interface, t);
     }
     action DynRangePreEn {
         memcpy(cps.ipaddr2, cps.ipaddr, sizeof cps.ipaddr2);
     }
     action DynRangeEn {
-        emplace_dynamic_range(linenum, cps.interface, cps.ipaddr2, cps.ipaddr,
-                              cps.default_lifetime);
+        nk::ip_address tlo;
+        if (!string_to_ipaddr(&tlo, cps.ipaddr2, linenum)) {
+            cps.parse_error = true;
+            fbreak;
+        }
+        nk::ip_address thi;
+        if (!string_to_ipaddr(&thi, cps.ipaddr, linenum)) {
+            cps.parse_error = true;
+            fbreak;
+        }
+        emplace_dynamic_range(linenum, cps.interface, tlo, thi, cps.default_lifetime);
     }
     action DynamicV6En {
         emplace_dynamic_v6(linenum, cps.interface);
     }
     action V4EntryEn {
-        emplace_dhcp4_state(linenum, cps.interface, cps.macaddr, cps.ipaddr,
-                            cps.default_lifetime);
+        nk::ip_address t;
+        if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
+            cps.parse_error = true;
+            fbreak;
+        }
+        emplace_dhcp4_state(linenum, cps.interface, cps.macaddr, t, cps.default_lifetime);
     }
     action V6EntryEn {
         char buf[64];
@@ -217,9 +254,14 @@ struct cfg_parse_state {
             cps.parse_error = true;
             fbreak;
         }
+        nk::ip_address t;
+        if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
+            cps.parse_error = true;
+            fbreak;
+        }
         emplace_dhcp6_state(linenum, cps.interface,
                             cps.duid, cps.duid_len,
-                            iaid, cps.ipaddr, cps.default_lifetime);
+                            iaid, t, cps.default_lifetime);
     }
 
     duid = (xdigit+ | (xdigit{2} ('-' xdigit{2})*)+) >St %DuidEn;

@@ -4,6 +4,7 @@
 #define NDHS_DHCP_STATE_HPP_
 
 #include <vector>
+#include <string>
 #include <nk/net/ip_address.hpp>
 #include <nlsocket.hpp>
 
@@ -29,18 +30,18 @@ bool emplace_bind6(size_t linenum, const char *interface);
 bool emplace_interface(size_t linenum, const char *interface, uint8_t preference);
 bool emplace_dhcp6_state(size_t linenum, const char *interface,
                          const char *duid, size_t duid_len,
-                         uint32_t iaid, std::string_view v6_addr, uint32_t default_lifetime);
+                         uint32_t iaid, const nk::ip_address &v6_addr, uint32_t default_lifetime);
 bool emplace_dhcp4_state(size_t linenum, const char *interface, const char *macstr,
-                         std::string_view v4_addr, uint32_t default_lifetime);
+                         const nk::ip_address &v4_addr, uint32_t default_lifetime);
 bool emplace_dns_server(size_t linenum, const char *interface,
-                        std::string_view addr, addr_type atype);
+                        const nk::ip_address &addr, addr_type atype);
 bool emplace_ntp_server(size_t linenum, const char *interface,
-                        std::string_view addr, addr_type atype);
-bool emplace_subnet(size_t linenum, const char *interface, std::string_view addr);
-bool emplace_gateway(size_t linenum, const char *interface, std::string_view addr);
-bool emplace_broadcast(size_t linenum, const char *interface, std::string_view addr);
+                        const nk::ip_address &addr, addr_type atype);
+bool emplace_subnet(size_t linenum, const char *interface, const nk::ip_address &addr);
+bool emplace_gateway(size_t linenum, const char *interface, const nk::ip_address &addr);
+bool emplace_broadcast(size_t linenum, const char *interface, const nk::ip_address &addr);
 bool emplace_dynamic_range(size_t linenum, const char *interface,
-                           std::string_view lo_addr, std::string_view hi_addr,
+                           const nk::ip_address &lo_addr, const nk::ip_address &hi_addr,
                            uint32_t dynamic_lifetime);
 bool emplace_dynamic_v6(size_t linenum, const char *interface);
 bool emplace_dns_search(size_t linenum, const char *interface, const char *label, size_t label_len);

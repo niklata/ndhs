@@ -95,13 +95,17 @@ bool D6Listener::init(const char *ifname, uint8_t preference)
             local_ip_ = i.address;
             prefixlen_ = i.prefixlen;
             local_ip_prefix_ = mask_v6_addr(local_ip_, prefixlen_);
+            char abuf[48];
+            char abufp[48];
+            if (!local_ip_.to_string(abuf, sizeof abuf)) abort();
+            if (!local_ip_prefix_.to_string(abufp, sizeof abufp)) abort();
             log_line("dhcp6: IP address for %s is %s/%u.  Prefix is %s.\n",
-                     ifname, local_ip_.to_string().c_str(), +prefixlen_,
-                     local_ip_prefix_.to_string().c_str());
+                     ifname, abuf, +prefixlen_, abufp);
         } else if (i.scope == netif_addr::Scope::Link && !i.address.is_v4()) {
             link_local_ip_ = i.address;
-            log_line("dhcp6: Link-local IP address for %s is %s.\n",
-                     ifname, link_local_ip_.to_string().c_str());
+            char abuf[48];
+            if (!link_local_ip_.to_string(abuf, sizeof abuf)) abort();
+            log_line("dhcp6: Link-local IP address for %s is %s.\n", ifname, abuf);
         }
     }
 
@@ -207,7 +211,9 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
         de.lifetime = dynamic_lifetime;
         de.iaid = iaid;
         if (!emit_IA_addr(d6s, ss, &de)) return false;
-        log_line("dhcp6: Assigned existing dynamic IP (%s) on %s\n", v6a.to_string().c_str(), ifname_);
+        char abuf[48];
+        if (!v6a.to_string(abuf, sizeof abuf)) abort();
+        log_line("dhcp6: Assigned existing dynamic IP (%s) on %s\n", abuf, ifname_);
         use_dynamic = true;
         return true;
     }
@@ -357,7 +363,9 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, sbufs &ss,
                  d6s.client_duid.c_str(), i.iaid);
         if (auto x = query_dhcp6_state(ifindex_, d6s.client_duid.data(), d6s.client_duid.size(), i.iaid)) {
             ha = true;
-            log_line("dhcp6: Found static address %s on %s\n", x->address.to_string().c_str(), ifname_);
+            char abuf[48];
+            if (!x->address.to_string(abuf, sizeof abuf)) abort();
+            log_line("dhcp6: Found static address %s on %s\n", abuf, ifname_);
             if (!emit_IA_addr(d6s, ss, x)) return false;
             continue;
         }
@@ -475,7 +483,9 @@ bool D6Listener::confirm_match(const d6msg_state &d6s, bool &confirmed)
         if (i.ia_na_addrs.empty()) return false; // See RFC8415 18.3.3 p3
         for (const auto &j: i.ia_na_addrs) {
             if (!j.addr.compare_mask(local_ip_prefix_, prefixlen_)) {
-                log_line("dhcp6: Invalid prefix for IA IP %s on %s. NAK.\n", j.addr.to_string().c_str(), ifname_);
+                char abuf[48];
+                if (!j.addr.to_string(abuf, sizeof abuf)) abort();
+                log_line("dhcp6: Invalid prefix for IA IP %s on %s. NAK.\n", abuf, ifname_);
                 return true;
             } else {
                 log_line("dhcp6: IA iaid=%u has a valid prefix on %s\n", i.iaid, ifname_);
@@ -739,8 +749,10 @@ void D6Listener::process_receive(char *buf, size_t buflen,
              if (iaa_options_len > 0)
                  d6s.prev_opt.emplace_back(std::make_pair(5, iaa_options_len));
 
+             char abuf[48];
+             if (!d6s.ias.back().ia_na_addrs.back().addr.to_string(abuf, sizeof abuf)) abort();
              log_line("dhcp6: IA Address: %s prefer=%us valid=%us opt_len=%d on %s\n",
-                      d6s.ias.back().ia_na_addrs.back().addr.to_string().c_str(),
+                      abuf,
                       d6s.ias.back().ia_na_addrs.back().prefer_lifetime,
                       d6s.ias.back().ia_na_addrs.back().valid_lifetime,
                       iaa_options_len, ifname_);

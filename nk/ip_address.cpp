@@ -1,7 +1,7 @@
 #include <nk/net/ip_address.hpp>
 #include <nk/endian.hpp>
 #include <limits>
-#include <cassert>
+#include <assert.h>
 #ifndef _WIN32
 #include <arpa/inet.h>
 #endif
@@ -26,15 +26,16 @@ bool ip_address::set(const void * const sas, size_t sslen)
     return true;
 }
 
-bool ip_address::from_string(std::string_view s)
+bool ip_address::from_string(const char *s)
 {
     in6_addr addr;
-    if (inet_pton(AF_INET6, s.data(), &addr) != 1) {
+    if (inet_pton(AF_INET6, s, &addr) != 1) {
         // Automagically try to handle IPv4 addresses as IPV6-mapped.
         char buf[256] = "::ffff:";
-        if (s.length() > sizeof buf - 8) return false;
-        memcpy(buf + 7, s.data(), s.length());
-        buf[s.length() + 7] = 0;
+        size_t slen = strlen(s);
+        if (slen > sizeof buf - 8) return false;
+        memcpy(buf + 7, s, slen);
+        buf[slen + 7] = 0;
         if (inet_pton(AF_INET6, buf, &addr) != 1)
             return false;
     }
@@ -42,17 +43,18 @@ bool ip_address::from_string(std::string_view s)
     return true;
 }
 
-std::string ip_address::to_string() const
+bool ip_address::to_string(char *buf, size_t buflen) const
 {
-    char b[48]; b[0] = 0;
     if (is_v4()) {
         // So that we don't print v4 with the ::ffff: mapped prefix
         in_addr a4;
         auto c = reinterpret_cast<const char *>(&addr_);
         memcpy(&a4, c + 12, 4);
-        inet_ntop(AF_INET, &a4, b, sizeof b);
-    } else inet_ntop(AF_INET6, &addr_, b, sizeof b);
-    return std::string{ b };
+        if (!inet_ntop(AF_INET, &a4, buf, buflen)) return false;
+    } else {
+        if (!inet_ntop(AF_INET6, &addr_, buf, buflen)) return false;
+    }
+    return true;
 }
 
 static bool compare_u32_mask(uint32_t a, uint32_t b, unsigned mask)
@@ -72,13 +74,13 @@ bool ip_address::compare_mask(const ip_address &o, unsigned mask) const
     const auto v4 = is_v4();
     if (v4 != o.is_v4()) return false;
     if (v4) {
-        mask = std::min(32u, mask);
+        mask = mask <= 32u ? mask : 32u;
         uint32_t a, b;
         if (!raw_v4bytes(&a)) return false;
         if (!o.raw_v4bytes(&b)) return false;
         return compare_u32be_mask(a, b, mask);
     } else {
-        mask = std::min(128u, mask);
+        mask = mask <= 128u ? mask : 128u;
         uint32_t a[4], b[4];
         raw_v6bytes(a);
         o.raw_v6bytes(b);
