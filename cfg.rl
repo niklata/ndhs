@@ -55,9 +55,9 @@ struct cfg_parse_state {
 
 #include "parsehelp.h"
 
-bool string_to_ipaddr(nk::ip_address *r, const std::string &s, size_t linenum)
+bool string_to_ipaddr(nk::ip_address *r, const char *s, size_t linenum)
 {
-    if (!r->from_string(s.c_str())) {
+    if (!r->from_string(s)) {
         log_line("ip address on line %zu is invalid\n", linenum);
         return false;
     }
