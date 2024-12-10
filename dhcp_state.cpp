@@ -408,11 +408,11 @@ bool emplace_dynamic_v6(size_t linenum, const char *interface)
     return false;
 }
 
-bool emplace_dns_search(size_t linenum, const char *interface, std::string &&label)
+bool emplace_dns_search(size_t linenum, const char *interface, const char *label, size_t label_len)
 {
     auto is = lookup_interface(interface);
     if (is) {
-        is->dns_search.emplace_back(std::move(label));
+        is->dns_search.emplace_back(label, label_len);
         return true;
     }
     log_line("No interface specified at line %zu\n", linenum);

@@ -43,7 +43,7 @@ bool emplace_dynamic_range(size_t linenum, const char *interface,
                            std::string_view lo_addr, std::string_view hi_addr,
                            uint32_t dynamic_lifetime);
 bool emplace_dynamic_v6(size_t linenum, const char *interface);
-bool emplace_dns_search(size_t linenum, const char *interface, std::string &&label);
+bool emplace_dns_search(size_t linenum, const char *interface, const char *label, size_t label_len);
 const dhcpv6_entry *query_dhcp6_state(int ifindex,
                                       const char *duid, size_t duid_len,
                                       uint32_t iaid);

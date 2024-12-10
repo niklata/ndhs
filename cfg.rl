@@ -1,7 +1,6 @@
 // -*- c++ -*-
 // Copyright 2016-2020 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
-#include <string>
 #include <stdio.h>
 #include <inttypes.h>
 #include <nk/scopeguard.hpp>
@@ -26,24 +25,27 @@ struct cfg_parse_state {
     cfg_parse_state() : st(nullptr), cs(0), last_addr(addr_type::null), default_lifetime(7200),
                         default_preference(0), parse_error(false) {}
     void newline() {
-        duid.clear();
-        iaid.clear();
-        macaddr.clear();
-        ipaddr.clear();
-        ipaddr2.clear();
+        memset(duid, 0, sizeof duid);
+        memset(ipaddr, 0, sizeof ipaddr);
+        memset(ipaddr2, 0, sizeof ipaddr2);
+        memset(interface, 0, sizeof interface);
+        memset(macaddr, 0, sizeof macaddr);
+        duid_len = 0;
         last_addr = addr_type::null;
+        iaid = 0;
         parse_error = false;
     }
     const char *st;
     int cs;
 
-    std::string duid;
-    std::string iaid;
-    std::string macaddr;
-    std::string ipaddr;
-    std::string ipaddr2;
-    addr_type last_addr;
+    char duid[128];
+    char ipaddr[48];
+    char ipaddr2[48];
     char interface[IFNAMSIZ];
+    char macaddr[6];
+    size_t duid_len;
+    addr_type last_addr;
+    uint32_t iaid;
     uint32_t default_lifetime;
     uint8_t default_preference;
     bool parse_error;
@@ -51,10 +53,7 @@ struct cfg_parse_state {
 
 #define MARKED_STRING() cps.st, (p > cps.st ? static_cast<size_t>(p - cps.st) : 0)
 
-static inline void lc_string_inplace(char *s, size_t len)
-{
-    for (size_t i = 0; i < len; ++i) s[i] = tolower(s[i]);
-}
+#include "parsehelp.h"
 
 %%{
     machine cfg_line_m;
@@ -63,25 +62,41 @@ static inline void lc_string_inplace(char *s, size_t len)
     action St { cps.st = p; }
 
     action DuidEn {
-        cps.duid = std::string(MARKED_STRING());
-        lc_string_inplace(cps.duid.data(), cps.duid.size());
+        assign_strbuf(cps.duid, &cps.duid_len, sizeof cps.duid, cps.st, p);
+        lc_string_inplace(cps.duid, cps.duid_len);
     }
     action IaidEn {
-        cps.iaid = std::string(MARKED_STRING());
-        lc_string_inplace(cps.iaid.data(), cps.iaid.size());
+        char buf[64];
+        ptrdiff_t blen = p - cps.st;
+        if (blen < 0 || blen >= (int)sizeof buf) {
+            cps.parse_error = true;
+            fbreak;
+        }
+        memcpy(buf, p, (size_t)blen); buf[blen] = 0;
+        if (sscanf(cps.st, SCNu32, &cps.iaid) != 1) {
+            cps.parse_error = true;
+            fbreak;
+        }
     }
     action MacAddrEn {
-        cps.macaddr = std::string(MARKED_STRING());
-        lc_string_inplace(cps.macaddr.data(), cps.macaddr.size());
+        ptrdiff_t blen = p - cps.st;
+        if (blen < 0 || blen >= (int)sizeof cps.macaddr) {
+            cps.parse_error = true;
+            fbreak;
+        }
+        memcpy(cps.macaddr, cps.st, 6);
+        lc_string_inplace(cps.macaddr, sizeof cps.macaddr);
     }
     action V4AddrEn {
-        cps.ipaddr = std::string(MARKED_STRING());
-        lc_string_inplace(cps.ipaddr.data(), cps.ipaddr.size());
+        size_t l;
+        assign_strbuf(cps.ipaddr, &l, sizeof cps.ipaddr, cps.st, p);
+        lc_string_inplace(cps.ipaddr, l);
         cps.last_addr = addr_type::v4;
     }
     action V6AddrEn {
-        cps.ipaddr = std::string(MARKED_STRING());
-        lc_string_inplace(cps.ipaddr.data(), cps.ipaddr.size());
+        size_t l;
+        assign_strbuf(cps.ipaddr, &l, sizeof cps.ipaddr, cps.st, p);
+        lc_string_inplace(cps.ipaddr, l);
         cps.last_addr = addr_type::v6;
     }
     action Bind4En {
@@ -147,8 +162,7 @@ static inline void lc_string_inplace(char *s, size_t len)
         }
         memcpy(buf, p, (size_t)blen); buf[blen] = 0;
         if (sscanf(cps.st, SCNu8, &cps.default_preference) != 1) {
-            log_line("default_preference on line %zu out of range [0,255]: %s\n",
-                     linenum, std::string(MARKED_STRING()).c_str());
+            log_line("default_preference on line %zu out of range [0,255]\n", linenum);
             cps.parse_error = true;
             fbreak;
         }
@@ -168,7 +182,7 @@ static inline void lc_string_inplace(char *s, size_t len)
         emplace_dns_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
     }
     action DnsSearchEn {
-        emplace_dns_search(linenum, cps.interface, std::string(MARKED_STRING()));
+        emplace_dns_search(linenum, cps.interface, MARKED_STRING());
     }
     action NtpServerEn {
         emplace_ntp_server(linenum, cps.interface, cps.ipaddr, cps.last_addr);
@@ -177,7 +191,7 @@ static inline void lc_string_inplace(char *s, size_t len)
         emplace_gateway(linenum, cps.interface, cps.ipaddr);
     }
     action DynRangePreEn {
-        cps.ipaddr2 = std::move(cps.ipaddr);
+        memcpy(cps.ipaddr2, cps.ipaddr, sizeof cps.ipaddr2);
     }
     action DynRangeEn {
         emplace_dynamic_range(linenum, cps.interface, cps.ipaddr2, cps.ipaddr,
@@ -187,17 +201,24 @@ static inline void lc_string_inplace(char *s, size_t len)
         emplace_dynamic_v6(linenum, cps.interface);
     }
     action V4EntryEn {
-        emplace_dhcp4_state(linenum, cps.interface, cps.macaddr.c_str(), cps.ipaddr,
+        emplace_dhcp4_state(linenum, cps.interface, cps.macaddr, cps.ipaddr,
                             cps.default_lifetime);
     }
     action V6EntryEn {
+        char buf[64];
+        ptrdiff_t blen = p - cps.st;
+        if (blen < 0 || blen >= (int)sizeof buf) {
+            cps.parse_error = true;
+            fbreak;
+        }
+        memcpy(buf, p, (size_t)blen); buf[blen] = 0;
         uint32_t iaid;
-        if (sscanf(cps.iaid.c_str(), SCNu32, &iaid) != 1) {
+        if (sscanf(buf, SCNu32, &iaid) != 1) {
             cps.parse_error = true;
             fbreak;
         }
         emplace_dhcp6_state(linenum, cps.interface,
-                            cps.duid.data(), cps.duid.size(),
+                            cps.duid, cps.duid_len,
                             iaid, cps.ipaddr, cps.default_lifetime);
     }
 
