@@ -6,7 +6,6 @@
 
 #include <net/if.h>
 #include <sys/socket.h>
-#include <array>
 
 #include <nk/netbits.hpp>
 #include "radv6.hpp"
@@ -508,12 +507,9 @@ bool RA6Listener::send_advert()
     if (dns6_servers && dns6_servers->size()) {
         if (!ra6_dns.write(ss)) return false;
         for (const auto &i: *dns6_servers) {
-            std::array<char, 16> b6;
-            i.raw_v6bytes(b6.data());
-            for (const auto &j: b6) {
-                if (ss.si == ss.se) return false;
-                *ss.si++ = j;
-            }
+            if (ss.se - ss.si < 16) return false;
+            i.raw_v6bytes(ss.si);
+            ss.si += 16;
         }
     }
     if (dns_search_blob && dns_search_blob->size()) {
