@@ -177,7 +177,7 @@ int64_t expire_time)
 	}
 	char tmac[6];
 	memcpy(tmac, macaddr, sizeof tmac);
-	is->emplace_back(std::move(v4_addr), tmac, expire_time);
+	is->emplace_back(v4_addr, tmac, expire_time);
 	return true;
 }
 
@@ -201,7 +201,7 @@ const char *duid, size_t duid_len, uint32_t iaid, int64_t expire_time)
 			return false;
 		}
 	}
-	is->emplace_back(std::move(v6_addr), duid, duid_len, iaid, expire_time);
+	is->emplace_back(v6_addr, duid, duid_len, iaid, expire_time);
 	return true;
 }
 

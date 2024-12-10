@@ -254,8 +254,8 @@ static void process_options(int ac, char *av[])
         if (c == -1) break;
         switch (c) {
             case 'c': configfile = strdup(optarg); break;
-            case 'v': print_version(); std::exit(EXIT_SUCCESS); break;
-            case 'h': usage(); std::exit(EXIT_SUCCESS); break;
+            case 'v': print_version(); exit(EXIT_SUCCESS); break;
+            case 'h': usage(); exit(EXIT_SUCCESS); break;
             default: break;
         }
     }
@@ -345,6 +345,6 @@ int main(int ac, char *av[])
 
     dynlease_serialize(LEASEFILE_PATH);
 
-    std::exit(EXIT_SUCCESS);
+    exit(EXIT_SUCCESS);
 }
 

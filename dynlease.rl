@@ -176,7 +176,7 @@ bool dynlease4_add(const char *interface, const nk::ip_address &v4_addr, const u
     }
     char tmac[6];
     memcpy(tmac, macaddr, sizeof tmac);
-    is->emplace_back(std::move(v4_addr), tmac, expire_time);
+    is->emplace_back(v4_addr, tmac, expire_time);
     return true;
 }
 
@@ -200,7 +200,7 @@ bool dynlease6_add(const char *interface, const nk::ip_address &v6_addr,
             return false;
         }
     }
-    is->emplace_back(std::move(v6_addr), duid, duid_len, iaid, expire_time);
+    is->emplace_back(v6_addr, duid, duid_len, iaid, expire_time);
     return true;
 }
 
