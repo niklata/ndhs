@@ -50,11 +50,9 @@ struct cfg_parse_state {
 
 #define MARKED_STRING() cps.st, (p > cps.st ? static_cast<size_t>(p - cps.st) : 0)
 
-static inline std::string lc_string(const char *s, size_t slen)
+static inline void lc_string_inplace(char *s, size_t len)
 {
-    auto r = std::string(s, slen);
-    for (auto &i: r) i = tolower(i);
-    return r;
+    for (size_t i = 0; i < len; ++i) s[i] = tolower(s[i]);
 }
 
 %%{
@@ -63,15 +61,26 @@ static inline std::string lc_string(const char *s, size_t slen)
 
     action St { cps.st = p; }
 
-    action DuidEn { cps.duid = lc_string(MARKED_STRING()); }
-    action IaidEn { cps.iaid = lc_string(MARKED_STRING()); }
-    action MacAddrEn { cps.macaddr = lc_string(MARKED_STRING()); }
+    action DuidEn {
+        cps.duid = std::string(MARKED_STRING());
+        lc_string_inplace(cps.duid.data(), cps.duid.size());
+    }
+    action IaidEn {
+        cps.iaid = std::string(MARKED_STRING());
+        lc_string_inplace(cps.iaid.data(), cps.iaid.size());
+    }
+    action MacAddrEn {
+        cps.macaddr = std::string(MARKED_STRING());
+        lc_string_inplace(cps.macaddr.data(), cps.macaddr.size());
+    }
     action V4AddrEn {
-        cps.ipaddr = lc_string(MARKED_STRING());
+        cps.ipaddr = std::string(MARKED_STRING());
+        lc_string_inplace(cps.ipaddr.data(), cps.ipaddr.size());
         cps.last_addr = addr_type::v4;
     }
     action V6AddrEn {
-        cps.ipaddr = lc_string(MARKED_STRING());
+        cps.ipaddr = std::string(MARKED_STRING());
+        lc_string_inplace(cps.ipaddr.data(), cps.ipaddr.size());
         cps.last_addr = addr_type::v6;
     }
     action Bind4En {

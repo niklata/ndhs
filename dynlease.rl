@@ -378,7 +378,7 @@ struct dynlease_parse_state {
         memset(macaddr, 0, sizeof macaddr);
         v4_addr.clear();
         v6_addr.clear();
-        interface.clear();
+        memset(interface, 0, sizeof interface);
         iaid = 0;
         expire_time = 0;
         parse_error = false;
@@ -389,20 +389,18 @@ struct dynlease_parse_state {
     std::string duid;
     std::string v4_addr;
     std::string v6_addr;
-    std::string interface;
+    char interface[IFNAMSIZ];
     int64_t expire_time;
     uint32_t iaid;
     bool parse_error;
     char macaddr[6];
 };
 
-#define MARKED_STRING() cps.st, (p > cps.st ? static_cast<size_t>(p - cps.st) : 0)
+#define MARKED_STRING() std::string(cps.st, (p > cps.st ? static_cast<size_t>(p - cps.st) : 0))
 
-static inline std::string lc_string(const char *s, size_t slen)
+static inline void lc_string_inplace(char *s, size_t len)
 {
-    auto r = std::string(s, slen);
-    for (auto &i: r) i = tolower(i);
-    return r;
+    for (size_t i = 0; i < len; ++i) s[i] = tolower(s[i]);
 }
 
 %%{
@@ -411,8 +409,15 @@ static inline std::string lc_string(const char *s, size_t slen)
 
     action St { cps.st = p; }
 
-    action InterfaceEn { cps.interface = std::string(MARKED_STRING()); }
-    action DuidEn { cps.duid = lc_string(MARKED_STRING()); }
+    action InterfaceEn {
+        ptrdiff_t l = p - cps.st;
+        if (l < 0 || (size_t)l >= sizeof cps.interface) abort();
+        *(char *)mempcpy(cps.interface, cps.st, (size_t)l) = 0;
+    }
+    action DuidEn {
+        cps.duid = MARKED_STRING();
+        lc_string_inplace(cps.duid.data(), cps.duid.size());
+    }
     action IaidEn {
         char buf[64];
         ptrdiff_t blen = p - cps.st;
@@ -433,10 +438,16 @@ static inline std::string lc_string(const char *s, size_t slen)
             fbreak;
         }
         memcpy(cps.macaddr, cps.st, 6);
-        for (size_t i = 0; i < 6; ++i) cps.macaddr[i] = tolower(cps.macaddr[i]);
+        lc_string_inplace(cps.macaddr, sizeof cps.macaddr);
     }
-    action V4AddrEn { cps.v4_addr = lc_string(MARKED_STRING()); }
-    action V6AddrEn { cps.v6_addr = lc_string(MARKED_STRING()); }
+    action V4AddrEn {
+        cps.v4_addr = MARKED_STRING();
+        lc_string_inplace(cps.v4_addr.data(), cps.v4_addr.size());
+    }
+    action V6AddrEn {
+        cps.v6_addr = MARKED_STRING();
+        lc_string_inplace(cps.v6_addr.data(), cps.v6_addr.size());
+    }
     action ExpireTimeEn {
         char buf[64];
         ptrdiff_t blen = p - cps.st;
@@ -452,11 +463,11 @@ static inline std::string lc_string(const char *s, size_t slen)
     }
 
     action V4EntryEn {
-        emplace_dynlease4_state(linenum, cps.interface.c_str(), cps.v4_addr.c_str(),
+        emplace_dynlease4_state(linenum, cps.interface, cps.v4_addr.c_str(),
                                 cps.macaddr, cps.expire_time);
     }
     action V6EntryEn {
-        emplace_dynlease6_state(linenum, cps.interface.c_str(), cps.v6_addr.c_str(),
+        emplace_dynlease6_state(linenum, cps.interface, cps.v6_addr.c_str(),
                                 cps.duid.data(), cps.duid.size(), cps.iaid, cps.expire_time);
     }
 
