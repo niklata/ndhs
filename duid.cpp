@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <cstring>
 #include <cstdio>
-#include <string>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -23,17 +22,15 @@ char g_server_duid[g_server_duid_len];
 static void print_duid()
 {
     if (g_server_duid_len <= 0) return;
-    std::string str;
-    str.append("DUID is '");
+    log_line("DUID is '");
     char tbuf[16] = {0};
     snprintf(tbuf, sizeof tbuf, "%.2hhx", static_cast<uint8_t>(g_server_duid[0]));
-    str.append(tbuf);
+    log_line("%s", tbuf);
     for (unsigned i = 1; i < g_server_duid_len; ++i) {
         snprintf(tbuf, sizeof tbuf, "-%.2hhx", static_cast<uint8_t>(g_server_duid[i]));
-        str.append(tbuf);
+        log_line("%s", tbuf);
     }
-    str.append("'");
-    log_line("%s\n", str.c_str());
+    log_line("'\n");
 }
 
 // Use DUID-UUID (RFC6355)
