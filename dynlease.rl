@@ -326,16 +326,11 @@ bool dynlease_serialize(const char *path)
             // Don't write out dynamic leases that have expired.
             if (get_current_ts() >= j.expire_time)
                 continue;
-            char wbuf[1024];
-            int t = snprintf(wbuf, sizeof wbuf, "v4 %s %s %2.x%2.x%2.x%2.x%2.x%2.x %zu\n",
-                             iface, j.addr.to_string().c_str(),
-                             j.macaddr[0], j.macaddr[1], j.macaddr[2],
-                             j.macaddr[3], j.macaddr[4], j.macaddr[5], j.expire_time);
-            if (t < 0 || static_cast<size_t>(t) > sizeof wbuf) suicide("%s: snprintf failed; return=%d\n", __func__, t);
-            size_t splen = static_cast<size_t>(t);
-            const auto fs = fwrite(wbuf, 1, splen, f);
-            if (fs != splen) {
-                log_line("%s: short write %zd < %zu\n", __func__, fs, sizeof wbuf);
+            if (fprintf(f, "v4 %s %s %2.x%2.x%2.x%2.x%2.x%2.x %zu\n",
+                        iface, j.addr.to_string().c_str(),
+                        j.macaddr[0], j.macaddr[1], j.macaddr[2],
+                        j.macaddr[3], j.macaddr[4], j.macaddr[5], j.expire_time) < 0) {
+                log_line("%s: fprintf failed: %s\n", __func__, strerror(errno));
                 return false;
             }
         }
@@ -348,27 +343,13 @@ bool dynlease_serialize(const char *path)
             if (get_current_ts() >= j.expire_time)
                 continue;
 
-            std::string wbuf;
-            wbuf.append("v6 ");
-            wbuf.append(iface);
-            wbuf.append(" ");
-            wbuf.append(j.addr.to_string());
-            wbuf.append(" ");
-            for (const auto &k: j.duid) {
-                char tbuf[16];
-                snprintf(tbuf, sizeof tbuf, "%.2hhx", k);
-                wbuf.append(tbuf);
-            }
-            wbuf.append(" ");
-            wbuf.append(std::to_string(j.iaid));
-            wbuf.append(" ");
-            wbuf.append(std::to_string(j.expire_time));
-            wbuf.append("\n");
-            const auto fs = fwrite(wbuf.c_str(), 1, wbuf.size(), f);
-            if (fs != wbuf.size()) {
-                log_line("%s: short write %zd < %zu\n", __func__, fs, wbuf.size());
-                return false;
-            }
+            if (fprintf(f, "v6 %s %s ", iface, j.addr.to_string().c_str()) < 0) goto err0;
+            for (const auto &k: j.duid) if (fprintf(f, "%.2hhx", k) < 0) goto err0;
+            if (fprintf(f, " %u %lu\n", j.iaid, j.expire_time) < 0) goto err0;
+            continue;
+        err0:
+            log_line("%s: fprintf failed: %s\n", __func__, strerror(errno));
+            return false;
         }
     }
     if (fflush(f)) {
