@@ -375,10 +375,11 @@ bool dynlease_serialize(const char *path)
 struct dynlease_parse_state {
     dynlease_parse_state() : st(nullptr), cs(0), parse_error(false) {}
     void newline() {
-        duid.clear();
+        memset(duid, 0, sizeof duid);
+        duid_len = 0;
         memset(macaddr, 0, sizeof macaddr);
-        v4_addr.clear();
-        v6_addr.clear();
+        memset(v4_addr, 0, sizeof v4_addr);
+        memset(v6_addr, 0, sizeof v6_addr);
         memset(interface, 0, sizeof interface);
         iaid = 0;
         expire_time = 0;
@@ -387,21 +388,29 @@ struct dynlease_parse_state {
     const char *st;
     int cs;
 
-    std::string duid;
-    std::string v4_addr;
-    std::string v6_addr;
-    char interface[IFNAMSIZ];
     int64_t expire_time;
+    size_t duid_len;
     uint32_t iaid;
     bool parse_error;
+    char duid[128];
+    char interface[IFNAMSIZ];
+    char v6_addr[48];
+    char v4_addr[16];
     char macaddr[6];
 };
-
-#define MARKED_STRING() std::string(cps.st, (p > cps.st ? static_cast<size_t>(p - cps.st) : 0))
 
 static inline void lc_string_inplace(char *s, size_t len)
 {
     for (size_t i = 0; i < len; ++i) s[i] = tolower(s[i]);
+}
+
+static void assign_strbuf(char *dest, size_t *destlen, size_t maxlen, const char *start, const char *end)
+{
+    ptrdiff_t d = end - start;
+    size_t l = (size_t)d;
+    if (d < 0 || l >= maxlen) abort();
+    *(char *)mempcpy(dest, start, l) = 0;
+    if (destlen) *destlen = l;
 }
 
 %%{
@@ -411,13 +420,11 @@ static inline void lc_string_inplace(char *s, size_t len)
     action St { cps.st = p; }
 
     action InterfaceEn {
-        ptrdiff_t l = p - cps.st;
-        if (l < 0 || (size_t)l >= sizeof cps.interface) abort();
-        *(char *)mempcpy(cps.interface, cps.st, (size_t)l) = 0;
+        assign_strbuf(cps.interface, nullptr, sizeof cps.interface, cps.st, p);
     }
     action DuidEn {
-        cps.duid = MARKED_STRING();
-        lc_string_inplace(cps.duid.data(), cps.duid.size());
+        assign_strbuf(cps.duid, &cps.duid_len, sizeof cps.duid, cps.st, p);
+        lc_string_inplace(cps.duid, cps.duid_len);
     }
     action IaidEn {
         char buf[64];
@@ -442,12 +449,14 @@ static inline void lc_string_inplace(char *s, size_t len)
         lc_string_inplace(cps.macaddr, sizeof cps.macaddr);
     }
     action V4AddrEn {
-        cps.v4_addr = MARKED_STRING();
-        lc_string_inplace(cps.v4_addr.data(), cps.v4_addr.size());
+        size_t l;
+        assign_strbuf(cps.v4_addr, &l, sizeof cps.v4_addr, cps.st, p);
+        lc_string_inplace(cps.v4_addr, l);
     }
     action V6AddrEn {
-        cps.v6_addr = MARKED_STRING();
-        lc_string_inplace(cps.v6_addr.data(), cps.v6_addr.size());
+        size_t l;
+        assign_strbuf(cps.v6_addr, &l, sizeof cps.v6_addr, cps.st, p);
+        lc_string_inplace(cps.v6_addr, l);
     }
     action ExpireTimeEn {
         char buf[64];
@@ -464,12 +473,12 @@ static inline void lc_string_inplace(char *s, size_t len)
     }
 
     action V4EntryEn {
-        emplace_dynlease4_state(linenum, cps.interface, cps.v4_addr.c_str(),
+        emplace_dynlease4_state(linenum, cps.interface, cps.v4_addr,
                                 cps.macaddr, cps.expire_time);
     }
     action V6EntryEn {
-        emplace_dynlease6_state(linenum, cps.interface, cps.v6_addr.c_str(),
-                                cps.duid.data(), cps.duid.size(), cps.iaid, cps.expire_time);
+        emplace_dynlease6_state(linenum, cps.interface, cps.v6_addr,
+                                cps.duid, cps.duid_len, cps.iaid, cps.expire_time);
     }
 
     interface = alnum+ >St %InterfaceEn;
