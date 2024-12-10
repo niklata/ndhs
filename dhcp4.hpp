@@ -3,10 +3,10 @@
 #ifndef NDHS_DHCP4_HPP
 #define NDHS_DHCP4_HPP
 
-#include <map> // ClientStates
 #include <time.h> // ClientStates
 #include <nk/net/ip_address.hpp>
 #include <nk/sys/posix/handle.hpp>
+#include <vector>
 #include "dhcp.h"
 extern "C" {
 #include <net/if.h>
@@ -42,11 +42,14 @@ private:
     void maybe_swap(void);
     struct StateItem
     {
+        uint64_t hwaddr_;
         uint32_t xid_;
         uint8_t state_;
     };
+    std::vector<StateItem>::iterator find(int n, uint64_t h);
+
     struct timespec expires_;
-    std::map<uint64_t, StateItem> map_[2];
+    std::vector<StateItem> map_[2];
     int currentMap_; // Either 0 or 1.
 };
 

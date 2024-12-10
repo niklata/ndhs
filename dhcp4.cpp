@@ -38,44 +38,65 @@ ClientStates::ClientStates() : currentMap_(0)
     expires_.tv_sec += CS_SWAP_INTERVAL;
 }
 
+std::vector<ClientStates::StateItem>::iterator ClientStates::find(int n, uint64_t h)
+{
+    auto iend = map_[n].end();
+    for (auto i = map_[n].begin(); i != iend; ++i) {
+        if (i->hwaddr_ == h) return i;
+    }
+    return iend;
+}
+
 void ClientStates::stateAdd(uint32_t xid, uint8_t *hwaddr, uint8_t state)
 {
     maybe_swap();
     if (!state) return;
     uint64_t key = hwaddr_to_int64(hwaddr);
-    map_[currentMap_].insert_or_assign(key, StateItem{ xid, state });
-    map_[!currentMap_].erase(key);
+    auto i = find(currentMap_, key);
+    if (i == map_[currentMap_].end()) {
+        map_[currentMap_].emplace_back(key, xid, state);
+    } else {
+        i->xid_ = xid;
+        i->state_ = state;
+    }
+    auto j = find(!currentMap_, key);
+    if (j != map_[!currentMap_].end())
+        map_[!currentMap_].erase(j);
 }
 
 uint8_t ClientStates::stateGet(uint32_t xid, uint8_t *hwaddr)
 {
     maybe_swap();
     uint64_t key = hwaddr_to_int64(hwaddr);
-    auto r = map_[currentMap_].find(key);
-    struct StateItem si;
-    if (r != map_[currentMap_].end()) {
-        si = r->second;
-    } else {
-        r = map_[!currentMap_].find(key);
-        if (r != map_[!currentMap_].end()) {
-            si = r->second;
+    auto i = find(currentMap_, key);
+    if (i == map_[currentMap_].end()) {
+        i = find(!currentMap_, key);
+        if (i != map_[!currentMap_].end()) {
             // Transfer into the newest map.
-            auto t = map_[!currentMap_].extract(r);
-            map_[currentMap_].insert(std::move(t));
+            map_[currentMap_].push_back(*i);
+            map_[!currentMap_].erase(i);
+            i = map_[currentMap_].end() - 1;
         } else {
             return DHCPNULL;
         }
     }
-    if (si.xid_ != xid) return DHCPNULL;
-    return si.state_;
+    if (i->xid_ != xid) return DHCPNULL;
+    return i->state_;
 }
 
 void ClientStates::stateKill(uint8_t *hwaddr)
 {
     maybe_swap();
     uint64_t key = hwaddr_to_int64(hwaddr);
-    if (map_[currentMap_].erase(key)) return;
-    map_[!currentMap_].erase(key);
+    auto i = find(currentMap_, key);
+    if (i != map_[currentMap_].end()) {
+        map_[currentMap_].erase(i);
+        return;
+    }
+    i = find(!currentMap_, key);
+    if (i != map_[!currentMap_].end()) {
+        map_[!currentMap_].erase(i);
+    }
 }
 
 void ClientStates::maybe_swap(void)
@@ -87,9 +108,9 @@ void ClientStates::maybe_swap(void)
 
     now.tv_sec += CS_SWAP_INTERVAL;
     expires_ = now;
-    const int killMap = !currentMap_;
-    map_[killMap].clear();
-    currentMap_ = killMap;
+    int k = !currentMap_;
+    map_[k].clear();
+    currentMap_ = k;
 }
 
 } // detail
