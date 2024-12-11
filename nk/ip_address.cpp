@@ -1,6 +1,6 @@
 #include <nk/net/ip_address.hpp>
 #include <nk/endian.hpp>
-#include <limits>
+#include <limits.h>
 #include <assert.h>
 #ifndef _WIN32
 #include <arpa/inet.h>
@@ -60,7 +60,7 @@ bool ip_address::to_string(char *buf, size_t buflen) const
 static bool compare_u32_mask(uint32_t a, uint32_t b, unsigned mask)
 {
     assert(mask <= 32);
-    const auto m = mask < 32 ? std::numeric_limits<uint32_t>::max() >> mask : 0;
+    const auto m = mask < 32 ? UINT32_MAX >> mask : 0;
     return (a | m) == (b | m);
 }
 
