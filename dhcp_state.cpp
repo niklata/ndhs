@@ -143,6 +143,10 @@ static void create_d6_ntp_blob(const std::vector<std::string> &ntp_fqdns,
             log_line("labelizing %s failed\n", ntpname.c_str());
             continue;
         }
+        if (ntp6_fqdns_blob.size() + lbl.size() > 254) {
+            log_line("ntp search list is too long, truncating\n");
+            break;
+        }
         ntp6_fqdns_blob.push_back(0);
         ntp6_fqdns_blob.push_back(3);
         uint16_t lblsize = lbl.size();
