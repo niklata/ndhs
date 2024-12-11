@@ -459,10 +459,8 @@ bool RA6Listener::send_advert()
         }
     }
 
-    const std::vector<nk::ip_address> *dns6_servers{nullptr};
-    const std::vector<uint8_t> *dns_search_blob{nullptr};
-    dns6_servers = query_dns6_servers(ifinfo->index);
-    dns_search_blob = query_dns6_search_blob(ifinfo->index);
+    auto dns6_servers = query_dns6_servers(ifinfo->index);
+    auto [dns6_search_blob, dns6_search_blob_size] = query_dns6_search_blob(ifinfo->index);
 
     if (dns6_servers && dns6_servers->size()) {
         ra6_dns.length(dns6_servers->size());
@@ -473,15 +471,15 @@ bool RA6Listener::send_advert()
     }
 
     size_t dns_search_slack = 0;
-    if (dns_search_blob && dns_search_blob->size()) {
-        dns_search_slack = ra6_dsrch.length(dns_search_blob->size());
+    if (dns6_search_blob && dns6_search_blob_size) {
+        dns_search_slack = ra6_dsrch.length(dns6_search_blob_size);
         ra6_dsrch.lifetime(advi_s_max_ * 2);
         csum = net_checksum16_add
             (csum, net_checksum16(&ra6_dsrch, sizeof ra6_dsrch));
         csum = net_checksum16_add
-            (csum, net_checksum16(dns_search_blob->data(),
-                                    dns_search_blob->size()));
-        pktl += sizeof ra6_dsrch + dns_search_blob->size() + dns_search_slack;
+            (csum, net_checksum16(dns6_search_blob,
+                                    dns6_search_blob_size));
+        pktl += sizeof ra6_dsrch + dns6_search_blob_size + dns_search_slack;
     }
 
     csum = net_checksum16_add(csum, net_checksum16(&ip6_any.sin6_addr, sizeof ip6_any.sin6_addr));
@@ -512,12 +510,11 @@ bool RA6Listener::send_advert()
             ss.si += 16;
         }
     }
-    if (dns_search_blob && dns_search_blob->size()) {
+    if (dns6_search_blob && dns6_search_blob_size) {
         if (!ra6_dsrch.write(ss)) return false;
-        for (const auto &i: *dns_search_blob) {
-            if (ss.si == ss.se) return false;
-            *ss.si++ = static_cast<char>(i);
-        }
+        if (ss.se - ss.si < (ptrdiff_t)dns6_search_blob_size) return false;
+        memcpy(ss.si, dns6_search_blob, dns6_search_blob_size);
+        ss.si += dns6_search_blob_size;
         for (size_t i = 0; i < dns_search_slack; ++i) {
             if (ss.si == ss.se) return false;
             *ss.si++ = 0;

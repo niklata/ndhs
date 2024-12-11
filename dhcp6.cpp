@@ -396,30 +396,29 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
             ss.si += 16;
         }
     }
-    const auto dns6_search_blob = query_dns6_search_blob(ifindex_);
-    if (d6s.optreq_dns_search && (dns6_search_blob && dns6_search_blob->size())) {
+    auto [dns6_search_blob, dns6_search_blob_size] = query_dns6_search_blob(ifindex_);
+    if (d6s.optreq_dns_search && (dns6_search_blob && dns6_search_blob_size)) {
         dhcp6_opt send_dns_search;
         send_dns_search.type(24);
-        send_dns_search.length(dns6_search_blob->size());
+        send_dns_search.length(dns6_search_blob_size);
         if (!send_dns_search.write(ss)) return false;
-        for (const auto &i: *dns6_search_blob) {
-            if (ss.si == ss.se) return false;
-            *ss.si++ = static_cast<char>(i);
-        }
+        if (ss.se - ss.si < (ptrdiff_t)dns6_search_blob_size) return false;
+        memcpy(ss.si, dns6_search_blob, dns6_search_blob_size);
+        ss.si += dns6_search_blob_size;
     }
     const auto ntp6_servers = query_ntp6_servers(ifindex_);
     const auto ntp6_multicasts = query_ntp6_multicasts(ifindex_);
-    const auto ntp6_fqdns_blob = query_ntp6_fqdns_blob(ifindex_);
+    auto [ntp6_fqdns_blob, ntp6_fqdns_blob_size] = query_ntp6_fqdns_blob(ifindex_);
     if (d6s.optreq_ntp
         && ((ntp6_servers && ntp6_servers->size())
             || (ntp6_multicasts && ntp6_multicasts->size())
-            || (ntp6_fqdns_blob && ntp6_fqdns_blob->size()))) {
+            || (ntp6_fqdns_blob && ntp6_fqdns_blob_size))) {
         uint16_t len(0);
         dhcp6_opt send_ntp;
         send_ntp.type(56);
         if (ntp6_servers) len += 4 + ntp6_servers->size() * 16;
         if (ntp6_multicasts) len += 4 + ntp6_multicasts->size() * 16;
-        if (ntp6_fqdns_blob) len += ntp6_fqdns_blob->size();
+        if (ntp6_fqdns_blob) len += ntp6_fqdns_blob_size;
         send_ntp.length(len);
         if (!send_ntp.write(ss)) return false;
 
@@ -441,9 +440,10 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
             i.raw_v6bytes(ss.si);
             ss.si += 16;
         }
-        for (const auto &i: *ntp6_fqdns_blob) {
-            if (ss.si == ss.se) return false;
-            *ss.si++ = static_cast<char>(i);
+        if (ntp6_fqdns_blob_size) {
+            if (ss.se - ss.si < (ptrdiff_t)ntp6_fqdns_blob_size) return false;
+            memcpy(ss.si, ntp6_fqdns_blob, ntp6_fqdns_blob_size);
+            ss.si += ntp6_fqdns_blob_size;
         }
     }
     if (d6s.optreq_sntp) {

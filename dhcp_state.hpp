@@ -51,11 +51,11 @@ const dhcpv6_entry *query_dhcp6_state(int ifindex,
 const dhcpv4_entry *query_dhcp4_state(int ifindex, const uint8_t *hwaddr);
 const std::vector<nk::ip_address> *query_dns6_servers(int ifindex);
 const std::vector<nk::ip_address> *query_dns4_servers(int ifindex);
-const std::vector<uint8_t> *query_dns6_search_blob(int ifindex);
+std::pair<const char *, size_t> query_dns6_search_blob(int ifindex);
 const std::vector<std::string> *query_dns_search(int ifindex);
 const std::vector<nk::ip_address> *query_ntp6_servers(int ifindex);
 const std::vector<nk::ip_address> *query_ntp4_servers(int ifindex);
-const std::vector<uint8_t> *query_ntp6_fqdns_blob(int ifindex);
+std::pair<const char *, size_t> query_ntp6_fqdns_blob(int ifindex);
 const std::vector<nk::ip_address> *query_ntp6_multicasts(int ifindex);
 const std::vector<nk::ip_address> *query_gateway(int ifindex);
 const nk::ip_address *query_subnet(int ifindex);
