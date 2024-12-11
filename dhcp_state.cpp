@@ -43,32 +43,33 @@ struct interface_data
 static std::vector<interface_data> interface_state;
 
 // Performs DNS label wire encoding cf RFC1035 3.1
-// Allocates memory frequently in order to make correctness easier to
-// verify, but at least in this program, it will called only at
-// reconfiguration.
+// Returns negative values on error, positive values are the number
+// of bytes added to the out buffer.
+// return of -2 means input was invalid
+// return of -1 means out buffer ran out of space
 #define MAX_DNS_LABELS 256
-static bool dns_label(std::vector<uint8_t> *out, std::string_view ds)
+static int dns_label(char *out, size_t outlen, std::string_view ds)
 {
     size_t locx[MAX_DNS_LABELS * 2];
     size_t locn = 0;
+    const char *out_st = out;
 
-    out->clear();
     if (ds.size() <= 0)
-        return true;
+        return 0;
 
     // First we build up a list of label start/end offsets.
-    size_t s=0, idx=0;
+    size_t s = 0, idx = 0;
     bool in_label = false;
     for (const auto &i: ds) {
         if (i == '.') {
             if (in_label) {
-                if (locn >= MAX_DNS_LABELS) return false;
+                if (locn >= MAX_DNS_LABELS) return -2; // label too long
                 locx[2 * locn    ] = s;
                 locx[2 * locn + 1] = idx;
                 ++locn;
                 in_label = false;
             } else {
-                return false; // malformed input
+                return -2; // malformed input
             }
         } else {
             if (!in_label) {
@@ -80,7 +81,7 @@ static bool dns_label(std::vector<uint8_t> *out, std::string_view ds)
     }
     // We don't demand a trailing dot.
     if (in_label) {
-        if (locn >= MAX_DNS_LABELS) return false;
+        if (locn >= MAX_DNS_LABELS) return -2;
         locx[2 * locn    ] = s;
         locx[2 * locn + 1] = idx;
         ++locn;
@@ -93,41 +94,41 @@ static bool dns_label(std::vector<uint8_t> *out, std::string_view ds)
         size_t st = locx[2 * i];
         size_t en = locx[2 * i + 1];
         size_t len = en >= st ? en - st : 0;
-        if (len > 63) return false; // label too long
-        out->push_back(len);
-        for (size_t j = st; j < en; ++j)
-            out->push_back(static_cast<uint8_t>(ds[j]));
+        if (len > 63) return -2; // label too long
+        if (outlen < 1 + en - st) return -1; // out of space
+        *out++ = len; --outlen;
+        memcpy(out, &ds[st], en - st); outlen -= en - st;
     }
     // Terminating zero length label.
-    if (out->size())
-        out->push_back(0);
-    if (out->size() > 255) {
-        out->clear();
-        return false; // domain name too long
-    }
-    return true;
+    if (outlen < 1) return -1; // out of space
+    *out++ = 0; --outlen;
+
+    // false means domain name is too long
+    return out - out_st <= 255 ? out - out_st : -2;
 }
 
 static void create_ra6_dns_search_blob(const std::vector<std::string> &dns_search,
                                        std::vector<uint8_t> &dns_search_blob)
 {
+    size_t blen = 0;
+    char buf[2048]; // must be >= 8*256 bytes
+
     dns_search_blob.clear();
-    std::vector<uint8_t> lbl;
     for (const auto &dnsname: dns_search) {
-        if (!dns_label(&lbl, dnsname)) {
-            log_line("labelizing %s failed\n", dnsname.c_str());
-            continue;
+        int r = dns_label(buf + blen, sizeof buf - blen, dnsname);
+        if (r < 0) {
+            if (r == -1) {
+                log_line("too many names in dns_search\n");
+                break;
+            } else {
+                log_line("malformed input to dns_search\n");
+                continue;
+            }
         }
-        // See if the search blob size is too large to encode in a RA
-        // dns search option.
-        if (dns_search_blob.size() + lbl.size() > 8 * 254) {
-            log_line("dns search list is too long, truncating\n");
-            break;
-        }
-        dns_search_blob.insert(dns_search_blob.end(),
-                               std::make_move_iterator(lbl.begin()),
-                               std::make_move_iterator(lbl.end()));
+        blen += (size_t)r;
     }
+    dns_search_blob.resize(blen);
+    memcpy(dns_search_blob.data(), buf, blen);
     assert(dns_search_blob.size() <= 8 * 254);
 }
 
@@ -136,26 +137,37 @@ static void create_ra6_dns_search_blob(const std::vector<std::string> &dns_searc
 static void create_d6_ntp_blob(const std::vector<std::string> &ntp_fqdns,
                                std::vector<uint8_t> &ntp6_fqdns_blob)
 {
+    size_t blen = 0;
+    char buf[256]; // must be >= 256 bytes
+
     ntp6_fqdns_blob.clear();
-    std::vector<uint8_t> lbl;
     for (const auto &ntpname: ntp_fqdns) {
-        if (!dns_label(&lbl, ntpname)) {
-            log_line("labelizing %s failed\n", ntpname.c_str());
-            continue;
+        if (blen + 2 >= sizeof buf) break;
+        buf[blen++] = 0;
+        buf[blen++] = 3;
+        int r = dns_label(buf + blen, sizeof buf - blen, ntpname);
+        if (r < 0) {
+            blen -= 2; // back out prefix
+            if (r == -1) {
+                log_line("too many names in ntp_search\n");
+                break;
+            } else {
+                log_line("malformed input to ntp_search\n");
+                continue;
+            }
         }
-        if (ntp6_fqdns_blob.size() + lbl.size() > 254) {
-            log_line("ntp search list is too long, truncating\n");
+        size_t s = (size_t)r;
+        if (blen + s + 2 >= sizeof buf) {
+            blen -= 2; // back out prefix
             break;
         }
-        ntp6_fqdns_blob.push_back(0);
-        ntp6_fqdns_blob.push_back(3);
-        uint16_t lblsize = lbl.size();
-        ntp6_fqdns_blob.push_back(lblsize >> 8);
-        ntp6_fqdns_blob.push_back(lblsize & 0xff);
-        ntp6_fqdns_blob.insert(ntp6_fqdns_blob.end(),
-                               std::make_move_iterator(lbl.begin()),
-                               std::make_move_iterator(lbl.end()));
+        blen += s;
+        buf[blen++] = s >> 8;
+        buf[blen++] = s & 0xff;
     }
+    ntp6_fqdns_blob.resize(blen);
+    memcpy(ntp6_fqdns_blob.data(), buf, blen);
+    assert(ntp6_fqdns_blob.size() <= 255);
 }
 
 void create_blobs()
