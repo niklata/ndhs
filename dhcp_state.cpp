@@ -46,9 +46,11 @@ static std::vector<interface_data> interface_state;
 // Allocates memory frequently in order to make correctness easier to
 // verify, but at least in this program, it will called only at
 // reconfiguration.
+#define MAX_DNS_LABELS 256
 static bool dns_label(std::vector<uint8_t> *out, std::string_view ds)
 {
-    std::vector<std::pair<size_t, size_t>> locs;
+    size_t locx[MAX_DNS_LABELS * 2];
+    size_t locn = 0;
 
     out->clear();
     if (ds.size() <= 0)
@@ -56,11 +58,14 @@ static bool dns_label(std::vector<uint8_t> *out, std::string_view ds)
 
     // First we build up a list of label start/end offsets.
     size_t s=0, idx=0;
-    bool in_label(false);
+    bool in_label = false;
     for (const auto &i: ds) {
         if (i == '.') {
             if (in_label) {
-                locs.emplace_back(std::make_pair(s, idx));
+                if (locn >= MAX_DNS_LABELS) return false;
+                locx[2 * locn    ] = s;
+                locx[2 * locn + 1] = idx;
+                ++locn;
                 in_label = false;
             } else {
                 return false; // malformed input
@@ -75,18 +80,22 @@ static bool dns_label(std::vector<uint8_t> *out, std::string_view ds)
     }
     // We don't demand a trailing dot.
     if (in_label) {
-        locs.emplace_back(std::make_pair(s, idx));
+        if (locn >= MAX_DNS_LABELS) return false;
+        locx[2 * locn    ] = s;
+        locx[2 * locn + 1] = idx;
+        ++locn;
         in_label = false;
     }
 
     // Now we just need to attach the label length octet followed
     // by the label contents.
-    for (const auto &i: locs) {
-        auto len = i.second - i.first;
-        if (len > 63)
-            return false; // label too long
+    for (size_t i = 0, imax = locn; i < imax; ++i) {
+        size_t st = locx[2 * i];
+        size_t en = locx[2 * i + 1];
+        size_t len = en >= st ? en - st : 0;
+        if (len > 63) return false; // label too long
         out->push_back(len);
-        for (size_t j = i.first; j < i.second; ++j)
+        for (size_t j = st; j < en; ++j)
             out->push_back(static_cast<uint8_t>(ds[j]));
     }
     // Terminating zero length label.
