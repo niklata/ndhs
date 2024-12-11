@@ -19,8 +19,6 @@ extern void set_s6_notify_fd(int fd);
 #pragma GCC diagnostic ignored "-Wold-style-cast"
 #endif
 
-extern void create_dns_search_blob();
-
 struct cfg_parse_state {
     cfg_parse_state() : st(nullptr), cs(0), last_addr(addr_type::null), default_lifetime(7200),
                         default_preference(0), parse_error(false) {}

@@ -108,8 +108,8 @@ static bool dns_label(std::vector<uint8_t> *out, std::string_view ds)
     return true;
 }
 
-static void create_dns_search_blob(std::vector<std::string> &dns_search,
-                                   std::vector<uint8_t> &dns_search_blob)
+static void create_ra6_dns_search_blob(std::vector<std::string> &dns_search,
+                                       std::vector<uint8_t> &dns_search_blob)
 {
     dns_search_blob.clear();
     std::vector<uint8_t> lbl;
@@ -134,8 +134,8 @@ static void create_dns_search_blob(std::vector<std::string> &dns_search,
 
 // Different from the dns search blob because we pre-include the
 // suboption headers.
-static void create_ntp6_fqdns_blob(std::vector<std::string> &ntp_fqdns,
-                                   std::vector<uint8_t> &ntp6_fqdns_blob)
+static void create_d6_ntp_blob(std::vector<std::string> &ntp_fqdns,
+                               std::vector<uint8_t> &ntp6_fqdns_blob)
 {
     ntp6_fqdns_blob.clear();
     std::vector<uint8_t> lbl;
@@ -158,8 +158,8 @@ static void create_ntp6_fqdns_blob(std::vector<std::string> &ntp_fqdns,
 void create_blobs()
 {
     for (auto &i: interface_state) {
-        create_dns_search_blob(i.dns_search, i.dns_search_blob);
-        create_ntp6_fqdns_blob(i.ntp6_fqdns, i.ntp6_fqdns_blob);
+        create_ra6_dns_search_blob(i.dns_search, i.dns_search_blob);
+        create_d6_ntp_blob(i.ntp6_fqdns, i.ntp6_fqdns_blob);
     }
 }
 
