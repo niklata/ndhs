@@ -810,15 +810,10 @@ void D6Listener::process_receive(char *buf, size_t buflen,
                  log_line("dhcp6: Client-sent option Client FQDN namelen disagrees with length on %s\n", ifname_);
                  return;
              }
-             d6s.fqdn_.clear();
-             d6s.fqdn_.reserve(namelen);
              log_line("dhcp6: FQDN Flags='%u', NameLen='%u' on %s\n", flags, namelen, ifname_);
-             while (l--) {
-                 char c = *rs.si++;
-                 OPTIONS_CONSUME(1);
-                 d6s.fqdn_.push_back(c);
-             }
-             log_line("dhcp6: Client FQDN: flags='%u' '%s' on %s\n", flags, d6s.fqdn_.c_str(), ifname_);
+             log_line("dhcp6: Client FQDN: flags='%u' '%.*s' on %s\n", flags, namelen, rs.si, ifname_);
+             rs.si += l;
+             OPTIONS_CONSUME(l);
          } else {
              rs.si += l;
              OPTIONS_CONSUME(l);

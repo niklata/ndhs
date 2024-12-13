@@ -207,7 +207,6 @@ private:
                         optreq_sntp(false), optreq_info_refresh_time(false), optreq_ntp(false),
                         use_rapid_commit(false) {}
         dhcp6_header header;
-        std::string fqdn_;
         std::string client_duid;
         char client_duid_blob[128];
         char server_duid_blob[128];
