@@ -200,12 +200,12 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
 
     const auto expire_time = get_current_ts() + dynamic_lifetime;
 
-    auto v6a = dynlease6_query_refresh(ifname_, d6s.client_duid.data(), d6s.client_duid.size(), iaid, expire_time);
+    auto v6a = dynlease6_query_refresh(ifname_, d6s.client_duid_str, d6s.client_duid_str_size, iaid, expire_time);
     if (v6a != nk::ip_address(nk::ip_address::any{})) {
         dhcpv6_entry de;
-        de.duid_len = d6s.client_duid.size();
+        de.duid_len = d6s.client_duid_str_size;
         if (de.duid_len > sizeof de.duid) abort();
-        memcpy(de.duid, d6s.client_duid.data(), de.duid_len);
+        memcpy(de.duid, d6s.client_duid_str, de.duid_len);
         de.address = v6a;
         de.lifetime = dynamic_lifetime;
         de.iaid = iaid;
@@ -232,13 +232,13 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
     for (unsigned attempt = 0; attempt < MAX_DYN_ATTEMPTS; ++attempt) {
         v6a = v6_addr_random(local_ip_prefix_, prefixlen_);
         if (!query_unused_addr_v6(ifindex_, v6a)) continue;
-        const auto assigned = dynlease6_add(ifname_, v6a, d6s.client_duid.data(),
-                                            d6s.client_duid.size(), iaid, expire_time);
+        const auto assigned = dynlease6_add(ifname_, v6a, d6s.client_duid_str,
+                                            d6s.client_duid_str_size, iaid, expire_time);
         if (assigned) {
             dhcpv6_entry de;
-            de.duid_len = d6s.client_duid.size();
+            de.duid_len = d6s.client_duid_str_size;
             if (de.duid_len > sizeof de.duid) abort();
-            memcpy(de.duid, d6s.client_duid.data(), de.duid_len);
+            memcpy(de.duid, d6s.client_duid_str, de.duid_len);
             de.address = v6a;
             de.lifetime = dynamic_lifetime;
             de.iaid = iaid;
@@ -358,9 +358,8 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, sbufs &ss,
     bool ha{false};
     // Look through IAs and send IA with assigned address as an option.
     for (const auto &i: d6s.ias) {
-        log_line("dhcp6: Querying duid='%s' iaid=%u...\n",
-                 d6s.client_duid.c_str(), i.iaid);
-        if (auto x = query_dhcp6_state(ifindex_, d6s.client_duid.data(), d6s.client_duid.size(), i.iaid)) {
+        log_line("dhcp6: Querying duid='%s' iaid=%u...\n", d6s.client_duid_str, i.iaid);
+        if (auto x = query_dhcp6_state(ifindex_, d6s.client_duid_str, d6s.client_duid_str_size, i.iaid)) {
             ha = true;
             char abuf[48];
             if (!x->address.to_string(abuf, sizeof abuf)) abort();
@@ -466,7 +465,7 @@ bool D6Listener::confirm_match(const d6msg_state &d6s, bool &confirmed)
 {
     confirmed = false;
     for (const auto &i: d6s.ias) {
-        log_line("dhcp6: Querying duid='%s' iaid=%u...\n", d6s.client_duid.c_str(), i.iaid);
+        log_line("dhcp6: Querying duid='%s' iaid=%u...\n", d6s.client_duid_str, i.iaid);
         if (i.ia_na_addrs.empty()) return false; // See RFC8415 18.3.3 p3
         for (const auto &j: i.ia_na_addrs) {
             if (!j.addr.compare_mask(local_ip_prefix_, prefixlen_)) {
@@ -487,13 +486,13 @@ bool D6Listener::mark_addr_unused(const d6msg_state &d6s, sbufs &ss)
 {
     for (const auto &i: d6s.ias) {
         bool freed_ia_addr{false};
-        log_line("dhcp6: Marking duid='%s' iaid=%u unused on %s...\n", d6s.client_duid.c_str(), i.iaid, ifname_);
-        auto x = query_dhcp6_state(ifindex_, d6s.client_duid.data(), d6s.client_duid.size(), i.iaid);
+        log_line("dhcp6: Marking duid='%s' iaid=%u unused on %s...\n", d6s.client_duid_str, i.iaid, ifname_);
+        auto x = query_dhcp6_state(ifindex_, d6s.client_duid_str, d6s.client_duid_str_size, i.iaid);
         for (const auto &j: i.ia_na_addrs) {
             if (x && j.addr == x->address) {
                 log_line("dhcp6: found static lease on %s\n", ifname_);
                 freed_ia_addr = true;
-            } else if (dynlease6_del(ifname_, j.addr, d6s.client_duid.data(), d6s.client_duid.size(), i.iaid)) {
+            } else if (dynlease6_del(ifname_, j.addr, d6s.client_duid_str, d6s.client_duid_str_size, i.iaid)) {
                 log_line("dhcp6: found dynamic lease on %s\n", ifname_);
                 freed_ia_addr = true;
             }
@@ -674,7 +673,6 @@ void D6Listener::process_receive(char *buf, size_t buflen,
          }
 
          if (ot == 1) { // ClientID
-             d6s.client_duid.reserve(2*l);
              if (l > sizeof d6s.client_duid_blob) {
                  log_line("dhcp6: client DUID is too long on %s\n", ifname_);
                  return;
@@ -684,12 +682,11 @@ void D6Listener::process_receive(char *buf, size_t buflen,
              rs.si += l;
              OPTIONS_CONSUME(l);
              for (size_t j = 0; j < d6s.client_duid_blob_size; ++j) {
-                 char tbuf[16];
-                 snprintf(tbuf, sizeof tbuf, "%.2hhx", static_cast<uint8_t>(d6s.client_duid_blob[j]));
-                 d6s.client_duid.append(tbuf);
+                 snprintf(d6s.client_duid_str + 2 * j, sizeof d6s.client_duid_str - 2 * j,
+                          "%.2hhx", static_cast<uint8_t>(d6s.client_duid_blob[j]));
              }
              if (d6s.client_duid_blob_size > 0)
-                log_line("dhcp6: DUID %s on %s\n", d6s.client_duid.c_str(), ifname_);
+                log_line("dhcp6: DUID %s on %s\n", d6s.client_duid_str, ifname_);
          } else if (ot == 2) { // ServerID
              if (l > sizeof d6s.server_duid_blob) {
                  log_line("dhcp6: server DUID is too long on %s\n", ifname_);
@@ -838,7 +835,7 @@ void D6Listener::process_receive(char *buf, size_t buflen,
      sbufs ss{ &sbuf[0], &sbuf[4096] };
 
      // Clients are required to send a client identifier.
-     if (d6s.client_duid.empty() &&
+     if (!d6s.client_duid_str_size &&
          d6s.header.msg_type() != dhcp6_msgtype::information_request) {
          return;
      }
