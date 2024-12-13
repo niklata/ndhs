@@ -292,13 +292,13 @@ bool D6Listener::write_response_header(const d6msg_state &d6s, sbufs &ss,
     if (!send_serverid.write(ss)) return false;
 
     dhcp6_opt send_clientid;
+    if (d6s.client_duid_blob_size == 0 ||
+        (ptrdiff_t)d6s.client_duid_blob_size > ss.se - ss.si) return false;
     send_clientid.type(1);
-    send_clientid.length(d6s.client_duid_blob.size());
+    send_clientid.length(d6s.client_duid_blob_size);
     if (!send_clientid.write(ss)) return false;
-    for (const auto &i: d6s.client_duid_blob) {
-        if (ss.si == ss.se) return false;
-        *ss.si++ = static_cast<char>(i);
-    }
+    memcpy(ss.si, d6s.client_duid_blob, d6s.client_duid_blob_size);
+    ss.si += d6s.client_duid_blob_size;
 
     if (preference_ > 0) {
         dhcp6_opt send_pref;
@@ -609,8 +609,8 @@ bool D6Listener::options_consume(d6msg_state &d6s, size_t v)
 
 bool D6Listener::serverid_incorrect(const d6msg_state &d6s) const
 {
-    return d6s.server_duid_blob.size() != sizeof g_server_duid
-        || memcmp(d6s.server_duid_blob.data(), g_server_duid, sizeof g_server_duid);
+    return d6s.server_duid_blob_size != sizeof g_server_duid
+        || memcmp(d6s.server_duid_blob, g_server_duid, sizeof g_server_duid);
 }
 
 void D6Listener::process_receive(char *buf, size_t buflen,
@@ -674,27 +674,31 @@ void D6Listener::process_receive(char *buf, size_t buflen,
          }
 
          if (ot == 1) { // ClientID
-             d6s.client_duid_blob.reserve(l);
              d6s.client_duid.reserve(2*l);
-             while (l--) {
-                 uint8_t c;
-                 memcpy(&c, rs.si++, 1);
-                 d6s.client_duid_blob.push_back(c);
-                 char tbuf[16];
-                 snprintf(tbuf, sizeof tbuf, "%.2hhx", c); // fixed len, safe
-                 d6s.client_duid.append(tbuf);
-                 OPTIONS_CONSUME(1);
+             if (l > sizeof d6s.client_duid_blob) {
+                 log_line("dhcp6: client DUID is too long on %s\n", ifname_);
+                 return;
              }
-             if (d6s.client_duid.size() > 0)
+             d6s.client_duid_blob_size = l;
+             memcpy(d6s.client_duid_blob, rs.si, l);
+             rs.si += l;
+             OPTIONS_CONSUME(l);
+             for (size_t j = 0; j < d6s.client_duid_blob_size; ++j) {
+                 char tbuf[16];
+                 snprintf(tbuf, sizeof tbuf, "%.2hhx", static_cast<uint8_t>(d6s.client_duid_blob[j]));
+                 d6s.client_duid.append(tbuf);
+             }
+             if (d6s.client_duid_blob_size > 0)
                 log_line("dhcp6: DUID %s on %s\n", d6s.client_duid.c_str(), ifname_);
          } else if (ot == 2) { // ServerID
-             d6s.server_duid_blob.reserve(l);
-             while (l--) {
-                 uint8_t c;
-                 memcpy(&c, rs.si++, 1);
-                 d6s.server_duid_blob.push_back(c);
-                 OPTIONS_CONSUME(1);
+             if (l > sizeof d6s.server_duid_blob) {
+                 log_line("dhcp6: server DUID is too long on %s\n", ifname_);
+                 return;
              }
+             d6s.server_duid_blob_size = l;
+             memcpy(d6s.server_duid_blob, rs.si, l);
+             rs.si += l;
+             OPTIONS_CONSUME(l);
          } else if (ot == 3) { // Option_IA_NA
              if (l < 12) {
                  log_line("dhcp6: Client-sent option IA_NA has a bad length on %s\n", ifname_);
@@ -846,7 +850,7 @@ void D6Listener::process_receive(char *buf, size_t buflen,
 
      switch (d6s.header.msg_type()) {
      case dhcp6_msgtype::solicit:
-         if (!d6s.server_duid_blob.empty()) return;
+         if (d6s.server_duid_blob_size) return;
          if (!handle_solicit_msg(d6s, ss)) return;
          break;
      case dhcp6_msgtype::request:
@@ -854,7 +858,7 @@ void D6Listener::process_receive(char *buf, size_t buflen,
          if (!handle_request_msg(d6s, ss)) return;
          break;
      case dhcp6_msgtype::confirm:
-         if (!d6s.server_duid_blob.empty()) return;
+         if (d6s.server_duid_blob_size) return;
          if (!handle_confirm_msg(d6s, ss)) return;
          break;
      case dhcp6_msgtype::renew:
@@ -862,7 +866,7 @@ void D6Listener::process_receive(char *buf, size_t buflen,
          if (!handle_renew_msg(d6s, ss)) return;
          break;
      case dhcp6_msgtype::rebind:
-         if (!d6s.server_duid_blob.empty()) return;
+         if (d6s.server_duid_blob_size) return;
          if (!handle_rebind_msg(d6s, ss)) return;
          break;
      case dhcp6_msgtype::release:
@@ -874,7 +878,7 @@ void D6Listener::process_receive(char *buf, size_t buflen,
          if (!handle_decline_msg(d6s, ss)) return;
          break;
      case dhcp6_msgtype::information_request:
-         if (!d6s.server_duid_blob.empty() && serverid_incorrect(d6s)) return;
+         if (d6s.server_duid_blob_size && serverid_incorrect(d6s)) return;
          if (!d6s.ias.empty()) return;
          if (!handle_information_msg(d6s, ss)) return;
          break;

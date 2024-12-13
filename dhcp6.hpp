@@ -202,16 +202,19 @@ private:
     using prev_opt_state = std::pair<int8_t, uint16_t>; // Type of parent opt and length left
     struct d6msg_state
     {
-        d6msg_state() : optreq_exists(false), optreq_dns(false), optreq_dns_search(false),
+        d6msg_state() : client_duid_blob_size(0), server_duid_blob_size(0),
+                        optreq_exists(false), optreq_dns(false), optreq_dns_search(false),
                         optreq_sntp(false), optreq_info_refresh_time(false), optreq_ntp(false),
                         use_rapid_commit(false) {}
         dhcp6_header header;
         std::string fqdn_;
         std::string client_duid;
-        std::vector<uint8_t> client_duid_blob;
-        std::vector<uint8_t> server_duid_blob;
+        char client_duid_blob[128];
+        char server_duid_blob[128];
         std::vector<d6_ia> ias;
         std::vector<prev_opt_state> prev_opt;
+        size_t client_duid_blob_size;
+        size_t server_duid_blob_size;
         uint16_t elapsed_time;
 
         bool optreq_exists:1;
