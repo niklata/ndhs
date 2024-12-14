@@ -1,6 +1,5 @@
 // Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
-#include <string_view>
 #include <assert.h>
 #include "dhcp_state.hpp"
 extern "C" {
@@ -81,19 +80,21 @@ static std::vector<interface_data> interface_state;
 // return of -2 means input was invalid
 // return of -1 means out buffer ran out of space
 #define MAX_DNS_LABELS 256
-static int dns_label(char *out, size_t outlen, std::string_view ds)
+static int dns_label(char *out, size_t outlen, const char *ds)
 {
     size_t locx[MAX_DNS_LABELS * 2];
     size_t locn = 0;
+    size_t dslen = strlen(ds);
     const char *out_st = out;
 
-    if (ds.size() <= 0)
+    if (dslen <= 0)
         return 0;
 
     // First we build up a list of label start/end offsets.
     size_t s = 0, idx = 0;
     bool in_label = false;
-    for (const auto &i: ds) {
+    for (size_t j = 0; j < dslen; ++j) {
+        char i = ds[j];
         if (i == '.') {
             if (in_label) {
                 if (locn >= MAX_DNS_LABELS) return -2; // label too long
