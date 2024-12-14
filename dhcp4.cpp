@@ -422,11 +422,9 @@ bool D4Listener::create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_ass
     if (routers) iplist_option(&reply, DCODE_ROUTER, *routers);
     if (dns4) iplist_option(&reply, DCODE_DNS, *dns4);
     if (ntp4) iplist_option(&reply, DCODE_NTPSVR, *ntp4);
-    const auto dns_search = query_dns_search(ifindex_);
-    if (dns_search && dns_search->size()) {
-        const auto &dn = dns_search->front();
-        add_option_domain_name(&reply, dn.c_str(), dn.size());
-    }
+    auto [dns4_search_blob, dns4_search_blob_size] = query_dns4_search_blob(ifindex_);
+    if (dns4_search_blob && dns4_search_blob_size)
+        add_option_domain_name(&reply, dns4_search_blob, dns4_search_blob_size);
     return true;
 }
 
