@@ -8,7 +8,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
-#include <nk/scopeguard.hpp>
 extern "C" {
 #include "nk/io.h"
 #include "nk/log.h"
@@ -50,11 +49,11 @@ static void generate_duid()
 
     const auto fd = open(DUID_PATH, O_WRONLY|O_TRUNC|O_CREAT|O_CLOEXEC, 0644);
     if (fd < 0) suicide("%s: failed to open %s for write\n", __func__, DUID_PATH);
-    SCOPE_EXIT { close(fd); };
     const auto r = safe_write(fd, g_server_duid, g_server_duid_len);
     if (r < 0 || r != g_server_duid_len)
         suicide("%s: failed to write duid to %s\n", __func__, DUID_PATH);
     print_duid();
+    close(fd);
 }
 
 void duid_load_from_file()
@@ -65,14 +64,15 @@ void duid_load_from_file()
         generate_duid();
         return;
     }
-    SCOPE_EXIT { close(fd); };
     const auto r = safe_read(fd, g_server_duid, g_server_duid_len);
     if (r < 0) suicide("%s: failed to read duid from %s\n", __func__, DUID_PATH);
     if (r != g_server_duid_len) {
         log_line("DUID is too short to be valid.  Generating a new DUID.\n");
         generate_duid();
-        return;
+        goto out0;
     }
     print_duid();
+out0:
+    close(fd);
 }
 

@@ -9,7 +9,6 @@
 #include <string>
 #include <vector>
 #include <assert.h>
-#include <nk/scopeguard.hpp>
 #include <nk/net/ip_address.hpp>
 extern "C" {
 #include <net/if.h>
@@ -307,19 +306,20 @@ bool dynlease_unused_addr(const char *interface, const nk::ip_address &addr)
 
 bool dynlease_serialize(const char *path)
 {
-    char tmp_path[PATH_MAX];
+    bool ret = false;
     size_t pathlen = strlen(path);
+    int fd = -1;
+    char tmp_path[PATH_MAX];
     if (pathlen + 5 > sizeof tmp_path) abort();
     memcpy(tmp_path, path, pathlen);
     memcpy(tmp_path + pathlen, ".tmp", 5);
 
-    const auto f = fopen(tmp_path, "w");
+    FILE *f = fopen(tmp_path, "w");
     if (!f) {
         log_line("%s: failed to open '%s' for dynamic lease serialization\n",
                  __func__, path);
-        return false;
+        goto out0;
     }
-    SCOPE_EXIT{ fclose(f); unlink(tmp_path); };
     for (const auto &i: dyn_leases_v4) {
         const auto iface = i.ifname;
         const auto &ls = i.state;
@@ -328,13 +328,13 @@ bool dynlease_serialize(const char *path)
             if (get_current_ts() >= j.expire_time)
                 continue;
             char abuf[48];
-            if (!j.addr.to_string(abuf, sizeof abuf)) return false;
+            if (!j.addr.to_string(abuf, sizeof abuf)) goto out1;
             if (fprintf(f, "v4 %s %s %2.x%2.x%2.x%2.x%2.x%2.x %zu\n",
                         iface, abuf,
                         j.macaddr[0], j.macaddr[1], j.macaddr[2],
                         j.macaddr[3], j.macaddr[4], j.macaddr[5], j.expire_time) < 0) {
                 log_line("%s: fprintf failed: %s\n", __func__, strerror(errno));
-                return false;
+                goto out1;
             }
         }
     }
@@ -347,30 +347,35 @@ bool dynlease_serialize(const char *path)
                 continue;
 
             char abuf[48];
-            if (!j.addr.to_string(abuf, sizeof abuf)) return false;
+            if (!j.addr.to_string(abuf, sizeof abuf)) goto out1;
             if (fprintf(f, "v6 %s %s ", iface, abuf) < 0) goto err0;
             for (const auto &k: j.duid) if (fprintf(f, "%.2hhx", k) < 0) goto err0;
             if (fprintf(f, " %u %lu\n", j.iaid, j.expire_time) < 0) goto err0;
             continue;
         err0:
             log_line("%s: fprintf failed: %s\n", __func__, strerror(errno));
-            return false;
+            goto out1;
         }
     }
     if (fflush(f)) {
         log_line("%s: fflush failed: %s\n", __func__, strerror(errno));
-        return false;
+        goto out1;
     }
-    const auto fd = fileno(f);
+    fd = fileno(f);
     if (fdatasync(fd)) {
         log_line("%s: fdatasync failed: %s\n", __func__, strerror(errno));
-        return false;
+        goto out1;
     }
     if (rename(tmp_path, path)) {
         log_line("%s: rename failed: %s\n", __func__, strerror(errno));
-        return false;
+        goto out1;
     }
-    return true;
+    ret = true;
+out1:
+    fclose(f);
+    unlink(tmp_path);
+out0:
+    return ret;
 }
 
 // v4 <interface> <ip> <macaddr> <expire_time>
@@ -508,22 +513,24 @@ static int do_parse_dynlease_line(dynlease_parse_state &cps, const char *p, size
 
 bool dynlease_deserialize(const char *path)
 {
+    bool ret = false;
+    size_t linenum = 0;
+    dynlease_parse_state ps;
     char buf[MAX_LINE];
-    const auto f = fopen(path, "r");
+    FILE *f = fopen(path, "r");
     if (!f) {
         log_line("%s: failed to open '%s' for dynamic lease deserialization\n",
                  __func__, path);
-        return false;
+        goto out0;
     }
-    SCOPE_EXIT{ fclose(f); };
     dyn_leases_v4.clear();
     dyn_leases_v6.clear();
-    size_t linenum = 0;
-    dynlease_parse_state ps;
     while (!feof(f)) {
         if (!fgets(buf, sizeof buf, f)) {
-            if (!feof(f))
+            if (!feof(f)) {
                 log_line("%s: io error fetching line of '%s'\n", __func__, path);
+                goto out1;
+            }
             break;
         }
         auto llen = strlen(buf);
@@ -544,6 +551,10 @@ bool dynlease_deserialize(const char *path)
             continue;
         }
     }
-    return true;
+    ret = true;
+out1:
+    fclose(f);
+out0:
+    return ret;
 }
 

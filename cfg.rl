@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: MIT
 #include <stdio.h>
 #include <inttypes.h>
-#include <nk/scopeguard.hpp>
 #include "dhcp_state.hpp"
 extern "C" {
 #include "nk/log.h"
@@ -313,20 +312,22 @@ static int do_parse_cfg_line(cfg_parse_state &cps, const char *p, size_t plen,
 
 bool parse_config(const char *path)
 {
+    bool ret = false;
+    size_t linenum = 0;
+    cfg_parse_state ps;
     char buf[MAX_LINE];
-    auto f = fopen(path, "r");
+    FILE *f = fopen(path, "r");
     if (!f) {
         log_line("%s: failed to open config file '%s' for read: %s\n",
                  __func__, path, strerror(errno));
-        return false;
+        goto out0;
     }
-    SCOPE_EXIT{ fclose(f); };
-    size_t linenum = 0;
-    cfg_parse_state ps;
     while (!feof(f)) {
         if (!fgets(buf, sizeof buf, f)) {
-            if (!feof(f))
+            if (!feof(f)) {
                 log_line("%s: io error fetching line of '%s'\n", __func__, path);
+                goto out1;
+            }
             break;
         }
         auto llen = strlen(buf);
@@ -348,6 +349,10 @@ bool parse_config(const char *path)
         }
     }
     create_blobs();
-    return true;
+    ret = true;
+out1:
+    fclose(f);
+out0:
+    return ret;
 }
 
