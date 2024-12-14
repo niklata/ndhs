@@ -1,6 +1,6 @@
 // Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
-#include <string>
+#include <string_view>
 #include <assert.h>
 #include "dhcp_state.hpp"
 extern "C" {
@@ -10,14 +10,42 @@ extern "C" {
 
 extern NLSocket nl_socket;
 
+struct str_slist
+{
+    struct str_slist *next;
+    char str[];
+};
+
+static void str_slist_append(struct str_slist **head, const char *s, size_t slen)
+{
+    struct str_slist **e = head;
+    while (*e) e = &(*e)->next;
+    assert(!*e);
+    *e = static_cast<struct str_slist *>(malloc(sizeof(struct str_slist) + slen + 1));
+    if (!*e) abort();
+    (*e)->next = nullptr;
+    *(char *)mempcpy(&((*e)->str), s, slen) = 0;
+}
+
+static void str_slist_destroy(struct str_slist **head)
+{
+    struct str_slist *e = *head;
+    while (e) {
+        struct str_slist *n = e->next;
+        free(e);
+        e = n;
+    }
+    *head = nullptr;
+}
+
 struct interface_data
 {
     interface_data(int ifindex_)
-        : ifindex(ifindex_), d4_dns_search_blob(nullptr), ra6_dns_search_blob(nullptr),
-          ntp6_fqdns_blob(nullptr), d4_dns_search_blob_size(0),
-          ra6_dns_search_blob_size(0), ntp6_fqdns_blob_size(0), dynamic_lifetime(0),
-          preference(0), use_dhcpv4(false), use_dhcpv6(false),
-          use_dynamic_v4(false), use_dynamic_v6(false)
+        : ifindex(ifindex_), p_dns_search(nullptr), p_ntp6_fqdns(nullptr),
+          d4_dns_search_blob(nullptr), ra6_dns_search_blob(nullptr),
+          d4_dns_search_blob_size(0), ra6_dns_search_blob_size(0),
+          dynamic_lifetime(0), preference(0), use_dhcpv4(false),
+          use_dhcpv6(false), use_dynamic_v4(false), use_dynamic_v6(false)
     {}
     int ifindex;
     std::vector<dhcpv6_entry> s6addrs; // static assigned v6 leases
@@ -28,16 +56,14 @@ struct interface_data
     std::vector<nk::ip_address> ntp6_servers;
     std::vector<nk::ip_address> ntp4_servers;
     std::vector<nk::ip_address> ntp6_multicasts;
-    std::vector<std::string> dns_search;
-    std::vector<std::string> ntp6_fqdns;
     nk::ip_address subnet;
     nk::ip_address broadcast;
+    struct str_slist *p_dns_search;
+    struct str_slist *p_ntp6_fqdns;
     char *d4_dns_search_blob;
     char *ra6_dns_search_blob;
-    char *ntp6_fqdns_blob;
     size_t d4_dns_search_blob_size;
     size_t ra6_dns_search_blob_size;
-    size_t ntp6_fqdns_blob_size;
     std::pair<nk::ip_address, nk::ip_address> dynamic_range;
     uint32_t dynamic_lifetime;
     uint8_t preference;
@@ -115,13 +141,13 @@ static int dns_label(char *out, size_t outlen, std::string_view ds)
 }
 
 static void create_d4_dns_search_blob(char **out, size_t *outlen,
-                                      const std::vector<std::string> &dns_search)
+                                      struct str_slist *dns_search)
 {
     size_t blen = 0;
     char buf[256]; // must be >= 255 bytes
 
-    for (const auto &dnsname: dns_search) {
-        int r = dns_label(buf + blen, sizeof buf - blen, dnsname);
+    for (struct str_slist *e = dns_search; e; e = e->next) {
+        int r = dns_label(buf + blen, sizeof buf - blen, e->str);
         if (r < 0) {
             if (r == -1) {
                 log_line("too many names in dns_search\n");
@@ -142,13 +168,13 @@ static void create_d4_dns_search_blob(char **out, size_t *outlen,
 }
 
 static void create_ra6_dns_search_blob(char **out, size_t *outlen,
-                                       const std::vector<std::string> &dns_search)
+                                       struct str_slist *dns_search)
 {
     size_t blen = 0;
     char buf[2048]; // must be >= 8*256 bytes
 
-    for (const auto &dnsname: dns_search) {
-        int r = dns_label(buf + blen, sizeof buf - blen, dnsname);
+    for (struct str_slist *e = dns_search; e; e = e->next) {
+        int r = dns_label(buf + blen, sizeof buf - blen, e->str);
         if (r < 0) {
             if (r == -1) {
                 log_line("too many names in dns_search\n");
@@ -168,54 +194,12 @@ static void create_ra6_dns_search_blob(char **out, size_t *outlen,
     memcpy(*out, buf, blen);
 }
 
-// Different from the dns search blob because we pre-include the
-// suboption headers.
-static void create_d6_ntp_blob(char **out, size_t *outlen,
-                               const std::vector<std::string> &ntp_fqdns)
-{
-    size_t blen = 0;
-    char buf[256]; // must be >= 256 bytes
-
-    for (const auto &ntpname: ntp_fqdns) {
-        if (blen + 2 >= sizeof buf) break;
-        buf[blen++] = 0;
-        buf[blen++] = 3;
-        int r = dns_label(buf + blen, sizeof buf - blen, ntpname);
-        if (r < 0) {
-            blen -= 2; // back out prefix
-            if (r == -1) {
-                log_line("too many names in ntp_search\n");
-                break;
-            } else {
-                log_line("malformed input to ntp_search\n");
-                continue;
-            }
-        }
-        size_t s = (size_t)r;
-        if (blen + s + 2 >= sizeof buf) {
-            blen -= 2; // back out prefix
-            break;
-        }
-        blen += s;
-        buf[blen++] = s >> 8;
-        buf[blen++] = s & 0xff;
-    }
-    assert(blen <= 255);
-    if (*out) { free(*out); *out = nullptr; }
-    *out = static_cast<char *>(malloc(blen));
-    if (!*out) abort();
-    *outlen = blen;
-    memcpy(*out, buf, blen);
-}
-
 void create_blobs()
 {
     for (auto &i: interface_state) {
-        create_d4_dns_search_blob(&i.d4_dns_search_blob, &i.d4_dns_search_blob_size, i.dns_search);
-        create_ra6_dns_search_blob(&i.ra6_dns_search_blob, &i.ra6_dns_search_blob_size, i.dns_search);
-        i.dns_search.clear();
-        create_d6_ntp_blob(&i.ntp6_fqdns_blob, &i.ntp6_fqdns_blob_size, i.ntp6_fqdns);
-        i.ntp6_fqdns.clear();
+        create_d4_dns_search_blob(&i.d4_dns_search_blob, &i.d4_dns_search_blob_size, i.p_dns_search);
+        create_ra6_dns_search_blob(&i.ra6_dns_search_blob, &i.ra6_dns_search_blob_size, i.p_dns_search);
+        str_slist_destroy(&i.p_dns_search);
     }
 }
 
@@ -454,7 +438,7 @@ bool emplace_dns_search(size_t linenum, const char *interface, const char *label
 {
     auto is = lookup_interface(interface);
     if (is) {
-        is->dns_search.emplace_back(label, label_len);
+        str_slist_append(&is->p_dns_search, label, label_len);
         return true;
     }
     log_line("No interface specified at line %zu\n", linenum);
@@ -528,13 +512,6 @@ const std::vector<nk::ip_address> *query_ntp4_servers(int ifindex)
     auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->ntp4_servers;
-}
-
-std::pair<const char *, size_t> query_ntp6_fqdns_blob(int ifindex)
-{
-    auto is = lookup_interface(ifindex);
-    if (!is) return std::make_pair(nullptr, 0);
-    return std::make_pair(is->ntp6_fqdns_blob, is->ntp6_fqdns_blob_size);
 }
 
 const std::vector<nk::ip_address> *query_ntp6_multicasts(int ifindex)
