@@ -295,7 +295,7 @@ int main(int ac, char *av[])
         int timeout = INT_MAX;
         for (auto &i: r6_listeners) {
             auto t = i->send_periodic_advert();
-            timeout = std::min(timeout, t);
+            timeout = timeout < t ? timeout : t;
         }
         dynlease_gc();
         if (poll(poll_vector.data(), poll_vector.size(), timeout > 0 ? timeout : 0) < 0) {

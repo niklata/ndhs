@@ -499,7 +499,7 @@ uint8_t D4Listener::validate_dhcp(size_t len) const
 
 void D4Listener::process_receive(const char *buf, size_t buflen)
 {
-    auto msglen = std::min(static_cast<size_t>(buflen), sizeof dhcpmsg_);
+    size_t msglen = buflen < sizeof dhcpmsg_ ? buflen : sizeof dhcpmsg_;
     memset(&dhcpmsg_, 0, sizeof dhcpmsg_);
     memcpy(&dhcpmsg_, buf, msglen);
     uint8_t msgtype = validate_dhcp(msglen);

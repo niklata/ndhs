@@ -370,14 +370,14 @@ void RA6Listener::attach_bpf(int fd)
 
 void RA6Listener::set_advi_s_max(unsigned v)
 {
-    v = std::max(v, 4U);
-    v = std::min(v, 1800U);
+    v = v > 4u ? v : 4u;
+    v = v < 1800u ? v : 1800u;
     advi_s_max_ = v;
 }
 
 void RA6Listener::set_next_advert_ts()
 {
-    unsigned advi_s_min = std::max(advi_s_max_ / 3, 3U);
+    unsigned advi_s_min = advi_s_max_ / 3 > 3u ? advi_s_max_ / 3 : 3u;
     // The extremely small distribution skew does not matter here.
     unsigned advi_s = (unsigned)(nk_random_u64() % (advi_s_max_ - advi_s_min)) + advi_s_min;
     clock_gettime(CLOCK_BOOTTIME, &advert_ts_);
