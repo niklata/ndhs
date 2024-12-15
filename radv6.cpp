@@ -84,18 +84,6 @@ public:
     uint8_t hop_limit() const {
         return data_[7];
     }
-    nk::ip_address source_address() const
-    {
-        nk::ip_address ret;
-        ret.from_v6bytes(data_ + 8);
-        return ret;
-    }
-    nk::ip_address destination_address() const
-    {
-        nk::ip_address ret;
-        ret.from_v6bytes(data_ + 24);
-        return ret;
-    }
     static const size_t size = 40;
 
     bool read(sbufs &rbuf)
@@ -240,12 +228,7 @@ public:
     bool router_addr_flag() const { return data_[3] & (1 << 5); }
     uint32_t valid_lifetime() const { return decode32be(data_ + 4); }
     uint32_t preferred_lifetime() const { return decode32be(data_ + 8); }
-    nk::ip_address prefix() const
-    {
-        nk::ip_address ret;
-        ret.from_v6bytes(data_ + 16);
-        return ret;
-    }
+    // ip address is at data_ + 16
     void on_link(bool v) { toggle_bit(v, data_, 3, 1 << 7); }
     void auto_addr_cfg(bool v) { toggle_bit(v, data_, 3, 1 << 6); }
     void router_addr_flag(bool v) { toggle_bit(v, data_, 3, 1 << 5); }
