@@ -17,30 +17,30 @@ extern "C" {
 extern NLSocket nl_socket;
 extern int64_t get_current_ts();
 
-static nk::ip_address mask_v6_addr(const nk::ip_address &addr, uint8_t mask)
+static in6_addr mask_v6_addr(const in6_addr *addr, uint8_t mask)
 {
-    nk::ip_address ret;
+    in6_addr ret;
     uint8_t b[16];
-    addr.raw_v6bytes(b);
+    memcpy(b, addr, sizeof b);
     const auto keep_bytes = mask / 8u;
     const auto keep_r_bits = mask % 8u;
     b[keep_bytes] &= ~(0xffu >> keep_r_bits);
     for (unsigned i = keep_bytes + 1; i < 16; ++i) b[i] = 0u;
-    ret.from_v6bytes(b);
+    memcpy(&ret, b, sizeof ret);
     return ret;
 }
-static nk::ip_address v6_addr_random(const nk::ip_address &prefix, uint8_t prefixlen)
+static in6_addr v6_addr_random(const in6_addr *prefix, uint8_t prefixlen)
 {
-    nk::ip_address ret;
+    in6_addr ret;
     uint8_t b[16];
     const auto keep_bytes = prefixlen / 8u;
     const auto keep_r_bits = prefixlen % 8u;
-    prefix.raw_v6bytes(b);
+    memcpy(b, prefix, sizeof b);
     unsigned i = 15;
     for (; i > keep_bytes; --i) b[i] = nk_random_u64();
     uint8_t c = nk_random_u64();
     b[i] |= c & (0xff >> keep_r_bits);
-    ret.from_v6bytes(b);
+    memcpy(&ret, b, sizeof ret);
     return ret;
 }
 
@@ -51,9 +51,9 @@ bool D6Listener::create_dhcp6_socket()
         log_line("dhcp6: Failed to create v6 UDP socket on %s: %s\n", ifname_, strerror(errno));
         return false;
     }
-    nk::ip_address mc6_alldhcp_ras;
-    if (!mc6_alldhcp_ras.from_string("ff02::1:2")) return false;
-    if (!attach_multicast(tfd(), ifname_, mc6_alldhcp_ras)) return false;
+    in6_addr mc6_alldhcp_ras;
+    if (!ipaddr_from_string(&mc6_alldhcp_ras, "ff02::1:2")) return false;
+    if (!attach_multicast(tfd(), ifname_, &mc6_alldhcp_ras)) return false;
     attach_bpf(tfd());
 
     sockaddr_in6 sai;
@@ -90,20 +90,20 @@ bool D6Listener::init(const char *ifname, uint8_t preference)
     log_line("dhcp6: DHCPv6 Preference is %u on %s\n", preference_, ifname_);
 
     for (const auto &i: ifinfo->addrs) {
-        if (i.scope == netif_addr::Scope::Global && !i.address.is_v4()) {
+        if (i.scope == netif_addr::Scope::Global && !ipaddr_is_v4(&i.address)) {
             local_ip_ = i.address;
             prefixlen_ = i.prefixlen;
-            local_ip_prefix_ = mask_v6_addr(local_ip_, prefixlen_);
+            local_ip_prefix_ = mask_v6_addr(&local_ip_, prefixlen_);
             char abuf[48];
             char abufp[48];
-            if (!local_ip_.to_string(abuf, sizeof abuf)) abort();
-            if (!local_ip_prefix_.to_string(abufp, sizeof abufp)) abort();
+            if (!ipaddr_to_string(abuf, sizeof abuf, &local_ip_)) abort();
+            if (!ipaddr_to_string(abufp, sizeof abufp, &local_ip_prefix_)) abort();
             log_line("dhcp6: IP address for %s is %s/%u.  Prefix is %s.\n",
                      ifname, abuf, +prefixlen_, abufp);
-        } else if (i.scope == netif_addr::Scope::Link && !i.address.is_v4()) {
+        } else if (i.scope == netif_addr::Scope::Link && !ipaddr_is_v4(&i.address)) {
             link_local_ip_ = i.address;
             char abuf[48];
-            if (!link_local_ip_.to_string(abuf, sizeof abuf)) abort();
+            if (!ipaddr_to_string(abuf, sizeof abuf, &link_local_ip_)) abort();
             log_line("dhcp6: Link-local IP address for %s is %s.\n", ifname, abuf);
         }
     }
@@ -200,8 +200,8 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
 
     const auto expire_time = get_current_ts() + dynamic_lifetime;
 
-    auto v6a = dynlease6_query_refresh(ifname_, d6s.client_duid_str, d6s.client_duid_str_size, iaid, expire_time);
-    if (v6a != nk::ip_address(nk::ip_address::any{})) {
+    in6_addr v6a = dynlease6_query_refresh(ifname_, d6s.client_duid_str, d6s.client_duid_str_size, iaid, expire_time);
+    if (memcmp(&v6a, &in6addr_any, sizeof v6a)) {
         dhcpv6_entry de;
         de.duid_len = d6s.client_duid_str_size;
         if (de.duid_len > sizeof de.duid) abort();
@@ -211,7 +211,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
         de.iaid = iaid;
         if (!emit_IA_addr(d6s, ss, &de)) return false;
         char abuf[48];
-        if (!v6a.to_string(abuf, sizeof abuf)) abort();
+        if (!ipaddr_to_string(abuf, sizeof abuf, &v6a)) abort();
         log_line("dhcp6: Assigned existing dynamic IP (%s) on %s\n", abuf, ifname_);
         use_dynamic = true;
         return true;
@@ -230,9 +230,9 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
     // existing static and dynamic leases.  If no collision, assign a
     // dynamic lease to the random address and return it.
     for (unsigned attempt = 0; attempt < MAX_DYN_ATTEMPTS; ++attempt) {
-        v6a = v6_addr_random(local_ip_prefix_, prefixlen_);
-        if (!query_unused_addr_v6(ifindex_, v6a)) continue;
-        const auto assigned = dynlease6_add(ifname_, v6a, d6s.client_duid_str,
+        v6a = v6_addr_random(&local_ip_prefix_, prefixlen_);
+        if (!query_unused_addr_v6(ifindex_, &v6a)) continue;
+        const auto assigned = dynlease6_add(ifname_, &v6a, d6s.client_duid_str,
                                             d6s.client_duid_str_size, iaid, expire_time);
         if (assigned) {
             dhcpv6_entry de;
@@ -362,7 +362,7 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, sbufs &ss,
         if (auto x = query_dhcp6_state(ifindex_, d6s.client_duid_str, d6s.client_duid_str_size, i.iaid)) {
             ha = true;
             char abuf[48];
-            if (!x->address.to_string(abuf, sizeof abuf)) abort();
+            if (!ipaddr_to_string(abuf, sizeof abuf, &x->address)) abort();
             log_line("dhcp6: Found static address %s on %s\n", abuf, ifname_);
             if (!emit_IA_addr(d6s, ss, x)) return false;
             continue;
@@ -391,7 +391,7 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
         if (!send_dns.write(ss)) return false;
         for (const auto &i: *dns6_servers) {
             if (ss.se - ss.si < 16) return false;
-            i.raw_v6bytes(ss.si);
+            memcpy(ss.si, &i, 16);
             ss.si += 16;
         }
     }
@@ -424,7 +424,7 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
             n6_svr.length(16);
             if (!n6_svr.write(ss)) return false;
             if (ss.se - ss.si < 16) return false;
-            i.raw_v6bytes(ss.si);
+            memcpy(ss.si, &i, 16);
             ss.si += 16;
         }
         for (const auto &i: *ntp6_multicasts) {
@@ -433,7 +433,7 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
             n6_mc.length(16);
             if (!n6_mc.write(ss)) return false;
             if (ss.se - ss.si < 16) return false;
-            i.raw_v6bytes(ss.si);
+            memcpy(ss.si, &i, 16);
             ss.si += 16;
         }
     }
@@ -446,7 +446,7 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
         if (!send_sntp.write(ss)) return false;
         for (const auto &i: *ntp6_servers) {
             if (ss.se - ss.si < 16) return false;
-            i.raw_v6bytes(ss.si);
+            memcpy(ss.si, &i, 16);
             ss.si += 16;
         }
     }
@@ -460,9 +460,9 @@ bool D6Listener::confirm_match(const d6msg_state &d6s, bool &confirmed)
         log_line("dhcp6: Querying duid='%s' iaid=%u...\n", d6s.client_duid_str, i.iaid);
         if (i.ia_na_addrs.empty()) return false; // See RFC8415 18.3.3 p3
         for (const auto &j: i.ia_na_addrs) {
-            if (!j.addr.compare_mask(local_ip_prefix_, prefixlen_)) {
+            if (!ipaddr_compare_masked(&j.addr, &local_ip_prefix_, prefixlen_)) {
                 char abuf[48];
-                if (!j.addr.to_string(abuf, sizeof abuf)) abort();
+                if (!ipaddr_to_string(abuf, sizeof abuf, &j.addr)) abort();
                 log_line("dhcp6: Invalid prefix for IA IP %s on %s. NAK.\n", abuf, ifname_);
                 return true;
             } else {
@@ -481,10 +481,10 @@ bool D6Listener::mark_addr_unused(const d6msg_state &d6s, sbufs &ss)
         log_line("dhcp6: Marking duid='%s' iaid=%u unused on %s...\n", d6s.client_duid_str, i.iaid, ifname_);
         auto x = query_dhcp6_state(ifindex_, d6s.client_duid_str, d6s.client_duid_str_size, i.iaid);
         for (const auto &j: i.ia_na_addrs) {
-            if (x && j.addr == x->address) {
+            if (x && !memcmp(&j.addr, &x->address, 16)) {
                 log_line("dhcp6: found static lease on %s\n", ifname_);
                 freed_ia_addr = true;
-            } else if (dynlease6_del(ifname_, j.addr, d6s.client_duid_str, d6s.client_duid_str_size, i.iaid)) {
+            } else if (dynlease6_del(ifname_, &j.addr, d6s.client_duid_str, d6s.client_duid_str_size, i.iaid)) {
                 log_line("dhcp6: found dynamic lease on %s\n", ifname_);
                 freed_ia_addr = true;
             }
@@ -730,7 +730,7 @@ void D6Listener::process_receive(char *buf, size_t buflen,
                  d6s.prev_opt.emplace_back(std::make_pair(5, iaa_options_len));
 
              char abuf[48];
-             if (!d6s.ias.back().ia_na_addrs.back().addr.to_string(abuf, sizeof abuf)) abort();
+             if (!ipaddr_to_string(abuf, sizeof abuf, &d6s.ias.back().ia_na_addrs.back().addr)) abort();
              log_line("dhcp6: IA Address: %s prefer=%us valid=%us opt_len=%d on %s\n",
                       abuf,
                       d6s.ias.back().ia_na_addrs.back().prefer_lifetime,

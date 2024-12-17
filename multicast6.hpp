@@ -3,10 +3,10 @@
 #ifndef NDHS_MULTICAST6_HPP_
 #define NDHS_MULTICAST6_HPP_
 
-#include <net/if.h>
-#include <nk/net/ip_address.hpp>
 #include "nlsocket.hpp"
 extern "C" {
+#include <ipaddr.h>
+#include <net/if.h>
 #include "nk/log.h"
 }
 
@@ -49,12 +49,12 @@ extern NLSocket nl_socket;
     return true;
 }
 
-[[nodiscard]] static inline bool attach_multicast(int fd, const char *ifname, nk::ip_address &mc6addr)
+[[nodiscard]] static inline bool attach_multicast(int fd, const char *ifname, const in6_addr *mc6addr)
 {
     sockaddr_in6 sai;
     memset(&sai, 0, sizeof sai);
     sai.sin6_family = AF_INET6;
-    mc6addr.raw_v6bytes(&sai.sin6_addr);
+    memcpy(&sai.sin6_addr, mc6addr, 16);
     return attach_multicast(fd, ifname, sai);
 }
 #endif

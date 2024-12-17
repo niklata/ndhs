@@ -5,8 +5,8 @@
 #include <stdint.h>
 #include <vector>
 #include <nk/sys/posix/handle.hpp>
-#include <nk/net/ip_address.hpp>
 extern "C" {
+#include <ipaddr.h>
 #include <net/if.h>
 #include "nl.h"
 }
@@ -23,10 +23,10 @@ struct netif_addr
 
     char if_name[IFNAMSIZ];
     int if_index;
-    nk::ip_address address;
-    nk::ip_address peer_address;
-    nk::ip_address broadcast_address;
-    nk::ip_address anycast_address;
+    in6_addr address;
+    in6_addr peer_address;
+    in6_addr broadcast_address;
+    in6_addr anycast_address;
     unsigned char addr_type;
     unsigned char prefixlen;
     unsigned char flags;

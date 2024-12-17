@@ -234,10 +234,10 @@ public:
     void router_addr_flag(bool v) { toggle_bit(v, data_, 3, 1 << 5); }
     void valid_lifetime(uint32_t v) { encode32be(v, data_ + 4); }
     void preferred_lifetime(uint32_t v) { encode32be(v, data_ + 8); }
-    void prefix(const nk::ip_address &v, uint8_t pl) {
+    void prefix(const in6_addr *v, uint8_t pl) {
         uint8_t a6[16];
         data_[2] = pl;
-        v.raw_v6bytes(a6);
+        memcpy(a6, v, sizeof a6);
         uint8_t keep_bytes = pl / 8;
         uint8_t keep_bits = pl % 8;
         if (keep_bits == 0)
@@ -426,9 +426,9 @@ bool RA6Listener::send_advert()
 
     // Prefix Information
     for (const auto &i: ifinfo->addrs) {
-        if (i.scope == netif_addr::Scope::Global && !i.address.is_v4()) {
+        if (i.scope == netif_addr::Scope::Global && !ipaddr_is_v4(&i.address)) {
             ra6_prefix_info_opt ra6_pfxi;
-            ra6_pfxi.prefix(i.address, i.prefixlen);
+            ra6_pfxi.prefix(&i.address, i.prefixlen);
             ra6_pfxi.on_link(true);
             ra6_pfxi.auto_addr_cfg(false);
             ra6_pfxi.router_addr_flag(true);
@@ -471,7 +471,7 @@ bool RA6Listener::send_advert()
     csum = net_checksum16_add(csum, net_checksum16(&icmp_nexthdr, 1));
     if (dns6_servers) {
         for (const auto &i: *dns6_servers) {
-            csum = net_checksum16_add(csum, net_checksum16(&i.native_type(), sizeof i.native_type()));
+            csum = net_checksum16_add(csum, net_checksum16(&i, sizeof i));
         }
     }
     icmp_hdr.checksum(csum);
@@ -489,7 +489,7 @@ bool RA6Listener::send_advert()
         if (!ra6_dns.write(ss)) return false;
         for (const auto &i: *dns6_servers) {
             if (ss.se - ss.si < 16) return false;
-            i.raw_v6bytes(ss.si);
+            memcpy(ss.si, &i, 16);
             ss.si += 16;
         }
     }

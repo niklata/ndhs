@@ -5,6 +5,7 @@
 #include <inttypes.h>
 #include "dhcp_state.hpp"
 extern "C" {
+#include "ipaddr.h"
 #include "nk/log.h"
 #include <net/if.h>
 }
@@ -52,9 +53,9 @@ struct cfg_parse_state {
 
 #include "parsehelp.h"
 
-bool string_to_ipaddr(nk::ip_address *r, const char *s, size_t linenum)
+bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
 {
-    if (!r->from_string(s)) {
+    if (!ipaddr_from_string(r, s)) {
         log_line("ip address on line %zu is invalid\n", linenum);
         return false;
     }
@@ -185,58 +186,58 @@ bool string_to_ipaddr(nk::ip_address *r, const char *s, size_t linenum)
         emplace_interface(linenum, cps.interface, cps.default_preference);
     }
     action DnsServerEn {
-        nk::ip_address t;
+        in6_addr t;
         if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
             cps.parse_error = true;
             fbreak;
         }
-        emplace_dns_server(linenum, cps.interface, t, cps.last_addr);
+        emplace_dns_server(linenum, cps.interface, &t, cps.last_addr);
     }
     action DnsSearchEn {
         emplace_dns_search(linenum, cps.interface, MARKED_STRING());
     }
     action NtpServerEn {
-        nk::ip_address t;
+        in6_addr t;
         if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
             cps.parse_error = true;
             fbreak;
         }
-        emplace_ntp_server(linenum, cps.interface, t, cps.last_addr);
+        emplace_ntp_server(linenum, cps.interface, &t, cps.last_addr);
     }
     action GatewayEn {
-        nk::ip_address t;
+        in6_addr t;
         if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
             cps.parse_error = true;
             fbreak;
         }
-        emplace_gateway(linenum, cps.interface, t);
+        emplace_gateway(linenum, cps.interface, &t);
     }
     action DynRangePreEn {
         memcpy(cps.ipaddr2, cps.ipaddr, sizeof cps.ipaddr2);
     }
     action DynRangeEn {
-        nk::ip_address tlo;
+        in6_addr tlo;
         if (!string_to_ipaddr(&tlo, cps.ipaddr2, linenum)) {
             cps.parse_error = true;
             fbreak;
         }
-        nk::ip_address thi;
+        in6_addr thi;
         if (!string_to_ipaddr(&thi, cps.ipaddr, linenum)) {
             cps.parse_error = true;
             fbreak;
         }
-        emplace_dynamic_range(linenum, cps.interface, tlo, thi, cps.default_lifetime);
+        emplace_dynamic_range(linenum, cps.interface, &tlo, &thi, cps.default_lifetime);
     }
     action DynamicV6En {
         emplace_dynamic_v6(linenum, cps.interface);
     }
     action V4EntryEn {
-        nk::ip_address t;
+        in6_addr t;
         if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
             cps.parse_error = true;
             fbreak;
         }
-        emplace_dhcp4_state(linenum, cps.interface, cps.macaddr, t, cps.default_lifetime);
+        emplace_dhcp4_state(linenum, cps.interface, cps.macaddr, &t, cps.default_lifetime);
     }
     action V6EntryEn {
         char buf[64];
@@ -251,14 +252,14 @@ bool string_to_ipaddr(nk::ip_address *r, const char *s, size_t linenum)
             cps.parse_error = true;
             fbreak;
         }
-        nk::ip_address t;
+        in6_addr t;
         if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
             cps.parse_error = true;
             fbreak;
         }
         emplace_dhcp6_state(linenum, cps.interface,
                             cps.duid, cps.duid_len,
-                            iaid, t, cps.default_lifetime);
+                            iaid, &t, cps.default_lifetime);
     }
 
     duid = (xdigit+ | (xdigit{2} ('-' xdigit{2})*)+) >St %DuidEn;

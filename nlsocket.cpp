@@ -100,13 +100,13 @@ void NLSocket::request_addrs(int ifidx)
         suicide("nlsocket: failed to get initial rtaddr state\n");
 }
 
-static void parse_raw_address6(nk::ip_address &addr, struct rtattr *tb[], size_t type)
+static void parse_raw_address6(in6_addr *addr, struct rtattr *tb[], size_t type)
 {
-    addr.from_v6bytes(RTA_DATA(tb[type]));
+    memcpy(addr, RTA_DATA(tb[type]), sizeof *addr);
 }
-static void parse_raw_address4(nk::ip_address &addr, struct rtattr *tb[], size_t type)
+static void parse_raw_address4(in6_addr *addr, struct rtattr *tb[], size_t type)
 {
-    addr.from_v4bytes(RTA_DATA(tb[type]));
+    ipaddr_from_v4_bytes(addr, RTA_DATA(tb[type]));
 }
 
 void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
@@ -133,15 +133,15 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
     }
     if (tb[IFA_ADDRESS]) {
         if (nia.addr_type == AF_INET6)
-            parse_raw_address6(nia.address, tb, IFA_ADDRESS);
+            parse_raw_address6(&nia.address, tb, IFA_ADDRESS);
         else
-            parse_raw_address4(nia.address, tb, IFA_ADDRESS);
+            parse_raw_address4(&nia.address, tb, IFA_ADDRESS);
     }
     if (tb[IFA_LOCAL]) {
         if (nia.addr_type == AF_INET6)
-            parse_raw_address6(nia.peer_address, tb, IFA_LOCAL);
+            parse_raw_address6(&nia.peer_address, tb, IFA_LOCAL);
         else
-            parse_raw_address4(nia.peer_address, tb, IFA_LOCAL);
+            parse_raw_address4(&nia.peer_address, tb, IFA_LOCAL);
     }
     if (tb[IFA_LABEL]) {
         auto v = reinterpret_cast<const char *>(RTA_DATA(tb[IFA_LABEL]));
@@ -154,15 +154,15 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
     }
     if (tb[IFA_BROADCAST]) {
         if (nia.addr_type == AF_INET6)
-            parse_raw_address6(nia.broadcast_address, tb, IFA_BROADCAST);
+            parse_raw_address6(&nia.broadcast_address, tb, IFA_BROADCAST);
         else
-            parse_raw_address4(nia.broadcast_address, tb, IFA_BROADCAST);
+            parse_raw_address4(&nia.broadcast_address, tb, IFA_BROADCAST);
     }
     if (tb[IFA_ANYCAST]) {
         if (nia.addr_type == AF_INET6)
-            parse_raw_address6(nia.anycast_address, tb, IFA_ANYCAST);
+            parse_raw_address6(&nia.anycast_address, tb, IFA_ANYCAST);
         else
-            parse_raw_address4(nia.anycast_address, tb, IFA_ANYCAST);
+            parse_raw_address4(&nia.anycast_address, tb, IFA_ANYCAST);
     }
 
     switch (nlh->nlmsg_type) {
@@ -172,23 +172,23 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
             if (i.index == nia.if_index) {
                 // Update if the address already exists
                 for (auto j = i.addrs.begin(), jend = i.addrs.end(); j != jend; ++j) {
-                    if (j->address == nia.address) {
+                    if (!memcmp(&j->address, &nia.address, sizeof nia.address)) {
                         *j = std::move(nia);
                         return;
                     }
                 }
                 // Otherwise add it.
                 if (nia.addr_type == AF_INET) {
-                    emplace_broadcast(0, nia.if_name, nia.broadcast_address);
+                    emplace_broadcast(0, nia.if_name, &nia.broadcast_address);
 
                     uint32_t subnet = 0xffffffffu;
                     for (unsigned j = 0, jend = 32 - nia.prefixlen; j < jend; ++j) subnet <<= 1;
                     subnet = htonl(subnet);
                     char sbuf[INET_ADDRSTRLEN+1];
                     if (inet_ntop(AF_INET, &subnet, sbuf, sizeof sbuf)) {
-                        nk::ip_address taddr;
-                        if (!taddr.from_string(sbuf)) abort();
-                        emplace_subnet(0, nia.if_name, taddr);
+                        in6_addr taddr;
+                        if (!ipaddr_from_string(&taddr, sbuf)) abort();
+                        emplace_subnet(0, nia.if_name, &taddr);
                     }
                 }
                 i.addrs.emplace_back(std::move(nia));
@@ -201,7 +201,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
         for (auto &i: ifaces_) {
             if (i.index == nia.if_index) {
                 for (auto j = i.addrs.begin(), jend = i.addrs.end(); j != jend; ++j) {
-                    if (j->address == nia.address) {
+                    if (!memcmp(&j->address, &nia.address, sizeof nia.address)) {
                         i.addrs.erase(j);
                         return;
                     }

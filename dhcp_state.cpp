@@ -49,21 +49,21 @@ struct interface_data
     int ifindex;
     std::vector<dhcpv6_entry> s6addrs; // static assigned v6 leases
     std::vector<dhcpv4_entry> s4addrs; // static assigned v4 leases
-    std::vector<nk::ip_address> gateway;
-    std::vector<nk::ip_address> dns6_servers;
-    std::vector<nk::ip_address> dns4_servers;
-    std::vector<nk::ip_address> ntp6_servers;
-    std::vector<nk::ip_address> ntp4_servers;
-    std::vector<nk::ip_address> ntp6_multicasts;
-    nk::ip_address subnet;
-    nk::ip_address broadcast;
+    std::vector<in6_addr> gateway;
+    std::vector<in6_addr> dns6_servers;
+    std::vector<in6_addr> dns4_servers;
+    std::vector<in6_addr> ntp6_servers;
+    std::vector<in6_addr> ntp4_servers;
+    std::vector<in6_addr> ntp6_multicasts;
+    in6_addr subnet;
+    in6_addr broadcast;
     struct str_slist *p_dns_search;
     struct str_slist *p_ntp6_fqdns;
     char *d4_dns_search_blob;
     char *ra6_dns_search_blob;
     size_t d4_dns_search_blob_size;
     size_t ra6_dns_search_blob_size;
-    std::pair<nk::ip_address, nk::ip_address> dynamic_range;
+    std::pair<in6_addr, in6_addr> dynamic_range;
     uint32_t dynamic_lifetime;
     uint8_t preference;
     bool use_dhcpv4:1;
@@ -268,14 +268,14 @@ bool emplace_interface(size_t linenum, const char *interface, uint8_t preference
 
 bool emplace_dhcp6_state(size_t linenum, const char *interface,
                          const char *duid, size_t duid_len,
-                         uint32_t iaid, const nk::ip_address &v6_addr, uint32_t default_lifetime)
+                         uint32_t iaid, const in6_addr *v6_addr, uint32_t default_lifetime)
 {
     auto is = lookup_interface(interface);
     if (is) {
         dhcpv6_entry t;
         if (duid_len > sizeof t.duid) abort();
         memcpy(t.duid, duid, duid_len);
-        t.address = v6_addr;
+        t.address = *v6_addr;
         t.duid_len = duid_len;
         t.lifetime = default_lifetime;
         t.iaid = iaid;
@@ -287,11 +287,11 @@ bool emplace_dhcp6_state(size_t linenum, const char *interface,
 }
 
 bool emplace_dhcp4_state(size_t linenum, const char *interface, const char *macstr,
-                         const nk::ip_address &v4_addr, uint32_t default_lifetime)
+                         const in6_addr *v4_addr, uint32_t default_lifetime)
 {
     auto is = lookup_interface(interface);
     if (is) {
-        if (!v4_addr.is_v4()) {
+        if (!ipaddr_is_v4(v4_addr)) {
             log_line("Bad IPv4 address at line %zu\n", linenum);
             return false;
         }
@@ -303,7 +303,7 @@ bool emplace_dhcp4_state(size_t linenum, const char *interface, const char *macs
             return false;
         }
         memcpy(t.macaddr, u, sizeof t.macaddr);
-        t.address = v4_addr;
+        t.address = *v4_addr;
         t.lifetime = default_lifetime;
         is->s4addrs.push_back(t);
         return true;
@@ -313,7 +313,7 @@ bool emplace_dhcp4_state(size_t linenum, const char *interface, const char *macs
 }
 
 bool emplace_dns_server(size_t linenum, const char *interface,
-                        const nk::ip_address &addr, addr_type atype)
+                        const in6_addr *addr, addr_type atype)
 {
     if (atype == addr_type::null) {
         log_line("Invalid address type at line %zu\n", linenum);
@@ -321,14 +321,14 @@ bool emplace_dns_server(size_t linenum, const char *interface,
     }
     auto is = lookup_interface(interface);
     if (is) {
-        if ((atype == addr_type::v4 && !addr.is_v4()) || (atype == addr_type::v6 && addr.is_v4())) {
+        if ((atype == addr_type::v4 && !ipaddr_is_v4(addr)) || (atype == addr_type::v6 && ipaddr_is_v4(addr))) {
             log_line("Bad IP address at line %zu\n", linenum);
             return false;
         }
         if (atype == addr_type::v4) {
-            is->dns4_servers.emplace_back(addr);
+            is->dns4_servers.emplace_back(*addr);
         } else {
-            is->dns6_servers.emplace_back(addr);
+            is->dns6_servers.emplace_back(*addr);
         }
         return true;
     }
@@ -337,7 +337,7 @@ bool emplace_dns_server(size_t linenum, const char *interface,
 }
 
 bool emplace_ntp_server(size_t linenum, const char *interface,
-                        const nk::ip_address &addr, addr_type atype)
+                        const in6_addr *addr, addr_type atype)
 {
     if (atype == addr_type::null) {
         log_line("Invalid address type at line %zu\n", linenum);
@@ -345,14 +345,14 @@ bool emplace_ntp_server(size_t linenum, const char *interface,
     }
     auto is = lookup_interface(interface);
     if (is) {
-        if ((atype == addr_type::v4 && !addr.is_v4()) || (atype == addr_type::v6 && addr.is_v4())) {
+        if ((atype == addr_type::v4 && !ipaddr_is_v4(addr)) || (atype == addr_type::v6 && ipaddr_is_v4(addr))) {
             log_line("Bad IP address at line %zu\n", linenum);
             return false;
         }
         if (atype == addr_type::v4) {
-            is->ntp4_servers.emplace_back(addr);
+            is->ntp4_servers.emplace_back(*addr);
         } else {
-            is->ntp6_servers.emplace_back(addr);
+            is->ntp6_servers.emplace_back(*addr);
         }
         return true;
     }
@@ -360,44 +360,44 @@ bool emplace_ntp_server(size_t linenum, const char *interface,
     return false;
 }
 
-bool emplace_subnet(size_t linenum, const char *interface, const nk::ip_address &addr)
+bool emplace_subnet(size_t linenum, const char *interface, const in6_addr *addr)
 {
     auto is = lookup_interface(interface);
     if (is) {
-        if (!addr.is_v4()) {
+        if (!ipaddr_is_v4(addr)) {
             log_line("Bad IP address at line %zu\n", linenum);
             return false;
         }
-        is->subnet = addr;
+        is->subnet = *addr;
         return true;
     }
     return false;
 }
 
-bool emplace_gateway(size_t linenum, const char *interface, const nk::ip_address &addr)
+bool emplace_gateway(size_t linenum, const char *interface, const in6_addr *addr)
 {
     auto is = lookup_interface(interface);
     if (is) {
-        if (!addr.is_v4()) {
+        if (!ipaddr_is_v4(addr)) {
             log_line("Bad IP address at line %zu\n", linenum);
             return false;
         }
-        is->gateway.emplace_back(addr);
+        is->gateway.emplace_back(*addr);
         return true;
     }
     log_line("No interface specified at line %zu\n", linenum);
     return false;
 }
 
-bool emplace_broadcast(size_t linenum, const char *interface, const nk::ip_address &addr)
+bool emplace_broadcast(size_t linenum, const char *interface, const in6_addr *addr)
 {
     auto is = lookup_interface(interface);
     if (is) {
-        if (!addr.is_v4()) {
+        if (!ipaddr_is_v4(addr)) {
             log_line("Bad IP address at line %zu\n", linenum);
             return false;
         }
-        is->broadcast = addr;
+        is->broadcast = *addr;
         return true;
     }
     log_line("No interface specified at line %zu\n", linenum);
@@ -405,17 +405,18 @@ bool emplace_broadcast(size_t linenum, const char *interface, const nk::ip_addre
 }
 
 bool emplace_dynamic_range(size_t linenum, const char *interface,
-                           const nk::ip_address &lo_addr, const nk::ip_address &hi_addr,
+                           const in6_addr *lo_addr, const in6_addr *hi_addr,
                            uint32_t dynamic_lifetime)
 {
     auto is = lookup_interface(interface);
     if (is) {
-        if (!lo_addr.is_v4() || !hi_addr.is_v4()) {
+        if (!ipaddr_is_v4(lo_addr) || !ipaddr_is_v4(hi_addr)) {
             log_line("Bad IPv4 address at line %zu\n", linenum);
             return false;
         }
-        is->dynamic_range = lo_addr <= hi_addr ? std::make_pair(lo_addr, hi_addr)
-                                               : std::make_pair(hi_addr, lo_addr);
+        is->dynamic_range = memcmp(lo_addr, hi_addr, sizeof *lo_addr) <= 0
+               ? std::make_pair(*lo_addr, *hi_addr)
+               : std::make_pair(*hi_addr, *lo_addr);
         is->dynamic_lifetime = dynamic_lifetime;
         is->use_dynamic_v4 = true;
         return true;
@@ -473,14 +474,14 @@ const dhcpv4_entry *query_dhcp4_state(int ifindex, const uint8_t *hwaddr)
     return nullptr;
 }
 
-const std::vector<nk::ip_address> *query_dns6_servers(int ifindex)
+const std::vector<in6_addr> *query_dns6_servers(int ifindex)
 {
     auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->dns6_servers;
 }
 
-const std::vector<nk::ip_address> *query_dns4_servers(int ifindex)
+const std::vector<in6_addr> *query_dns4_servers(int ifindex)
 {
     auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
@@ -501,49 +502,49 @@ std::pair<const char *, size_t> query_dns6_search_blob(int ifindex)
     return std::make_pair(is->ra6_dns_search_blob, is->ra6_dns_search_blob_size);
 }
 
-const std::vector<nk::ip_address> *query_ntp6_servers(int ifindex)
+const std::vector<in6_addr> *query_ntp6_servers(int ifindex)
 {
     auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->ntp6_servers;
 }
 
-const std::vector<nk::ip_address> *query_ntp4_servers(int ifindex)
+const std::vector<in6_addr> *query_ntp4_servers(int ifindex)
 {
     auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->ntp4_servers;
 }
 
-const std::vector<nk::ip_address> *query_ntp6_multicasts(int ifindex)
+const std::vector<in6_addr> *query_ntp6_multicasts(int ifindex)
 {
     auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->ntp6_multicasts;
 }
 
-const std::vector<nk::ip_address> *query_gateway(int ifindex)
+const std::vector<in6_addr> *query_gateway(int ifindex)
 {
     auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->gateway;
 }
 
-const nk::ip_address *query_subnet(int ifindex)
+const in6_addr *query_subnet(int ifindex)
 {
     auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->subnet;
 }
 
-const nk::ip_address *query_broadcast(int ifindex)
+const in6_addr *query_broadcast(int ifindex)
 {
     auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->broadcast;
 }
 
-const std::pair<nk::ip_address, nk::ip_address> *
+const std::pair<in6_addr, in6_addr> *
 query_dynamic_range(int ifindex)
 {
     auto is = lookup_interface(ifindex);
@@ -567,12 +568,12 @@ bool query_use_dynamic_v6(int ifindex, uint32_t *dynamic_lifetime)
     return is->use_dynamic_v6;
 }
 
-bool query_unused_addr_v6(int ifindex, const nk::ip_address &addr)
+bool query_unused_addr_v6(int ifindex, const in6_addr *addr)
 {
     auto is = lookup_interface(ifindex);
     if (!is) return true;
     for (const auto &i: is->s6addrs) {
-        if (i.address == addr) return false;
+        if (!memcmp(&i.address, addr, sizeof *addr)) return false;
     }
     return true;
 }

@@ -9,8 +9,8 @@
 #include <string>
 #include <vector>
 #include <assert.h>
-#include <nk/net/ip_address.hpp>
 extern "C" {
+#include <ipaddr.h>
 #include <net/if.h>
 #include "nk/log.h"
 }
@@ -25,24 +25,24 @@ extern int64_t get_current_ts();
 
 struct lease_state_v4
 {
-    lease_state_v4(const nk::ip_address &addr_, const char *macaddr_, int64_t et)
-        : addr(addr_), expire_time(et)
+    lease_state_v4(const in6_addr *addr_, const char *macaddr_, int64_t et)
+        : addr(*addr_), expire_time(et)
     {
         memcpy(macaddr, macaddr_, 6);
     }
-    nk::ip_address addr;
+    in6_addr addr;
     uint8_t macaddr[6];
     int64_t expire_time;
 };
 
 struct lease_state_v6
 {
-    lease_state_v6(const nk::ip_address &addr_, const char *duid_, size_t duid_len_, uint32_t iaid_, int64_t et)
-        : addr(addr_), duid_len(duid_len_), expire_time(et), iaid(iaid_)
+    lease_state_v6(const in6_addr *addr_, const char *duid_, size_t duid_len_, uint32_t iaid_, int64_t et)
+        : addr(*addr_), duid_len(duid_len_), expire_time(et), iaid(iaid_)
     {
         memcpy(duid, duid_, duid_len_);
     }
-    nk::ip_address addr;
+    in6_addr addr;
     size_t duid_len;
     int64_t expire_time;
     uint32_t iaid;
@@ -107,14 +107,14 @@ static bool emplace_dynlease4_state(size_t linenum, const char *interface,
 {
     auto is = lease_state4_by_name(interface);
     if (!is) is = create_new_dynlease4_state(interface);
-    nk::ip_address ipa;
-    if (!ipa.from_string(v4_addr)) {
+    in6_addr ipa;
+    if (!ipaddr_from_string(&ipa, v4_addr)) {
         log_line("Bad IP address at line %zu: %s\n", linenum, v4_addr);
         return false;
     }
     // We won't get duplicates unless someone manually edits the file.  If they do,
     // then they get what they deserve.
-    is->emplace_back(ipa, macaddr, expire_time);
+    is->emplace_back(&ipa, macaddr, expire_time);
     return true;
 }
 
@@ -125,12 +125,12 @@ static bool emplace_dynlease6_state(size_t linenum, const char *interface,
 {
     auto is = lease_state6_by_name(interface);
     if (!is) is = create_new_dynlease6_state(interface);
-    nk::ip_address ipa;
-    if (!ipa.from_string(v6_addr)) {
+    in6_addr ipa;
+    if (!ipaddr_from_string(&ipa, v6_addr)) {
         log_line("Bad IP address at line %zu: %s\n", linenum, v6_addr);
         return false;
     }
-    is->emplace_back(ipa, duid, duid_len, iaid, expire_time);
+    is->emplace_back(&ipa, duid, duid_len, iaid, expire_time);
     return true;
 }
 
@@ -158,15 +158,15 @@ void dynlease_gc()
     }
 }
 
-bool dynlease4_add(const char *interface, const nk::ip_address &v4_addr, const uint8_t *macaddr,
+bool dynlease4_add(const char *interface, const in6_addr *v4_addr, const uint8_t *macaddr,
                    int64_t expire_time)
 {
     auto is = lease_state4_by_name(interface);
     if (!is) is = create_new_dynlease4_state(interface);
 
     for (auto &i: *is) {
-        if (i.addr == v4_addr) {
-            if (memcmp(&i.macaddr, macaddr, 6) == 0) {
+        if (!memcmp(&i.addr, v4_addr, sizeof i.addr)) {
+            if (!memcmp(&i.macaddr, macaddr, 6)) {
                 i.expire_time = expire_time;
                 return true;
             }
@@ -184,14 +184,14 @@ static bool duid_compare(const char *a, size_t al, const char *b, size_t bl)
     return al == bl && !memcmp(a, b, al);
 }
 
-bool dynlease6_add(const char *interface, const nk::ip_address &v6_addr,
+bool dynlease6_add(const char *interface, const in6_addr *v6_addr,
                    const char *duid, size_t duid_len, uint32_t iaid, int64_t expire_time)
 {
     auto is = lease_state6_by_name(interface);
     if (!is) is = create_new_dynlease6_state(interface);
 
     for (auto &i: *is) {
-        if (i.addr == v6_addr) {
+        if (!memcmp(&i.addr, v6_addr, sizeof i.addr)) {
             if (!duid_compare(i.duid, i.duid_len, duid, duid_len) && i.iaid == iaid) {
                 i.expire_time = expire_time;
                 return true;
@@ -203,14 +203,14 @@ bool dynlease6_add(const char *interface, const nk::ip_address &v6_addr,
     return true;
 }
 
-nk::ip_address dynlease4_query_refresh(const char *interface, const uint8_t *macaddr,
-                                       int64_t expire_time)
+in6_addr dynlease4_query_refresh(const char *interface, const uint8_t *macaddr,
+                                 int64_t expire_time)
 {
     auto is = lease_state4_by_name(interface);
     if (!is) return {};
 
     for (auto &i: *is) {
-        if (memcmp(&i.macaddr, macaddr, 6) == 0) {
+        if (!memcmp(&i.macaddr, macaddr, 6)) {
             i.expire_time = expire_time;
             return i.addr;
         }
@@ -218,8 +218,8 @@ nk::ip_address dynlease4_query_refresh(const char *interface, const uint8_t *mac
     return {};
 }
 
-nk::ip_address dynlease6_query_refresh(const char *interface, const char *duid, size_t duid_len,
-                                       uint32_t iaid, int64_t expire_time)
+in6_addr dynlease6_query_refresh(const char *interface, const char *duid, size_t duid_len,
+                                 uint32_t iaid, int64_t expire_time)
 {
     auto is = lease_state6_by_name(interface);
     if (!is) return {};
@@ -233,40 +233,41 @@ nk::ip_address dynlease6_query_refresh(const char *interface, const char *duid, 
     return {};
 }
 
-bool dynlease4_exists(const char *interface, const nk::ip_address &v4_addr, const uint8_t *macaddr)
+bool dynlease4_exists(const char *interface, const in6_addr *v4_addr, const uint8_t *macaddr)
 {
     auto is = lease_state4_by_name(interface);
     if (!is) return false;
 
     for (auto &i: *is) {
-        if (i.addr == v4_addr && memcmp(&i.macaddr, macaddr, 6) == 0) {
+        if (!memcmp(&i.addr, v4_addr, sizeof i.addr) && !memcmp(&i.macaddr, macaddr, 6)) {
             return get_current_ts() < i.expire_time;
         }
     }
     return false;
 }
 
-bool dynlease6_exists(const char *interface, const nk::ip_address &v6_addr,
+bool dynlease6_exists(const char *interface, const in6_addr *v6_addr,
                       const char *duid, size_t duid_len, uint32_t iaid)
 {
     auto is = lease_state6_by_name(interface);
     if (!is) return false;
 
     for (auto &i: *is) {
-        if (i.addr == v6_addr && !duid_compare(i.duid, i.duid_len, duid, duid_len) && i.iaid == iaid) {
+        if (!memcmp(&i.addr, v6_addr, sizeof i.addr)
+            && !duid_compare(i.duid, i.duid_len, duid, duid_len) && i.iaid == iaid) {
             return get_current_ts() < i.expire_time;
         }
     }
     return false;
 }
 
-bool dynlease4_del(const char *interface, const nk::ip_address &v4_addr, const uint8_t *macaddr)
+bool dynlease4_del(const char *interface, const in6_addr *v4_addr, const uint8_t *macaddr)
 {
     auto is = lease_state4_by_name(interface);
     if (!is) return false;
 
     for (auto i = is->begin(), iend = is->end(); i != iend; ++i) {
-        if (i->addr == v4_addr && memcmp(&i->macaddr, macaddr, 6) == 0) {
+        if (!memcmp(&i->addr, v4_addr, sizeof i->addr) && !memcmp(&i->macaddr, macaddr, 6)) {
             is->erase(i);
             return true;
         }
@@ -274,14 +275,15 @@ bool dynlease4_del(const char *interface, const nk::ip_address &v4_addr, const u
     return false;
 }
 
-bool dynlease6_del(const char *interface, const nk::ip_address &v6_addr,
-                  const char *duid, size_t duid_len, uint32_t iaid)
+bool dynlease6_del(const char *interface, const in6_addr *v6_addr,
+                   const char *duid, size_t duid_len, uint32_t iaid)
 {
     auto is = lease_state6_by_name(interface);
     if (!is) return false;
 
     for (auto i = is->begin(), iend = is->end(); i != iend; ++i) {
-        if (i->addr == v6_addr && !duid_compare(i->duid, i->duid_len, duid, duid_len) && i->iaid == iaid) {
+        if (!memcmp(&i->addr, v6_addr, sizeof i->addr)
+            && !duid_compare(i->duid, i->duid_len, duid, duid_len) && i->iaid == iaid) {
             is->erase(i);
             return true;
         }
@@ -289,13 +291,13 @@ bool dynlease6_del(const char *interface, const nk::ip_address &v6_addr,
     return false;
 }
 
-bool dynlease_unused_addr(const char *interface, const nk::ip_address &addr)
+bool dynlease_unused_addr(const char *interface, const in6_addr *addr)
 {
     auto is = lease_state6_by_name(interface);
     if (!is) return true;
 
     for (auto i = is->begin(), iend = is->end(); i != iend; ++i) {
-        if (i->addr == addr)
+        if (!memcmp(&i->addr, addr, sizeof i->addr))
             return false;
     }
     return true;
@@ -328,7 +330,7 @@ bool dynlease_serialize(const char *path)
             if (get_current_ts() >= j.expire_time)
                 continue;
             char abuf[48];
-            if (!j.addr.to_string(abuf, sizeof abuf)) goto out1;
+            if (!ipaddr_to_string(abuf, sizeof abuf, &j.addr)) goto out1;
             if (fprintf(f, "v4 %s %s %2.x%2.x%2.x%2.x%2.x%2.x %zu\n",
                         iface, abuf,
                         j.macaddr[0], j.macaddr[1], j.macaddr[2],
@@ -347,7 +349,7 @@ bool dynlease_serialize(const char *path)
                 continue;
 
             char abuf[48];
-            if (!j.addr.to_string(abuf, sizeof abuf)) goto out1;
+            if (!ipaddr_to_string(abuf, sizeof abuf, &j.addr)) goto out1;
             if (fprintf(f, "v6 %s %s ", iface, abuf) < 0) goto err0;
             for (const auto &k: j.duid) if (fprintf(f, "%.2hhx", k) < 0) goto err0;
             if (fprintf(f, " %u %lu\n", j.iaid, j.expire_time) < 0) goto err0;

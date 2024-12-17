@@ -4,13 +4,13 @@
 #define NDHS_DHCP6_HPP_
 
 #include <stdint.h>
-#include <nk/net/ip_address.hpp>
 #include <nk/netbits.hpp>
 #include <nk/sys/posix/handle.hpp>
 #include "dhcp_state.hpp"
 #include "radv6.hpp"
 #include "sbufs.h"
 extern "C" {
+#include <ipaddr.h>
 #include <net/if.h>
 }
 
@@ -112,7 +112,7 @@ struct dhcp6_opt_serverid
 };
 
 struct d6_ia_addr {
-    nk::ip_address addr;
+    in6_addr addr;
     uint32_t prefer_lifetime;
     uint32_t valid_lifetime;
     static const size_t size = 24;
@@ -120,7 +120,7 @@ struct d6_ia_addr {
     bool read(sbufs &rbuf)
     {
         if (rbuf.brem() < size) return false;
-        addr.from_v6bytes(rbuf.si);
+        memcpy(&addr, rbuf.si, sizeof addr);
         prefer_lifetime = decode32be(rbuf.si + 16);
         valid_lifetime = decode32be(rbuf.si + 20);
         rbuf.si += size;
@@ -129,7 +129,7 @@ struct d6_ia_addr {
     bool write(sbufs &sbuf) const
     {
         if (sbuf.brem() < size) return false;
-        addr.raw_v6bytes(sbuf.si);
+        memcpy(sbuf.si, &addr, sizeof addr);
         encode32be(prefer_lifetime, sbuf.si + 16);
         encode32be(valid_lifetime, sbuf.si + 20);
         sbuf.si += size;
@@ -251,9 +251,9 @@ private:
     void process_receive(char *buf, size_t buflen,
                          const sockaddr_storage &sai, socklen_t sailen);
 
-    nk::ip_address local_ip_;
-    nk::ip_address local_ip_prefix_;
-    nk::ip_address link_local_ip_;
+    in6_addr local_ip_;
+    in6_addr local_ip_prefix_;
+    in6_addr link_local_ip_;
     char ifname_[IFNAMSIZ];
     int ifindex_;
     nk::sys::handle fd_;

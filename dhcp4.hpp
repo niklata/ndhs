@@ -4,11 +4,11 @@
 #define NDHS_DHCP4_HPP
 
 #include <time.h> // ClientStates
-#include <nk/net/ip_address.hpp>
 #include <nk/sys/posix/handle.hpp>
 #include <vector>
 #include "dhcp.h"
 extern "C" {
+#include <ipaddr.h>
 #include <net/if.h>
 }
 
@@ -88,7 +88,7 @@ private:
     struct dhcpmsg dhcpmsg_;
     char ifname_[IFNAMSIZ];
     int ifindex_;
-    nk::ip_address local_ip_;
+    in6_addr local_ip_;
     detail::ClientStates state_;
 };
 
