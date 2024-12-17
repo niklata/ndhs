@@ -333,8 +333,8 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
 
     log_line("dhcp4: Checking dynamic IP.\n");
 
-    const auto dr = query_dynamic_range(ifindex_);
-    if (!dr) {
+    in6_addr dr_lo, dr_hi;
+    if (!query_dynamic_range(ifindex_, &dr_lo, &dr_hi)) {
         log_line("dhcp4: No dynamic range is associated.  Can't assign an IP.\n");
         return false;
     }
@@ -356,8 +356,8 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     log_line("dhcp4: Selecting an unused dynamic IP.\n");
 
     // IP is randomly selected from the dynamic range.
-    uint32_t al = decode32be(ipaddr_v4_bytes(&dr->first));
-    uint32_t ah = decode32be(ipaddr_v4_bytes(&dr->second));
+    uint32_t al = decode32be(ipaddr_v4_bytes(&dr_lo));
+    uint32_t ah = decode32be(ipaddr_v4_bytes(&dr_hi));
     const uint64_t ar = ah > al ? ah - al : al - ah;
     // The extremely small distribution skew does not matter here.
     const auto rqs = nk_random_u64() % (ar + 1);

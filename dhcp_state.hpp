@@ -59,7 +59,7 @@ const std::vector<in6_addr> *query_ntp6_multicasts(int ifindex);
 const std::vector<in6_addr> *query_gateway(int ifindex);
 const in6_addr *query_subnet(int ifindex);
 const in6_addr *query_broadcast(int ifindex);
-const std::pair<in6_addr, in6_addr> *query_dynamic_range(int ifindex);
+bool query_dynamic_range(int ifindex, in6_addr *lo, in6_addr *hi);
 bool query_use_dynamic_v4(int ifindex, uint32_t *dynamic_lifetime);
 bool query_use_dynamic_v6(int ifindex, uint32_t *dynamic_lifetime);
 bool query_unused_addr_v6(int ifindex, const in6_addr *addr);

@@ -57,13 +57,14 @@ struct interface_data
     std::vector<in6_addr> ntp6_multicasts;
     in6_addr subnet;
     in6_addr broadcast;
+    in6_addr dynamic_range_lo;
+    in6_addr dynamic_range_hi;
     struct str_slist *p_dns_search;
     struct str_slist *p_ntp6_fqdns;
     char *d4_dns_search_blob;
     char *ra6_dns_search_blob;
     size_t d4_dns_search_blob_size;
     size_t ra6_dns_search_blob_size;
-    std::pair<in6_addr, in6_addr> dynamic_range;
     uint32_t dynamic_lifetime;
     uint8_t preference;
     bool use_dhcpv4:1;
@@ -409,9 +410,9 @@ bool emplace_dynamic_range(size_t linenum, int ifindex,
             log_line("Bad IPv4 address at line %zu\n", linenum);
             return false;
         }
-        is->dynamic_range = memcmp(lo_addr, hi_addr, sizeof *lo_addr) <= 0
-               ? std::make_pair(*lo_addr, *hi_addr)
-               : std::make_pair(*hi_addr, *lo_addr);
+        bool inorder = memcmp(lo_addr, hi_addr, sizeof *lo_addr) <= 0;
+        is->dynamic_range_lo = inorder? *lo_addr : *hi_addr;
+        is->dynamic_range_hi = inorder? *hi_addr : *lo_addr;
         is->dynamic_lifetime = dynamic_lifetime;
         is->use_dynamic_v4 = true;
         return true;
@@ -539,12 +540,13 @@ const in6_addr *query_broadcast(int ifindex)
     return &is->broadcast;
 }
 
-const std::pair<in6_addr, in6_addr> *
-query_dynamic_range(int ifindex)
+bool query_dynamic_range(int ifindex, in6_addr *lo, in6_addr *hi)
 {
     auto is = lookup_interface(ifindex);
-    if (!is) return nullptr;
-    return &is->dynamic_range;
+    if (!is) return false;
+    *lo = is->dynamic_range_lo;
+    *hi = is->dynamic_range_hi;
+    return true;
 }
 
 bool query_use_dynamic_v4(int ifindex, uint32_t *dynamic_lifetime)
