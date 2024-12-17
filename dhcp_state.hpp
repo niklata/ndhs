@@ -23,6 +23,11 @@ struct dhcpv4_entry {
     uint32_t lifetime;
 };
 
+struct blob {
+    size_t n;
+    const char *s;
+};
+
 void create_blobs();
 bool emplace_bind4(size_t linenum, const char *interface);
 bool emplace_bind6(size_t linenum, const char *interface);
@@ -50,11 +55,10 @@ const dhcpv6_entry *query_dhcp6_state(int ifindex,
 const dhcpv4_entry *query_dhcp4_state(int ifindex, const uint8_t *hwaddr);
 const std::vector<in6_addr> *query_dns6_servers(int ifindex);
 const std::vector<in6_addr> *query_dns4_servers(int ifindex);
-std::pair<const char *, size_t> query_dns4_search_blob(int ifindex);
-std::pair<const char *, size_t> query_dns6_search_blob(int ifindex);
+struct blob query_dns4_search_blob(int ifindex);
+struct blob query_dns6_search_blob(int ifindex);
 const std::vector<in6_addr> *query_ntp6_servers(int ifindex);
 const std::vector<in6_addr> *query_ntp4_servers(int ifindex);
-std::pair<const char *, size_t> query_ntp6_fqdns_blob(int ifindex);
 const std::vector<in6_addr> *query_ntp6_multicasts(int ifindex);
 const std::vector<in6_addr> *query_gateway(int ifindex);
 const in6_addr *query_subnet(int ifindex);

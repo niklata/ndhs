@@ -484,18 +484,18 @@ const std::vector<in6_addr> *query_dns4_servers(int ifindex)
     return &is->dns4_servers;
 }
 
-std::pair<const char *, size_t> query_dns4_search_blob(int ifindex)
+struct blob query_dns4_search_blob(int ifindex)
 {
     auto is = lookup_interface(ifindex);
-    if (!is) return std::make_pair(nullptr, 0);
-    return std::make_pair(is->d4_dns_search_blob, is->d4_dns_search_blob_size);
+    if (!is) return (struct blob){ .n = 0, .s = nullptr };
+    return (struct blob){ .n = is->d4_dns_search_blob_size, .s = is->d4_dns_search_blob };
 }
 
-std::pair<const char *, size_t> query_dns6_search_blob(int ifindex)
+struct blob query_dns6_search_blob(int ifindex)
 {
     auto is = lookup_interface(ifindex);
-    if (!is) return std::make_pair(nullptr, 0);
-    return std::make_pair(is->ra6_dns_search_blob, is->ra6_dns_search_blob_size);
+    if (!is) return (struct blob){ .n = 0, .s = nullptr };
+    return (struct blob){ .n = is->ra6_dns_search_blob_size, .s = is->ra6_dns_search_blob };
 }
 
 const std::vector<in6_addr> *query_ntp6_servers(int ifindex)

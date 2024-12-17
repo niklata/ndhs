@@ -421,9 +421,8 @@ bool D4Listener::create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_ass
     if (routers) iplist_option(&reply, DCODE_ROUTER, *routers);
     if (dns4) iplist_option(&reply, DCODE_DNS, *dns4);
     if (ntp4) iplist_option(&reply, DCODE_NTPSVR, *ntp4);
-    auto [dns4_search_blob, dns4_search_blob_size] = query_dns4_search_blob(ifindex_);
-    if (dns4_search_blob && dns4_search_blob_size)
-        add_option_domain_name(&reply, dns4_search_blob, dns4_search_blob_size);
+    struct blob d4b = query_dns4_search_blob(ifindex_);
+    if (d4b.n && d4b.s) add_option_domain_name(&reply, d4b.s, d4b.n);
     return true;
 }
 

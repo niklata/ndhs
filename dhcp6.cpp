@@ -395,15 +395,15 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
             ss.si += 16;
         }
     }
-    auto [dns6_search_blob, dns6_search_blob_size] = query_dns6_search_blob(ifindex_);
-    if (d6s.optreq_dns_search && (dns6_search_blob && dns6_search_blob_size)) {
+    struct blob d6b = query_dns6_search_blob(ifindex_);
+    if (d6s.optreq_dns_search && (d6b.s && d6b.n)) {
         dhcp6_opt send_dns_search;
         send_dns_search.type(24);
-        send_dns_search.length(dns6_search_blob_size);
+        send_dns_search.length(d6b.n);
         if (!send_dns_search.write(ss)) return false;
-        if (ss.se - ss.si < (ptrdiff_t)dns6_search_blob_size) return false;
-        memcpy(ss.si, dns6_search_blob, dns6_search_blob_size);
-        ss.si += dns6_search_blob_size;
+        if (ss.se - ss.si < (ptrdiff_t)d6b.n) return false;
+        memcpy(ss.si, d6b.s, d6b.n);
+        ss.si += d6b.n;
     }
     const auto ntp6_servers = query_ntp6_servers(ifindex_);
     const auto ntp6_multicasts = query_ntp6_multicasts(ifindex_);

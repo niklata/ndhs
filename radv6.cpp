@@ -435,34 +435,29 @@ bool RA6Listener::send_advert()
             ra6_pfxi.valid_lifetime(2592000);
             ra6_pfxi.preferred_lifetime(604800);
             ra6_pfxs.push_back(ra6_pfxi);
-            csum = net_checksum16_add
-                   (csum, net_checksum16(&ra6_pfxi, sizeof ra6_pfxi));
+            csum = net_checksum16_add(csum, net_checksum16(&ra6_pfxi, sizeof ra6_pfxi));
             pktl += sizeof ra6_pfxi;
             break;
         }
     }
 
     auto dns6_servers = query_dns6_servers(ifinfo->index);
-    auto [dns6_search_blob, dns6_search_blob_size] = query_dns6_search_blob(ifinfo->index);
+    struct blob d6b = query_dns6_search_blob(ifinfo->index);
 
     if (dns6_servers && dns6_servers->size()) {
         ra6_dns.length(dns6_servers->size());
         ra6_dns.lifetime(advi_s_max_ * 2);
-        csum = net_checksum16_add(csum, net_checksum16(&ra6_dns,
-                                                           sizeof ra6_dns));
+        csum = net_checksum16_add(csum, net_checksum16(&ra6_dns, sizeof ra6_dns));
         pktl += sizeof ra6_dns + 16 * dns6_servers->size();
     }
 
     size_t dns_search_slack = 0;
-    if (dns6_search_blob && dns6_search_blob_size) {
-        dns_search_slack = ra6_dsrch.length(dns6_search_blob_size);
+    if (d6b.s && d6b.n) {
+        dns_search_slack = ra6_dsrch.length(d6b.n);
         ra6_dsrch.lifetime(advi_s_max_ * 2);
-        csum = net_checksum16_add
-            (csum, net_checksum16(&ra6_dsrch, sizeof ra6_dsrch));
-        csum = net_checksum16_add
-            (csum, net_checksum16(dns6_search_blob,
-                                    dns6_search_blob_size));
-        pktl += sizeof ra6_dsrch + dns6_search_blob_size + dns_search_slack;
+        csum = net_checksum16_add(csum, net_checksum16(&ra6_dsrch, sizeof ra6_dsrch));
+        csum = net_checksum16_add(csum, net_checksum16(d6b.s, d6b.n));
+        pktl += sizeof ra6_dsrch + d6b.n + dns_search_slack;
     }
 
     csum = net_checksum16_add(csum, net_checksum16(&ip6_any.sin6_addr, sizeof ip6_any.sin6_addr));
@@ -493,11 +488,11 @@ bool RA6Listener::send_advert()
             ss.si += 16;
         }
     }
-    if (dns6_search_blob && dns6_search_blob_size) {
+    if (d6b.s && d6b.n) {
         if (!ra6_dsrch.write(ss)) return false;
-        if (ss.se - ss.si < (ptrdiff_t)dns6_search_blob_size) return false;
-        memcpy(ss.si, dns6_search_blob, dns6_search_blob_size);
-        ss.si += dns6_search_blob_size;
+        if (ss.se - ss.si < (ptrdiff_t)d6b.n) return false;
+        memcpy(ss.si, d6b.s, d6b.n);
+        ss.si += d6b.n;
         for (size_t i = 0; i < dns_search_slack; ++i) {
             if (ss.si == ss.se) return false;
             *ss.si++ = 0;
