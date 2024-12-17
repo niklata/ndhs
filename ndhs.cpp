@@ -47,7 +47,6 @@ enum class pfd_type
 
 struct pfd_meta
 {
-    pfd_meta(pfd_type p, void *d) : pfdt(p), data(d) {}
     pfd_type pfdt;
     void *data;
 };
@@ -64,8 +63,9 @@ static std::vector<std::unique_ptr<D6Listener>> v6_listeners;
 static std::vector<std::unique_ptr<D4Listener>> v4_listeners;
 static std::vector<std::unique_ptr<RA6Listener>> r6_listeners;
 
-static std::vector<struct pollfd> poll_vector;
-static std::vector<pfd_meta> poll_meta;
+static struct pollfd *poll_array;
+static struct pfd_meta *poll_meta;
+static size_t poll_size;
 
 extern bool parse_config(const char *path);
 
@@ -111,24 +111,30 @@ static void init_listeners()
     pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
     pt.revents = 0;
 
-    pt.fd = nl_socket.fd();
-    poll_vector.push_back(pt);
-    poll_meta.emplace_back(pfd_type::netlink, &nl_socket);
+    poll_size = 1 + v4_listeners.size() + v6_listeners.size() + r6_listeners.size();
+    poll_array = static_cast<struct pollfd *>(malloc(poll_size * sizeof *poll_array));
+    poll_meta = static_cast<struct pfd_meta *>(malloc(poll_size * sizeof *poll_meta));
+    if (!poll_array || !poll_meta) abort();
 
+    pt.fd = nl_socket.fd();
+    poll_array[0] = pt;
+    poll_meta[0] = (struct pfd_meta){ .pfdt = pfd_type::netlink, .data = &nl_socket };
+
+    size_t pfdc = 1;
     for (auto &i: v4_listeners) {
         pt.fd = i->fd();
-        poll_vector.push_back(pt);
-        poll_meta.emplace_back(pfd_type::dhcp4, i.get());
+        poll_array[pfdc] = pt;
+        poll_meta[pfdc++] = (struct pfd_meta){ .pfdt = pfd_type::dhcp4, .data = i.get() };
     }
     for (auto &i: v6_listeners) {
         pt.fd = i->fd();
-        poll_vector.push_back(pt);
-        poll_meta.emplace_back(pfd_type::dhcp6, i.get());
+        poll_array[pfdc] = pt;
+        poll_meta[pfdc++] = (struct pfd_meta){ .pfdt = pfd_type::dhcp6, .data = i.get() };
     }
     for (auto &i: r6_listeners) {
         pt.fd = i->fd();
-        poll_vector.push_back(pt);
-        poll_meta.emplace_back(pfd_type::radv6, i.get());
+        poll_array[pfdc] = pt;
+        poll_meta[pfdc++] = (struct pfd_meta){ .pfdt = pfd_type::radv6, .data = i.get() };
     }
 }
 
@@ -290,44 +296,44 @@ int main(int ac, char *av[])
             timeout = timeout < t ? timeout : t;
         }
         dynlease_gc();
-        if (poll(poll_vector.data(), poll_vector.size(), timeout > 0 ? timeout : 0) < 0) {
+        if (poll(poll_array, poll_size, timeout > 0 ? timeout : 0) < 0) {
             if (errno != EINTR) suicide("poll failed\n");
         }
         if (l_signal_exit) break;
-        for (size_t i = 0, iend = poll_vector.size(); i < iend; ++i) {
+        for (size_t i = 0, iend = poll_size; i < iend; ++i) {
             switch (poll_meta[i].pfdt) {
             case pfd_type::netlink: {
-                if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+                if (poll_array[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
                     suicide("nlfd closed unexpectedly\n");
                 }
-                if (poll_vector[i].revents & POLLIN) {
+                if (poll_array[i].revents & POLLIN) {
                     nl_socket.process_input();
                 }
             } break;
             case pfd_type::dhcp6: {
                 auto d6 = static_cast<D6Listener *>(poll_meta[i].data);
-                if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+                if (poll_array[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
                     suicide("%s: dhcp6 socket closed unexpectedly\n", d6->ifname());
                 }
-                if (poll_vector[i].revents & POLLIN) {
+                if (poll_array[i].revents & POLLIN) {
                     d6->process_input();
                 }
             } break;
             case pfd_type::dhcp4: {
                 auto d4 = static_cast<D4Listener *>(poll_meta[i].data);
-                if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+                if (poll_array[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
                     suicide("%s: dhcp4 socket closed unexpectedly\n", d4->ifname());
                 }
-                if (poll_vector[i].revents & POLLIN) {
+                if (poll_array[i].revents & POLLIN) {
                     d4->process_input();
                 }
             } break;
             case pfd_type::radv6: {
                 auto r6 = static_cast<RA6Listener *>(poll_meta[i].data);
-                if (poll_vector[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+                if (poll_array[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
                     suicide("%s: ra6 socket closed unexpectedly\n", r6->ifname());
                 }
-                if (poll_vector[i].revents & POLLIN) {
+                if (poll_array[i].revents & POLLIN) {
                     r6->process_input();
                 }
             } break;
