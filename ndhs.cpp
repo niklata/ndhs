@@ -84,44 +84,20 @@ static void create_interface_listener(const struct netif_info *ifinfo,
                                       uint8_t preference, void *)
 {
     if (use_v6) {
-        v6_listeners.emplace_back(std::make_unique<D6Listener>());
-        if (!v6_listeners.back()->init(ifinfo->name, preference)) {
-            v6_listeners.pop_back();
-            log_line("Can't bind to dhcpv6 interface: %s\n", ifinfo->name);
-        } else {
-            r6_listeners.emplace_back(std::make_unique<RA6Listener>());
-            if (!r6_listeners.back()->init(ifinfo->name)) {
-                v6_listeners.pop_back();
-                r6_listeners.pop_back();
-                log_line("Can't bind to rav6 interface: %s\n", ifinfo->name);
-            } else {
-                struct pollfd pt;
-                pt.fd = v6_listeners.back()->fd();
-                pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
-                pt.revents = 0;
-                poll_vector.push_back(pt);
-                poll_meta.emplace_back(pfd_type::dhcp6, v6_listeners.back().get());
-                pt.fd = r6_listeners.back()->fd();
-                pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
-                pt.revents = 0;
-                poll_vector.push_back(pt);
-                poll_meta.emplace_back(pfd_type::radv6, r6_listeners.back().get());
-            }
-        }
+        auto d6l = std::make_unique<D6Listener>();
+        if (d6l->init(ifinfo->name, preference)) {
+            auto r6l = std::make_unique<RA6Listener>();
+            if (r6l->init(ifinfo->name)) {
+                v6_listeners.emplace_back(std::move(d6l));
+                r6_listeners.emplace_back(std::move(r6l));
+            } else log_line("Can't bind to rav6 interface: %s\n", ifinfo->name);
+        } else log_line("Can't bind to dhcpv6 interface: %s\n", ifinfo->name);
     }
     if (use_v4) {
-        v4_listeners.emplace_back(std::make_unique<D4Listener>());
-        if (!v4_listeners.back()->init(ifinfo->name)) {
-            v4_listeners.pop_back();
-            log_line("Can't bind to dhcpv4 interface: %s\n", ifinfo->name);
-        } else {
-            struct pollfd pt;
-            pt.fd = v4_listeners.back()->fd();
-            pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
-            pt.revents = 0;
-            poll_vector.push_back(pt);
-            poll_meta.emplace_back(pfd_type::dhcp4, v4_listeners.back().get());
-        }
+        auto d4l = std::make_unique<D4Listener>();
+        if (d4l->init(ifinfo->name)) {
+            v4_listeners.emplace_back(std::move(d4l));
+        } else log_line("Can't bind to dhcpv4 interface: %s\n", ifinfo->name);
     }
 }
 
@@ -129,15 +105,31 @@ static void init_listeners()
 {
     nl_socket.init();
     bound_interfaces_foreach(get_interface_addresses, nullptr);
+    bound_interfaces_foreach(create_interface_listener, nullptr);
 
     struct pollfd pt;
-    pt.fd = nl_socket.fd();
     pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
     pt.revents = 0;
+
+    pt.fd = nl_socket.fd();
     poll_vector.push_back(pt);
     poll_meta.emplace_back(pfd_type::netlink, &nl_socket);
 
-    bound_interfaces_foreach(create_interface_listener, nullptr);
+    for (auto &i: v4_listeners) {
+        pt.fd = i->fd();
+        poll_vector.push_back(pt);
+        poll_meta.emplace_back(pfd_type::dhcp4, i.get());
+    }
+    for (auto &i: v6_listeners) {
+        pt.fd = i->fd();
+        poll_vector.push_back(pt);
+        poll_meta.emplace_back(pfd_type::dhcp6, i.get());
+    }
+    for (auto &i: r6_listeners) {
+        pt.fd = i->fd();
+        poll_vector.push_back(pt);
+        poll_meta.emplace_back(pfd_type::radv6, i.get());
+    }
 }
 
 int64_t get_current_ts()
