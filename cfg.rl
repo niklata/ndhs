@@ -247,18 +247,6 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
         emplace_dhcp4_state(linenum, cps.ifindex, cps.macaddr, &t, cps.default_lifetime);
     }
     action V6EntryEn {
-        char buf[64];
-        ptrdiff_t blen = p - cps.st;
-        if (blen < 0 || blen >= (int)sizeof buf) {
-            cps.parse_error = true;
-            fbreak;
-        }
-        memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
-        uint32_t iaid;
-        if (sscanf(buf, "%" SCNu32, &iaid) != 1) {
-            cps.parse_error = true;
-            fbreak;
-        }
         in6_addr t;
         if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
             cps.parse_error = true;
@@ -266,10 +254,10 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
         }
         emplace_dhcp6_state(linenum, cps.ifindex,
                             cps.duid, cps.duid_len,
-                            iaid, &t, cps.default_lifetime);
+                            cps.iaid, &t, cps.default_lifetime);
     }
 
-    duid = (xdigit+ | (xdigit{2} ('-' xdigit{2})*)+) >St %DuidEn;
+    duid = xdigit+ >St %DuidEn;
     iaid = digit+ >St %IaidEn;
     macaddr = ((xdigit{2} ':'){5} xdigit{2}) >St %MacAddrEn;
     v4_addr = (digit{1,3} | '.')+ >St %V4AddrEn;
