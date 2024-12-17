@@ -7,7 +7,7 @@
 #include <net/if.h>
 #include <sys/socket.h>
 
-#include <nk/netbits.hpp>
+#include <nk/netbits.h>
 #include "radv6.hpp"
 #include "nlsocket.hpp"
 #include "dhcp6.hpp"

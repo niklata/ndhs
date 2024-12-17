@@ -10,6 +10,7 @@
 #include "dynlease.hpp"
 #include "sbufs.h"
 #include "rng.hpp"
+#include "nk/netbits.h"
 extern "C" {
 #include "nk/log.h"
 #include "nk/io.h"
@@ -355,11 +356,8 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     log_line("dhcp4: Selecting an unused dynamic IP.\n");
 
     // IP is randomly selected from the dynamic range.
-    uint32_t al, ah;
-    memcpy(&al, ipaddr_v4_bytes(&dr->first), sizeof al);
-    memcpy(&ah, ipaddr_v4_bytes(&dr->second), sizeof ah);
-    al = ntohl(al);
-    ah = ntohl(ah);
+    uint32_t al = decode32be(ipaddr_v4_bytes(&dr->first));
+    uint32_t ah = decode32be(ipaddr_v4_bytes(&dr->second));
     const uint64_t ar = ah > al ? ah - al : al - ah;
     // The extremely small distribution skew does not matter here.
     const auto rqs = nk_random_u64() % (ar + 1);

@@ -4,7 +4,7 @@
 #define NDHS_DHCP6_HPP_
 
 #include <stdint.h>
-#include <nk/netbits.hpp>
+#include <nk/netbits.h>
 #include <nk/sys/posix/handle.hpp>
 #include "dhcp_state.hpp"
 #include "radv6.hpp"
