@@ -274,8 +274,8 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
     v4_addr = (digit{1,3} | '.')+ >St %V4AddrEn;
     v6_addr = (xdigit{1,4} | ':')+ >St %V6AddrEn;
 
-    comment = space* ('//' any*)?;
-    tcomment = (space+ '//' any*)?;
+    comment = space* ('#' any*)?;
+    tcomment = (space+ '#' any*)?;
     bind4 = space* 'bind4' (space+ alnum+ >St %Bind4En)+ tcomment;
     bind6 = space* 'bind6' (space+ alnum+ >St %Bind6En)+ tcomment;
     user = space* 'user' space+ graph+ >St %UserEn tcomment;
