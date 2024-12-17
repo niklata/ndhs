@@ -24,10 +24,10 @@ struct cfg_parse_state {
 	cfg_parse_state() : st(nullptr), cs(0), last_addr(addr_type::null), default_lifetime(7200),
 	default_preference(0), parse_error(false) {}
 	void newline() {
+		// Do NOT clear interface here; it is stateful between lines!
 		memset(duid, 0, sizeof duid);
 		memset(ipaddr, 0, sizeof ipaddr);
 		memset(ipaddr2, 0, sizeof ipaddr2);
-		memset(interface, 0, sizeof interface);
 		memset(macaddr, 0, sizeof macaddr);
 		duid_len = 0;
 		last_addr = addr_type::null;
@@ -637,8 +637,8 @@ const size_t linenum)
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
-							memcpy(buf, p, (size_t)blen); buf[blen] = 0;
-							if (sscanf(cps.st, SCNu32, &cps.iaid) != 1) {
+							memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
+							if (sscanf(buf, "%" SCNu32, &cps.iaid) != 1) {
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
@@ -767,9 +767,9 @@ const size_t linenum)
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
-							memcpy(buf, p, (size_t)blen); buf[blen] = 0;
+							memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
 							int fd;
-							if (sscanf(cps.st, "%d", &fd) != 1) {
+							if (sscanf(buf, "%d", &fd) != 1) {
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
@@ -790,8 +790,8 @@ const size_t linenum)
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
-							memcpy(buf, p, (size_t)blen); buf[blen] = 0;
-							if (sscanf(cps.st, SCNu32, &cps.default_lifetime) != 1) {
+							memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
+							if (sscanf(buf, "%" SCNu32, &cps.default_lifetime) != 1) {
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
@@ -811,8 +811,8 @@ const size_t linenum)
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
-							memcpy(buf, p, (size_t)blen); buf[blen] = 0;
-							if (sscanf(cps.st, SCNu8, &cps.default_preference) != 1) {
+							memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
+							if (sscanf(buf, "%" SCNu8, &cps.default_preference) != 1) {
 								log_line("default_preference on line %zu out of range [0,255]\n", linenum);
 								cps.parse_error = true;
 								{p += 1; goto _out; }
@@ -970,9 +970,9 @@ const size_t linenum)
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
-							memcpy(buf, p, (size_t)blen); buf[blen] = 0;
+							memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
 							uint32_t iaid;
-							if (sscanf(buf, SCNu32, &iaid) != 1) {
+							if (sscanf(buf, "%" SCNu32, &iaid) != 1) {
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}

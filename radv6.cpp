@@ -243,7 +243,7 @@ public:
         if (keep_bits == 0)
             memset(a6 + keep_bytes, 0, 16 -  keep_bytes);
         else {
-            memset(a6 + keep_bytes + 1, 0, 16 - keep_bytes - 1);
+            memset(a6 + keep_bytes + 1, 0, 16u - keep_bytes - 1u);
             uint8_t mask = 0xff;
             while (keep_bits--)
                 mask >>= 1;

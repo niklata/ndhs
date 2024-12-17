@@ -432,8 +432,8 @@ struct dynlease_parse_state {
             cps.parse_error = true;
             fbreak;
         }
-        memcpy(buf, p, (size_t)blen); buf[blen] = 0;
-        if (sscanf(cps.st, SCNu32, &cps.iaid) != 1) {
+        memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
+        if (sscanf(buf, "%" SCNu32, &cps.iaid) != 1) {
             cps.parse_error = true;
             fbreak;
         }
@@ -470,8 +470,8 @@ struct dynlease_parse_state {
             cps.parse_error = true;
             fbreak;
         }
-        memcpy(buf, p, (size_t)blen); buf[blen] = 0;
-        if (sscanf(cps.st, SCNi64, &cps.expire_time) != 1) {
+        memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
+        if (sscanf(buf, "%" SCNi64, &cps.expire_time) != 1) {
             cps.parse_error = true;
             fbreak;
         }

@@ -82,7 +82,7 @@ struct NLSocket
         for (auto &i: ifaces_) {
             if (!strcmp(name, i.name)) return &i;
         }
-        return {};
+        return nullptr;
     }
 private:
     void process_receive(const char *buf, size_t bytes_xferred,

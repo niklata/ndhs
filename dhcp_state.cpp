@@ -215,6 +215,7 @@ static interface_data *lookup_interface(int ifindex)
 
 static interface_data *lookup_interface(const char *interface)
 {
+    if (!strlen(interface)) return nullptr;
     auto ifinfo = nl_socket.get_ifinfo(interface);
     if (!ifinfo) return nullptr;
     return lookup_interface(ifinfo->index);
@@ -282,7 +283,7 @@ bool emplace_dhcp6_state(size_t linenum, const char *interface,
         is->s6addrs.push_back(t);
         return true;
     }
-    log_line("No interface specified at line %zu\n", linenum);
+    log_line("%s: No interface specified at line %zu\n", __func__, linenum);
     return false;
 }
 
@@ -303,7 +304,7 @@ bool emplace_dhcp4_state(size_t linenum, const char *interface, const uint8_t *m
         is->s4addrs.push_back(t);
         return true;
     }
-    log_line("No interface specified at line %zu\n", linenum);
+    log_line("%s: No interface specified at line %zu\n", __func__, linenum);
     return false;
 }
 
@@ -327,7 +328,7 @@ bool emplace_dns_server(size_t linenum, const char *interface,
         }
         return true;
     }
-    log_line("No interface specified at line %zu\n", linenum);
+    log_line("%s: No interface specified at line %zu\n", __func__, linenum);
     return false;
 }
 
@@ -351,16 +352,16 @@ bool emplace_ntp_server(size_t linenum, const char *interface,
         }
         return true;
     }
-    log_line("No interface specified at line %zu\n", linenum);
+    log_line("%s: No interface specified at line %zu\n", __func__, linenum);
     return false;
 }
 
-bool emplace_subnet(size_t linenum, const char *interface, const in6_addr *addr)
+bool emplace_subnet(int ifindex, const in6_addr *addr)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (is) {
         if (!ipaddr_is_v4(addr)) {
-            log_line("Bad IP address at line %zu\n", linenum);
+            log_line("%s: Bad IP address for interface #%d\n", __func__, ifindex);
             return false;
         }
         is->subnet = *addr;
@@ -374,28 +375,27 @@ bool emplace_gateway(size_t linenum, const char *interface, const in6_addr *addr
     auto is = lookup_interface(interface);
     if (is) {
         if (!ipaddr_is_v4(addr)) {
-            log_line("Bad IP address at line %zu\n", linenum);
+            log_line("%s: Bad IP address for interface %s\n", __func__, interface);
             return false;
         }
         is->gateway.emplace_back(*addr);
         return true;
     }
-    log_line("No interface specified at line %zu\n", linenum);
+    log_line("%s: No interface specified at line %zu\n", __func__, linenum);
     return false;
 }
 
-bool emplace_broadcast(size_t linenum, const char *interface, const in6_addr *addr)
+bool emplace_broadcast(int ifindex, const in6_addr *addr)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (is) {
         if (!ipaddr_is_v4(addr)) {
-            log_line("Bad IP address at line %zu\n", linenum);
+            log_line("%s: Bad IP address for interface #%d\n", __func__, ifindex);
             return false;
         }
         is->broadcast = *addr;
         return true;
     }
-    log_line("No interface specified at line %zu\n", linenum);
     return false;
 }
 
@@ -416,7 +416,7 @@ bool emplace_dynamic_range(size_t linenum, const char *interface,
         is->use_dynamic_v4 = true;
         return true;
     }
-    log_line("No interface specified at line %zu\n", linenum);
+    log_line("%s: No interface specified at line %zu\n", __func__, linenum);
     return false;
 }
 
@@ -427,7 +427,7 @@ bool emplace_dynamic_v6(size_t linenum, const char *interface)
         is->use_dynamic_v6 = true;
         return true;
     }
-    log_line("No interface specified at line %zu\n", linenum);
+    log_line("%s: No interface specified at line %zu\n", __func__, linenum);
     return false;
 }
 
@@ -438,7 +438,7 @@ bool emplace_dns_search(size_t linenum, const char *interface, const char *label
         str_slist_append(&is->p_dns_search, label, label_len);
         return true;
     }
-    log_line("No interface specified at line %zu\n", linenum);
+    log_line("%s: No interface specified at line %zu\n", __func__, linenum);
     return false;
 }
 

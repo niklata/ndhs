@@ -179,7 +179,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
                 }
                 // Otherwise add it.
                 if (nia.addr_type == AF_INET) {
-                    emplace_broadcast(0, nia.if_name, &nia.broadcast_address);
+                    emplace_broadcast(nia.if_index, &nia.broadcast_address);
 
                     uint32_t subnet = 0xffffffffu;
                     for (unsigned j = 0, jend = 32 - nia.prefixlen; j < jend; ++j) subnet <<= 1;
@@ -188,7 +188,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
                     if (inet_ntop(AF_INET, &subnet, sbuf, sizeof sbuf)) {
                         in6_addr taddr;
                         if (!ipaddr_from_string(&taddr, sbuf)) abort();
-                        emplace_subnet(0, nia.if_name, &taddr);
+                        emplace_subnet(nia.if_index, &taddr);
                     }
                 }
                 i.addrs.emplace_back(nia);

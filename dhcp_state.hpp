@@ -36,9 +36,9 @@ bool emplace_dns_server(size_t linenum, const char *interface,
                         const in6_addr *addr, addr_type atype);
 bool emplace_ntp_server(size_t linenum, const char *interface,
                         const in6_addr *addr, addr_type atype);
-bool emplace_subnet(size_t linenum, const char *interface, const in6_addr *addr);
+bool emplace_subnet(int ifindex, const in6_addr *addr);
 bool emplace_gateway(size_t linenum, const char *interface, const in6_addr *addr);
-bool emplace_broadcast(size_t linenum, const char *interface, const in6_addr *addr);
+bool emplace_broadcast(int ifindex, const in6_addr *addr);
 bool emplace_dynamic_range(size_t linenum, const char *interface,
                            const in6_addr *lo_addr, const in6_addr *hi_addr,
                            uint32_t dynamic_lifetime);

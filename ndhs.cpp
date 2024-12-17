@@ -103,7 +103,6 @@ static void create_interface_listener(const struct netif_info *ifinfo,
 
 static void init_listeners()
 {
-    nl_socket.init();
     bound_interfaces_foreach(get_interface_addresses, nullptr);
     bound_interfaces_foreach(create_interface_listener, nullptr);
 
@@ -257,6 +256,8 @@ static void process_options(int ac, char *av[])
             default: break;
         }
     }
+
+    nl_socket.init();
 
     if (!parse_config(configfile))
         suicide("Failed to load configuration file.\n");

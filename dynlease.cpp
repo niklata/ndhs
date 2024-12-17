@@ -1202,8 +1202,8 @@ const size_t linenum)
 				cps.parse_error = true;
 				{p+= 1; cps.cs = 41; goto _out;}
 			}
-			memcpy(buf, p, (size_t)blen); buf[blen] = 0;
-			if (sscanf(cps.st, SCNi64, &cps.expire_time) != 1) {
+			memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
+			if (sscanf(buf, "%" SCNi64, &cps.expire_time) != 1) {
 				cps.parse_error = true;
 				{p+= 1; cps.cs = 41; goto _out;}
 			}
@@ -1253,8 +1253,8 @@ const size_t linenum)
 				cps.parse_error = true;
 				{p+= 1; cps.cs = 42; goto _out;}
 			}
-			memcpy(buf, p, (size_t)blen); buf[blen] = 0;
-			if (sscanf(cps.st, SCNi64, &cps.expire_time) != 1) {
+			memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
+			if (sscanf(buf, "%" SCNi64, &cps.expire_time) != 1) {
 				cps.parse_error = true;
 				{p+= 1; cps.cs = 42; goto _out;}
 			}
@@ -1609,8 +1609,8 @@ const size_t linenum)
 				cps.parse_error = true;
 				{p+= 1; cps.cs = 36; goto _out;}
 			}
-			memcpy(buf, p, (size_t)blen); buf[blen] = 0;
-			if (sscanf(cps.st, SCNu32, &cps.iaid) != 1) {
+			memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
+			if (sscanf(buf, "%" SCNu32, &cps.iaid) != 1) {
 				cps.parse_error = true;
 				{p+= 1; cps.cs = 36; goto _out;}
 			}
@@ -1659,8 +1659,8 @@ const size_t linenum)
 				cps.parse_error = true;
 				{p+= 1; cps.cs = 43; goto _out;}
 			}
-			memcpy(buf, p, (size_t)blen); buf[blen] = 0;
-			if (sscanf(cps.st, SCNi64, &cps.expire_time) != 1) {
+			memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
+			if (sscanf(buf, "%" SCNi64, &cps.expire_time) != 1) {
 				cps.parse_error = true;
 				{p+= 1; cps.cs = 43; goto _out;}
 			}
@@ -1710,8 +1710,8 @@ const size_t linenum)
 				cps.parse_error = true;
 				{p+= 1; cps.cs = 44; goto _out;}
 			}
-			memcpy(buf, p, (size_t)blen); buf[blen] = 0;
-			if (sscanf(cps.st, SCNi64, &cps.expire_time) != 1) {
+			memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
+			if (sscanf(buf, "%" SCNi64, &cps.expire_time) != 1) {
 				cps.parse_error = true;
 				{p+= 1; cps.cs = 44; goto _out;}
 			}
