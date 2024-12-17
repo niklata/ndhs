@@ -25,7 +25,7 @@ extern int64_t get_current_ts();
 
 struct lease_state_v4
 {
-    lease_state_v4(const in6_addr *addr_, const char *macaddr_, int64_t et)
+    lease_state_v4(const in6_addr *addr_, const uint8_t *macaddr_, int64_t et)
         : addr(*addr_), expire_time(et)
     {
         memcpy(macaddr, macaddr_, 6);
@@ -102,7 +102,7 @@ static auto create_new_dynlease6_state(const char *interface)
 }
 
 static bool emplace_dynlease4_state(size_t linenum, const char *interface,
-                                    const char *v4_addr, const char *macaddr,
+                                    const char *v4_addr, const uint8_t *macaddr,
                                     int64_t expire_time)
 {
     auto is = lease_state4_by_name(interface);
@@ -173,7 +173,7 @@ bool dynlease4_add(const char *interface, const in6_addr *v4_addr, const uint8_t
             return false;
         }
     }
-    char tmac[6];
+    uint8_t tmac[6];
     memcpy(tmac, macaddr, sizeof tmac);
     is->emplace_back(v4_addr, tmac, expire_time);
     return true;
@@ -331,7 +331,7 @@ bool dynlease_serialize(const char *path)
                 continue;
             char abuf[48];
             if (!ipaddr_to_string(abuf, sizeof abuf, &j.addr)) goto out1;
-            if (fprintf(f, "v4 %s %s %2.x%2.x%2.x%2.x%2.x%2.x %zu\n",
+            if (fprintf(f, "v4 %s %s %.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx %zu\n",
                         iface, abuf,
                         j.macaddr[0], j.macaddr[1], j.macaddr[2],
                         j.macaddr[3], j.macaddr[4], j.macaddr[5], j.expire_time) < 0) {
@@ -407,7 +407,7 @@ struct dynlease_parse_state {
     char interface[IFNAMSIZ];
     char v6_addr[48];
     char v4_addr[16];
-    char macaddr[6];
+    uint8_t macaddr[6];
 };
 
 #include "parsehelp.h"
@@ -439,13 +439,19 @@ struct dynlease_parse_state {
         }
     }
     action MacAddrEn {
+        char buf[32];
         ptrdiff_t blen = p - cps.st;
-        if (blen < 0 || blen >= (int)sizeof cps.macaddr) {
+        if (blen < 0 || blen >= (int)sizeof buf) {
             cps.parse_error = true;
             fbreak;
         }
-        memcpy(cps.macaddr, cps.st, 6);
-        lc_string_inplace(cps.macaddr, sizeof cps.macaddr);
+        *((char *)mempcpy(buf, cps.st, (size_t)blen)) = 0;
+        if (sscanf(buf, "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx",
+                   &cps.macaddr[0], &cps.macaddr[1], &cps.macaddr[2],
+                   &cps.macaddr[3], &cps.macaddr[4], &cps.macaddr[5]) != 6) {
+            cps.parse_error = true;
+            fbreak;
+        }
     }
     action V4AddrEn {
         size_t l;

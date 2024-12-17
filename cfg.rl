@@ -40,7 +40,7 @@ struct cfg_parse_state {
     char ipaddr[48];
     char ipaddr2[48];
     char interface[IFNAMSIZ];
-    char macaddr[6];
+    uint8_t macaddr[6];
     size_t duid_len;
     addr_type last_addr;
     uint32_t iaid;
@@ -86,13 +86,19 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
         }
     }
     action MacAddrEn {
+        char buf[32];
         ptrdiff_t blen = p - cps.st;
-        if (blen < 0 || blen >= (int)sizeof cps.macaddr) {
+        if (blen < 0 || blen >= (int)sizeof buf) {
             cps.parse_error = true;
             fbreak;
         }
-        memcpy(cps.macaddr, cps.st, 6);
-        lc_string_inplace(cps.macaddr, sizeof cps.macaddr);
+        *(char *)mempcpy(buf, cps.st, (size_t)blen) = 0;
+        if (sscanf(buf, "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx",
+                   &cps.macaddr[0], &cps.macaddr[1], &cps.macaddr[2],
+                   &cps.macaddr[3], &cps.macaddr[4], &cps.macaddr[5]) != 6) {
+            cps.parse_error = true;
+            fbreak;
+        }
     }
     action V4AddrEn {
         size_t l;

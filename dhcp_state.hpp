@@ -18,7 +18,7 @@ struct dhcpv6_entry {
 };
 
 struct dhcpv4_entry {
-    char macaddr[6];
+    uint8_t macaddr[6];
     in6_addr address;
     uint32_t lifetime;
 };
@@ -30,7 +30,7 @@ bool emplace_interface(size_t linenum, const char *interface, uint8_t preference
 bool emplace_dhcp6_state(size_t linenum, const char *interface,
                          const char *duid, size_t duid_len,
                          uint32_t iaid, const in6_addr *v6_addr, uint32_t default_lifetime);
-bool emplace_dhcp4_state(size_t linenum, const char *interface, const char *macstr,
+bool emplace_dhcp4_state(size_t linenum, const char *interface, const uint8_t *macaddr,
                          const in6_addr *v4_addr, uint32_t default_lifetime);
 bool emplace_dns_server(size_t linenum, const char *interface,
                         const in6_addr *addr, addr_type atype);

@@ -286,7 +286,7 @@ bool emplace_dhcp6_state(size_t linenum, const char *interface,
     return false;
 }
 
-bool emplace_dhcp4_state(size_t linenum, const char *interface, const char *macstr,
+bool emplace_dhcp4_state(size_t linenum, const char *interface, const uint8_t *macaddr,
                          const in6_addr *v4_addr, uint32_t default_lifetime)
 {
     auto is = lookup_interface(interface);
@@ -297,12 +297,7 @@ bool emplace_dhcp4_state(size_t linenum, const char *interface, const char *macs
         }
 
         dhcpv4_entry t;
-        uint8_t u[6];
-        if (sscanf(macstr, "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx", &u[0], &u[1], &u[2], &u[3], &u[4], &u[5]) != 6) {
-            log_line("Bad MAC address at line %zu: %s\n", linenum, macstr);
-            return false;
-        }
-        memcpy(t.macaddr, u, sizeof t.macaddr);
+        memcpy(t.macaddr, macaddr, sizeof t.macaddr);
         t.address = *v4_addr;
         t.lifetime = default_lifetime;
         is->s4addrs.push_back(t);
