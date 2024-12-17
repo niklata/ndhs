@@ -355,11 +355,12 @@ bool D6Listener::emit_IA_code(const d6msg_state &d6s, sbufs &ss, uint32_t iaid,
 bool D6Listener::attach_address_info(const d6msg_state &d6s, sbufs &ss,
                                      d6_statuscode::code failcode, bool *has_addrs)
 {
-    bool ha{false};
+    bool ha = false;
     // Look through IAs and send IA with assigned address as an option.
     for (const auto &i: d6s.ias) {
         log_line("dhcp6: Querying duid='%s' iaid=%u...\n", d6s.client_duid_str, i.iaid);
-        if (auto x = query_dhcp6_state(ifindex_, d6s.client_duid_str, d6s.client_duid_str_size, i.iaid)) {
+        const dhcpv6_entry *x = query_dhcp6_state(ifindex_, d6s.client_duid_str, d6s.client_duid_str_size, i.iaid);
+        if (x) {
             ha = true;
             char abuf[48];
             if (!ipaddr_to_string(abuf, sizeof abuf, &x->address)) abort();
@@ -457,7 +458,7 @@ bool D6Listener::confirm_match(const d6msg_state &d6s, bool &confirmed)
 {
     confirmed = false;
     for (const auto &i: d6s.ias) {
-        log_line("dhcp6: Querying duid='%s' iaid=%u...\n", d6s.client_duid_str, i.iaid);
+        log_line("dhcp6: Confirming match for duid='%s' iaid=%u...\n", d6s.client_duid_str, i.iaid);
         if (i.ia_na_addrs.empty()) return false; // See RFC8415 18.3.3 p3
         for (const auto &j: i.ia_na_addrs) {
             if (!ipaddr_compare_masked(&j.addr, &local_ip_prefix_, prefixlen_)) {
@@ -676,6 +677,7 @@ void D6Listener::process_receive(char *buf, size_t buflen,
              for (size_t j = 0; j < d6s.client_duid_blob_size; ++j) {
                  snprintf(d6s.client_duid_str + 2 * j, sizeof d6s.client_duid_str - 2 * j,
                           "%.2hhx", static_cast<uint8_t>(d6s.client_duid_blob[j]));
+                 d6s.client_duid_str_size += 2;
              }
              if (d6s.client_duid_blob_size > 0)
                 log_line("dhcp6: DUID %s on %s\n", d6s.client_duid_str, ifname_);
