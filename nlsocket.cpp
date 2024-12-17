@@ -173,7 +173,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
                 // Update if the address already exists
                 for (auto j = i.addrs.begin(), jend = i.addrs.end(); j != jend; ++j) {
                     if (!memcmp(&j->address, &nia.address, sizeof nia.address)) {
-                        *j = std::move(nia);
+                        *j = nia;
                         return;
                     }
                 }
@@ -191,7 +191,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
                         emplace_subnet(0, nia.if_name, &taddr);
                     }
                 }
-                i.addrs.emplace_back(std::move(nia));
+                i.addrs.emplace_back(nia);
                 return;
             }
         }

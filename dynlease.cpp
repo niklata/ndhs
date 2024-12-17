@@ -88,18 +88,18 @@ std::vector<lease_state_v6> *lease_state6_by_name(const char *interface)
 
 static auto create_new_dynlease4_state(const char *interface)
 {
-	dynlease_map_v4 nn;
-	memccpy(nn.ifname, interface, 0, sizeof nn.ifname);
-	dyn_leases_v4.emplace_back(std::move(nn));
-	return &dyn_leases_v4.back().state;
+	dyn_leases_v4.emplace_back();
+	dynlease_map_v4 *n = &dyn_leases_v4.back();
+	memccpy(&n->ifname, interface, 0, sizeof n->ifname);
+	return &n->state;
 }
 
 static auto create_new_dynlease6_state(const char *interface)
 {
-	dynlease_map_v6 nn;
-	memccpy(nn.ifname, interface, 0, sizeof nn.ifname);
-	dyn_leases_v6.emplace_back(std::move(nn));
-	return &dyn_leases_v6.back().state;
+	dyn_leases_v6.emplace_back();
+	dynlease_map_v6 *n = &dyn_leases_v6.back();
+	memccpy(&n->ifname, interface, 0, sizeof n->ifname);
+	return &n->state;
 }
 
 static bool emplace_dynlease4_state(size_t linenum, const char *interface,
