@@ -275,7 +275,7 @@ bool emplace_dhcp6_state(size_t linenum, int ifindex,
     auto is = lookup_interface(ifindex);
     if (is) {
         dhcpv6_entry t;
-        if (duid_len > sizeof t.duid) abort();
+        if (duid_len > sizeof t.duid) suicide("%s: duid_len too long", __func__);
         memcpy(t.duid, duid, duid_len);
         t.address = *v6_addr;
         t.duid_len = duid_len;
@@ -450,10 +450,9 @@ const dhcpv6_entry *query_dhcp6_state(int ifindex,
     auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     for (auto &i: is->s6addrs) {
-        if (i.duid_len == duid_len && i.iaid == iaid &&
-            !memcmp(i.duid, duid, duid_len)) {
+        if (i.duid_len == duid_len && i.iaid == iaid
+            && !memcmp(i.duid, duid, duid_len))
             return &i;
-        }
     }
     return nullptr;
 }
@@ -462,8 +461,6 @@ const dhcpv4_entry *query_dhcp4_state(int ifindex, const uint8_t *hwaddr)
 {
     auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
-    char buf[6];
-    memcpy(buf, hwaddr, sizeof buf);
     for (auto &i: is->s4addrs) {
         if (!memcmp(i.macaddr, hwaddr, sizeof i.macaddr)) return &i;
     }
