@@ -101,39 +101,6 @@ static auto create_new_dynlease6_state(const char *interface)
     return &n->state;
 }
 
-static bool emplace_dynlease4_state(size_t linenum, const char *interface,
-                                    const char *v4_addr, const uint8_t *macaddr,
-                                    int64_t expire_time)
-{
-    auto is = lease_state4_by_name(interface);
-    if (!is) is = create_new_dynlease4_state(interface);
-    in6_addr ipa;
-    if (!ipaddr_from_string(&ipa, v4_addr)) {
-        log_line("Bad IP address at line %zu: %s\n", linenum, v4_addr);
-        return false;
-    }
-    // We won't get duplicates unless someone manually edits the file.  If they do,
-    // then they get what they deserve.
-    is->emplace_back(&ipa, macaddr, expire_time);
-    return true;
-}
-
-static bool emplace_dynlease6_state(size_t linenum, const char *interface,
-                                    const char *v6_addr,
-                                    const char *duid, size_t duid_len,
-                                    uint32_t iaid, int64_t expire_time)
-{
-    auto is = lease_state6_by_name(interface);
-    if (!is) is = create_new_dynlease6_state(interface);
-    in6_addr ipa;
-    if (!ipaddr_from_string(&ipa, v6_addr)) {
-        log_line("Bad IP address at line %zu: %s\n", linenum, v6_addr);
-        return false;
-    }
-    is->emplace_back(&ipa, duid, duid_len, iaid, expire_time);
-    return true;
-}
-
 size_t dynlease4_count(const char *interface)
 {
     auto is = lease_state4_by_name(interface);
@@ -478,12 +445,22 @@ struct dynlease_parse_state {
     }
 
     action V4EntryEn {
-        emplace_dynlease4_state(linenum, cps.interface, cps.v4_addr,
-                                cps.macaddr, cps.expire_time);
+        in6_addr ipa;
+        if (!ipaddr_from_string(&ipa, cps.v4_addr)) {
+            log_line("Bad IP address at line %zu: %s\n", linenum, cps.v4_addr);
+            cps.parse_error = true;
+            fbreak;
+        }
+        dynlease4_add(cps.interface, &ipa, cps.macaddr, cps.expire_time);
     }
     action V6EntryEn {
-        emplace_dynlease6_state(linenum, cps.interface, cps.v6_addr,
-                                cps.duid, cps.duid_len, cps.iaid, cps.expire_time);
+        in6_addr ipa;
+        if (!ipaddr_from_string(&ipa, cps.v6_addr)) {
+            log_line("Bad IP address at line %zu: %s\n", linenum, cps.v6_addr);
+            cps.parse_error = true;
+            fbreak;
+        }
+        dynlease6_add(cps.interface, &ipa, cps.duid, cps.duid_len, cps.iaid, cps.expire_time);
     }
 
     interface = alnum+ >St %InterfaceEn;
