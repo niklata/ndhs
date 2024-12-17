@@ -65,7 +65,7 @@ struct dynlease_map_v6
 static std::vector<dynlease_map_v4> dyn_leases_v4;
 static std::vector<dynlease_map_v6> dyn_leases_v6;
 
-std::vector<lease_state_v4> *lease_state4_by_name(const char *interface)
+static std::vector<lease_state_v4> *lease_state4_by_name(const char *interface)
 {
     for (auto &i: dyn_leases_v4) {
         if (!strcmp(i.ifname, interface)) {
@@ -75,7 +75,7 @@ std::vector<lease_state_v4> *lease_state4_by_name(const char *interface)
     return nullptr;
 }
 
-std::vector<lease_state_v6> *lease_state6_by_name(const char *interface)
+static std::vector<lease_state_v6> *lease_state6_by_name(const char *interface)
 {
     for (auto &i: dyn_leases_v6) {
         if (!strcmp(i.ifname, interface)) {
