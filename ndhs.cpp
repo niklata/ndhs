@@ -301,41 +301,23 @@ int main(int ac, char *av[])
         }
         if (l_signal_exit) break;
         for (size_t i = 0, iend = poll_size; i < iend; ++i) {
+            if (poll_array[i].revents & (POLLHUP|POLLERR|POLLRDHUP))
+                suicide("fd closed unexpectedly\n");
             switch (poll_meta[i].pfdt) {
-            case pfd_type::netlink: {
-                if (poll_array[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                    suicide("nlfd closed unexpectedly\n");
-                }
-                if (poll_array[i].revents & POLLIN) {
-                    nl_socket.process_input();
-                }
-            } break;
+            case pfd_type::netlink:
+                if (poll_array[i].revents & POLLIN) nl_socket.process_input();
+            break;
             case pfd_type::dhcp6: {
                 auto d6 = static_cast<D6Listener *>(poll_meta[i].data);
-                if (poll_array[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                    suicide("%s: dhcp6 socket closed unexpectedly\n", d6->ifname());
-                }
-                if (poll_array[i].revents & POLLIN) {
-                    d6->process_input();
-                }
+                if (poll_array[i].revents & POLLIN) d6->process_input();
             } break;
             case pfd_type::dhcp4: {
                 auto d4 = static_cast<D4Listener *>(poll_meta[i].data);
-                if (poll_array[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                    suicide("%s: dhcp4 socket closed unexpectedly\n", d4->ifname());
-                }
-                if (poll_array[i].revents & POLLIN) {
-                    d4->process_input();
-                }
+                if (poll_array[i].revents & POLLIN) d4->process_input();
             } break;
             case pfd_type::radv6: {
                 auto r6 = static_cast<RA6Listener *>(poll_meta[i].data);
-                if (poll_array[i].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-                    suicide("%s: ra6 socket closed unexpectedly\n", r6->ifname());
-                }
-                if (poll_array[i].revents & POLLIN) {
-                    r6->process_input();
-                }
+                if (poll_array[i].revents & POLLIN) r6->process_input();
             } break;
             }
         }
