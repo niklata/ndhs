@@ -20,10 +20,10 @@ extern void set_s6_notify_fd(int fd);
 #endif
 
 struct cfg_parse_state {
-    cfg_parse_state() : st(nullptr), cs(0), last_addr(addr_type::null), default_lifetime(7200),
+    cfg_parse_state() : st(nullptr), cs(0), last_addr(addr_type::null), ifindex(-1), default_lifetime(7200),
                         default_preference(0), parse_error(false) {}
     void newline() {
-        // Do NOT clear interface here; it is stateful between lines!
+        // Do NOT clear ifindex here; it is stateful between lines!
         memset(duid, 0, sizeof duid);
         memset(ipaddr, 0, sizeof ipaddr);
         memset(ipaddr2, 0, sizeof ipaddr2);
@@ -39,10 +39,10 @@ struct cfg_parse_state {
     char duid[128];
     char ipaddr[48];
     char ipaddr2[48];
-    char interface[IFNAMSIZ];
     uint8_t macaddr[6];
     size_t duid_len;
     addr_type last_addr;
+    int ifindex;
     uint32_t iaid;
     uint32_t default_lifetime;
     uint8_t default_preference;
@@ -181,15 +181,16 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
         }
     }
     action InterfaceEn {
+        char interface[IFNAMSIZ];
         ptrdiff_t blen = p - cps.st;
-        if (blen < 0 || blen >= IFNAMSIZ) {
+        if (blen < 0 || blen >= (int)sizeof interface) {
             log_line("interface name on line %zu is too long (>= %d)\n", linenum, IFNAMSIZ);
             cps.parse_error = true;
             fbreak;
         }
-        memcpy(cps.interface, cps.st, (size_t)blen);
-        cps.interface[blen] = 0;
-        emplace_interface(linenum, cps.interface, cps.default_preference);
+        memcpy(interface, cps.st, (size_t)blen);
+        interface[blen] = 0;
+        cps.ifindex = emplace_interface(linenum, interface, cps.default_preference);
     }
     action DnsServerEn {
         in6_addr t;
@@ -197,10 +198,10 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
             cps.parse_error = true;
             fbreak;
         }
-        emplace_dns_server(linenum, cps.interface, &t, cps.last_addr);
+        emplace_dns_server(linenum, cps.ifindex, &t, cps.last_addr);
     }
     action DnsSearchEn {
-        emplace_dns_search(linenum, cps.interface, MARKED_STRING());
+        emplace_dns_search(linenum, cps.ifindex, MARKED_STRING());
     }
     action NtpServerEn {
         in6_addr t;
@@ -208,7 +209,7 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
             cps.parse_error = true;
             fbreak;
         }
-        emplace_ntp_server(linenum, cps.interface, &t, cps.last_addr);
+        emplace_ntp_server(linenum, cps.ifindex, &t, cps.last_addr);
     }
     action GatewayEn {
         in6_addr t;
@@ -216,7 +217,7 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
             cps.parse_error = true;
             fbreak;
         }
-        emplace_gateway(linenum, cps.interface, &t);
+        emplace_gateway(linenum, cps.ifindex, &t);
     }
     action DynRangePreEn {
         memcpy(cps.ipaddr2, cps.ipaddr, sizeof cps.ipaddr2);
@@ -232,10 +233,10 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
             cps.parse_error = true;
             fbreak;
         }
-        emplace_dynamic_range(linenum, cps.interface, &tlo, &thi, cps.default_lifetime);
+        emplace_dynamic_range(linenum, cps.ifindex, &tlo, &thi, cps.default_lifetime);
     }
     action DynamicV6En {
-        emplace_dynamic_v6(linenum, cps.interface);
+        emplace_dynamic_v6(linenum, cps.ifindex);
     }
     action V4EntryEn {
         in6_addr t;
@@ -243,7 +244,7 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
             cps.parse_error = true;
             fbreak;
         }
-        emplace_dhcp4_state(linenum, cps.interface, cps.macaddr, &t, cps.default_lifetime);
+        emplace_dhcp4_state(linenum, cps.ifindex, cps.macaddr, &t, cps.default_lifetime);
     }
     action V6EntryEn {
         char buf[64];
@@ -263,7 +264,7 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
             cps.parse_error = true;
             fbreak;
         }
-        emplace_dhcp6_state(linenum, cps.interface,
+        emplace_dhcp6_state(linenum, cps.ifindex,
                             cps.duid, cps.duid_len,
                             iaid, &t, cps.default_lifetime);
     }

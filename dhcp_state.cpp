@@ -213,7 +213,7 @@ static interface_data *lookup_interface(int ifindex)
     return nullptr;
 }
 
-static interface_data *lookup_interface(const char *interface)
+static interface_data *lookup_interface_by_name(const char *interface)
 {
     if (!strlen(interface)) return nullptr;
     auto ifinfo = nl_socket.get_ifinfo(interface);
@@ -224,7 +224,7 @@ static interface_data *lookup_interface(const char *interface)
 static interface_data *lookup_or_create_interface(const char *interface)
 {
     if (!strlen(interface)) return nullptr;
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface_by_name(interface);
     if (!is) {
         auto ifinfo = nl_socket.get_ifinfo(interface);
         if (!ifinfo) return nullptr;
@@ -256,22 +256,22 @@ bool emplace_bind6(size_t linenum, const char *interface)
     return true;
 }
 
-bool emplace_interface(size_t linenum, const char *interface, uint8_t preference)
+int emplace_interface(size_t linenum, const char *interface, uint8_t preference)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface_by_name(interface);
     if (is) {
         is->preference = preference;
-        return true;
+        return is->ifindex;
     }
     log_line("interface specified at line %zu is not bound\n", linenum);
-    return false;
+    return -1;
 }
 
-bool emplace_dhcp6_state(size_t linenum, const char *interface,
+bool emplace_dhcp6_state(size_t linenum, int ifindex,
                          const char *duid, size_t duid_len,
                          uint32_t iaid, const in6_addr *v6_addr, uint32_t default_lifetime)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (is) {
         dhcpv6_entry t;
         if (duid_len > sizeof t.duid) abort();
@@ -287,10 +287,10 @@ bool emplace_dhcp6_state(size_t linenum, const char *interface,
     return false;
 }
 
-bool emplace_dhcp4_state(size_t linenum, const char *interface, const uint8_t *macaddr,
+bool emplace_dhcp4_state(size_t linenum, int ifindex, const uint8_t *macaddr,
                          const in6_addr *v4_addr, uint32_t default_lifetime)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (is) {
         if (!ipaddr_is_v4(v4_addr)) {
             log_line("Bad IPv4 address at line %zu\n", linenum);
@@ -308,14 +308,14 @@ bool emplace_dhcp4_state(size_t linenum, const char *interface, const uint8_t *m
     return false;
 }
 
-bool emplace_dns_server(size_t linenum, const char *interface,
+bool emplace_dns_server(size_t linenum, int ifindex,
                         const in6_addr *addr, addr_type atype)
 {
     if (atype == addr_type::null) {
         log_line("Invalid address type at line %zu\n", linenum);
         return false;
     }
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (is) {
         if ((atype == addr_type::v4 && !ipaddr_is_v4(addr)) || (atype == addr_type::v6 && ipaddr_is_v4(addr))) {
             log_line("Bad IP address at line %zu\n", linenum);
@@ -332,14 +332,14 @@ bool emplace_dns_server(size_t linenum, const char *interface,
     return false;
 }
 
-bool emplace_ntp_server(size_t linenum, const char *interface,
+bool emplace_ntp_server(size_t linenum, int ifindex,
                         const in6_addr *addr, addr_type atype)
 {
     if (atype == addr_type::null) {
         log_line("Invalid address type at line %zu\n", linenum);
         return false;
     }
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (is) {
         if ((atype == addr_type::v4 && !ipaddr_is_v4(addr)) || (atype == addr_type::v6 && ipaddr_is_v4(addr))) {
             log_line("Bad IP address at line %zu\n", linenum);
@@ -370,12 +370,12 @@ bool emplace_subnet(int ifindex, const in6_addr *addr)
     return false;
 }
 
-bool emplace_gateway(size_t linenum, const char *interface, const in6_addr *addr)
+bool emplace_gateway(size_t linenum, int ifindex, const in6_addr *addr)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (is) {
         if (!ipaddr_is_v4(addr)) {
-            log_line("%s: Bad IP address for interface %s\n", __func__, interface);
+            log_line("%s: Bad IP address for interface #%d\n", __func__, ifindex);
             return false;
         }
         is->gateway.emplace_back(*addr);
@@ -399,11 +399,11 @@ bool emplace_broadcast(int ifindex, const in6_addr *addr)
     return false;
 }
 
-bool emplace_dynamic_range(size_t linenum, const char *interface,
+bool emplace_dynamic_range(size_t linenum, int ifindex,
                            const in6_addr *lo_addr, const in6_addr *hi_addr,
                            uint32_t dynamic_lifetime)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (is) {
         if (!ipaddr_is_v4(lo_addr) || !ipaddr_is_v4(hi_addr)) {
             log_line("Bad IPv4 address at line %zu\n", linenum);
@@ -420,9 +420,9 @@ bool emplace_dynamic_range(size_t linenum, const char *interface,
     return false;
 }
 
-bool emplace_dynamic_v6(size_t linenum, const char *interface)
+bool emplace_dynamic_v6(size_t linenum, int ifindex)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (is) {
         is->use_dynamic_v6 = true;
         return true;
@@ -431,9 +431,9 @@ bool emplace_dynamic_v6(size_t linenum, const char *interface)
     return false;
 }
 
-bool emplace_dns_search(size_t linenum, const char *interface, const char *label, size_t label_len)
+bool emplace_dns_search(size_t linenum, int ifindex, const char *label, size_t label_len)
 {
-    auto is = lookup_interface(interface);
+    auto is = lookup_interface(ifindex);
     if (is) {
         str_slist_append(&is->p_dns_search, label, label_len);
         return true;
