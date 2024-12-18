@@ -20,15 +20,15 @@ extern void set_s6_notify_fd(int fd);
 #endif
 
 struct cfg_parse_state {
-    cfg_parse_state() : st(nullptr), cs(0), ifindex(-1), default_lifetime(7200),
+    cfg_parse_state() : st(nullptr), cs(0), nipaddrs(0), ifindex(-1), default_lifetime(7200),
                         default_preference(0), parse_error(false) {}
     void newline() {
         // Do NOT clear ifindex here; it is stateful between lines!
         memset(duid, 0, sizeof duid);
-        memset(ipaddr, 0, sizeof ipaddr);
-        memset(ipaddr2, 0, sizeof ipaddr2);
+        memset(ipaddrs, 0, sizeof ipaddrs);
         memset(macaddr, 0, sizeof macaddr);
         duid_len = 0;
+        nipaddrs = 0;
         iaid = 0;
         parse_error = false;
     }
@@ -36,10 +36,10 @@ struct cfg_parse_state {
     int cs;
 
     char duid[128];
-    char ipaddr[48];
-    char ipaddr2[48];
+    char ipaddrs[32][48];
     uint8_t macaddr[6];
     size_t duid_len;
+    size_t nipaddrs;
     int ifindex;
     uint32_t iaid;
     uint32_t default_lifetime;
@@ -98,15 +98,10 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
             fbreak;
         }
     }
-    action V4AddrEn {
+    action IPAddrEn {
         size_t l;
-        assign_strbuf(cps.ipaddr, &l, sizeof cps.ipaddr, cps.st, p);
-        lc_string_inplace(cps.ipaddr, l);
-    }
-    action V6AddrEn {
-        size_t l;
-        assign_strbuf(cps.ipaddr, &l, sizeof cps.ipaddr, cps.st, p);
-        lc_string_inplace(cps.ipaddr, l);
+        assign_strbuf(cps.ipaddrs[cps.nipaddrs], &l, sizeof cps.ipaddrs[cps.nipaddrs], cps.st, p);
+        lc_string_inplace(cps.ipaddrs[cps.nipaddrs++], l);
     }
     action Bind4En {
         char buf[IFNAMSIZ];
@@ -189,43 +184,53 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
         cps.ifindex = emplace_interface(linenum, interface, cps.default_preference);
     }
     action DnsServerEn {
-        in6_addr t;
-        if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
-            cps.parse_error = true;
-            fbreak;
+        struct in6_addr *addrs = static_cast<in6_addr *>(calloc(cps->nipaddrs, sizeof(struct in6_addr)));
+        if (!addrs) abort();
+        for (size_t i = 0; i < cps.nipaddrs; ++i) {
+            if (!string_to_ipaddr(&addrs[i], cps.ipaddrs[i], strlen(cps.ipaddrs[i]))) {
+                log_line("invalid ip address (%s) at line %zu", cps.ipaddrs[i], linenum);
+                cps.parse_error = true;
+                fbreak;
+            }
         }
-        emplace_dns_server(linenum, cps.ifindex, &t);
+        emplace_dns_servers(linenum, cps.ifindex, addrs, cps.nipaddrs);
     }
     action DnsSearchEn {
         emplace_dns_search(linenum, cps.ifindex, MARKED_STRING());
     }
     action NtpServerEn {
-        in6_addr t;
-        if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
-            cps.parse_error = true;
-            fbreak;
+        struct in6_addr *addrs = static_cast<in6_addr *>(calloc(cps->nipaddrs, sizeof(struct in6_addr)));
+        if (!addrs) abort();
+        for (size_t i = 0; i < cps.nipaddrs; ++i) {
+            if (!string_to_ipaddr(&addrs[i], cps.ipaddrs[i], strlen(cps.ipaddrs[i]))) {
+                log_line("invalid ip address (%s) at line %zu", cps.ipaddrs[i], linenum);
+                cps.parse_error = true;
+                fbreak;
+            }
         }
-        emplace_ntp_server(linenum, cps.ifindex, &t);
+        emplace_ntp_servers(linenum, cps.ifindex, addrs, cps.nipaddrs);
     }
     action GatewayEn {
         in6_addr t;
-        if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
+        if (!string_to_ipaddr(&t, cps.ipaddrs[0], linenum)) {
             cps.parse_error = true;
             fbreak;
         }
         emplace_gateway_v4(linenum, cps.ifindex, &t);
     }
-    action DynRangePreEn {
-        memcpy(cps.ipaddr2, cps.ipaddr, sizeof cps.ipaddr2);
-    }
     action DynRangeEn {
+        if (cps.nipaddrs != 2) {
+            fprintf(stderr, "XXX: dynrange nipaddrs != 2 (%zu)\n", cps.nipaddrs);
+            cps.parse_error = true;
+            fbreak;
+        }
         in6_addr tlo;
-        if (!string_to_ipaddr(&tlo, cps.ipaddr2, linenum)) {
+        if (!string_to_ipaddr(&tlo, cps.ipaddrs[0], linenum)) {
             cps.parse_error = true;
             fbreak;
         }
         in6_addr thi;
-        if (!string_to_ipaddr(&thi, cps.ipaddr, linenum)) {
+        if (!string_to_ipaddr(&thi, cps.ipaddrs[1], linenum)) {
             cps.parse_error = true;
             fbreak;
         }
@@ -236,7 +241,7 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
     }
     action V4EntryEn {
         in6_addr t;
-        if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
+        if (!string_to_ipaddr(&t, cps.ipaddrs[0], linenum)) {
             cps.parse_error = true;
             fbreak;
         }
@@ -244,7 +249,7 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
     }
     action V6EntryEn {
         in6_addr t;
-        if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
+        if (!string_to_ipaddr(&t, cps.ipaddrs[0], linenum)) {
             cps.parse_error = true;
             fbreak;
         }
@@ -256,8 +261,8 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
     duid = xdigit+ >St %DuidEn;
     iaid = digit+ >St %IaidEn;
     macaddr = ((xdigit{2} ':'){5} xdigit{2}) >St %MacAddrEn;
-    v4_addr = (digit{1,3} | '.')+ >St %V4AddrEn;
-    v6_addr = (xdigit{1,4} | ':')+ >St %V6AddrEn;
+    v4_addr = (digit{1,3} | '.')+ >St %IPAddrEn;
+    v6_addr = (xdigit{1,4} | ':')+ >St %IPAddrEn;
 
     comment = space* ('#' any*)?;
     tcomment = (space+ '#' any*)?;
@@ -269,11 +274,11 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
     default_lifetime = space* 'default_lifetime' space+ digit+ >St %DefLifeEn tcomment;
     default_preference = space* 'default_preference' space+ digit+ >St %DefPrefEn tcomment;
     interface = space* 'interface' space+ alnum+ >St %InterfaceEn tcomment;
-    dns_server = space* 'dns_server' (space+ (v4_addr | v6_addr) %DnsServerEn)+ tcomment;
+    dns_server = space* 'dns_server' (space+ (v4_addr | v6_addr))+ tcomment %DnsServerEn;
     dns_search = space* 'dns_search' (space+ graph+ >St %DnsSearchEn)+ tcomment;
-    ntp_server = space* 'ntp_server' (space+ (v4_addr | v6_addr) %NtpServerEn)+ tcomment;
+    ntp_server = space* 'ntp_server' (space+ (v4_addr | v6_addr))+ tcomment %NtpServerEn;
     gateway = space* 'gateway' space+ v4_addr %GatewayEn tcomment;
-    dynamic_range = space* 'dynamic_range' space+ v4_addr %DynRangePreEn space+ v4_addr %DynRangeEn tcomment;
+    dynamic_range = space* 'dynamic_range' space+ v4_addr space+ v4_addr %DynRangeEn tcomment;
     dynamic_v6 = space* 'dynamic_v6' %DynamicV6En tcomment;
     v4_entry = space* 'v4' space+ macaddr space+ v4_addr tcomment;
     v6_entry = space* 'v6' space+ duid space+ iaid space+ v6_addr tcomment;

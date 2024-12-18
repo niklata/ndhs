@@ -21,15 +21,15 @@ extern void set_s6_notify_fd(int fd);
 #endif
 
 struct cfg_parse_state {
-	cfg_parse_state() : st(nullptr), cs(0), ifindex(-1), default_lifetime(7200),
+	cfg_parse_state() : st(nullptr), cs(0), nipaddrs(0), ifindex(-1), default_lifetime(7200),
 	default_preference(0), parse_error(false) {}
 	void newline() {
 		// Do NOT clear ifindex here; it is stateful between lines!
 		memset(duid, 0, sizeof duid);
-		memset(ipaddr, 0, sizeof ipaddr);
-		memset(ipaddr2, 0, sizeof ipaddr2);
+		memset(ipaddrs, 0, sizeof ipaddrs);
 		memset(macaddr, 0, sizeof macaddr);
 		duid_len = 0;
+		nipaddrs = 0;
 		iaid = 0;
 		parse_error = false;
 	}
@@ -37,10 +37,10 @@ struct cfg_parse_state {
 	int cs;
 	
 	char duid[128];
-	char ipaddr[48];
-	char ipaddr2[48];
+	char ipaddrs[32][48];
 	uint8_t macaddr[6];
 	size_t duid_len;
+	size_t nipaddrs;
 	int ifindex;
 	uint32_t iaid;
 	uint32_t default_lifetime;
@@ -62,7 +62,7 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
 }
 
 
-#line 284 "cfg.rl"
+#line 291 "cfg.rl"
 
 
 
@@ -71,13 +71,11 @@ static const signed char _cfg_line_m_actions[] = {
 	0, 1, 0, 1, 1, 1, 2, 1,
 	3, 1, 4, 1, 5, 1, 6, 1,
 	7, 1, 8, 1, 9, 1, 10, 1,
-	11, 1, 12, 1, 13, 1, 15, 1,
-	20, 1, 21, 1, 22, 2, 4, 14,
-	2, 4, 16, 2, 4, 17, 2, 4,
-	18, 2, 4, 19, 2, 4, 21, 2,
-	5, 14, 2, 5, 16, 2, 5, 22,
-	3, 4, 5, 14, 3, 4, 5, 16,
-	0
+	11, 1, 12, 1, 13, 1, 14, 1,
+	15, 1, 18, 1, 19, 1, 20, 2,
+	4, 13, 2, 4, 15, 2, 4, 16,
+	2, 4, 17, 2, 4, 19, 2, 4,
+	20, 0
 };
 
 static const short _cfg_line_m_key_offsets[] = {
@@ -101,9 +99,9 @@ static const short _cfg_line_m_key_offsets[] = {
 	339, 345, 351, 352, 358, 364, 365, 371,
 	377, 380, 386, 390, 393, 402, 411, 416,
 	421, 430, 434, 447, 447, 456, 465, 470,
-	475, 480, 485, 490, 495, 501, 512, 521,
-	527, 530, 536, 545, 551, 562, 571, 576,
-	581, 587, 587, 596, 0
+	475, 480, 485, 490, 495, 501, 501, 512,
+	521, 527, 530, 536, 545, 551, 551, 562,
+	571, 576, 581, 587, 587, 596, 0
 };
 
 static const char _cfg_line_m_trans_keys[] = {
@@ -205,9 +203,9 @@ static const signed char _cfg_line_m_single_lengths[] = {
 	0, 0, 1, 0, 0, 1, 0, 0,
 	1, 2, 2, 1, 1, 1, 1, 1,
 	1, 2, 11, 0, 1, 1, 1, 1,
-	1, 1, 1, 1, 2, 3, 1, 2,
-	1, 2, 1, 2, 3, 1, 1, 1,
-	2, 0, 1, 0, 0
+	1, 1, 1, 1, 2, 0, 3, 1,
+	2, 1, 2, 1, 2, 0, 3, 1,
+	1, 1, 2, 0, 1, 0, 0
 };
 
 static const signed char _cfg_line_m_range_lengths[] = {
@@ -231,9 +229,9 @@ static const signed char _cfg_line_m_range_lengths[] = {
 	3, 3, 0, 3, 3, 0, 3, 3,
 	1, 2, 1, 1, 4, 4, 2, 2,
 	4, 1, 1, 0, 4, 4, 2, 2,
-	2, 2, 2, 2, 2, 4, 4, 2,
-	1, 2, 4, 2, 4, 4, 2, 2,
-	2, 0, 4, 0, 0
+	2, 2, 2, 2, 2, 0, 4, 4,
+	2, 1, 2, 4, 2, 0, 4, 4,
+	2, 2, 2, 0, 4, 0, 0
 };
 
 static const short _cfg_line_m_index_offsets[] = {
@@ -257,9 +255,9 @@ static const short _cfg_line_m_index_offsets[] = {
 	382, 386, 390, 392, 396, 400, 402, 406,
 	410, 413, 418, 422, 425, 431, 437, 441,
 	445, 451, 455, 468, 469, 475, 481, 485,
-	489, 493, 497, 501, 505, 510, 518, 524,
-	529, 532, 537, 543, 548, 556, 562, 566,
-	570, 575, 576, 582, 0
+	489, 493, 497, 501, 505, 510, 511, 519,
+	525, 530, 533, 538, 544, 549, 550, 558,
+	564, 568, 572, 577, 578, 584, 0
 };
 
 static const short _cfg_line_m_cond_targs[] = {
@@ -283,29 +281,29 @@ static const short _cfg_line_m_cond_targs[] = {
 	58, 0, 53, 0, 54, 0, 55, 0,
 	56, 56, 0, 56, 56, 161, 0, 57,
 	162, 57, 161, 0, 59, 0, 60, 0,
-	61, 0, 62, 62, 0, 62, 164, 166,
-	62, 165, 166, 166, 0, 63, 155, 164,
-	166, 63, 165, 166, 166, 0, 65, 0,
+	61, 0, 62, 62, 0, 62, 164, 167,
+	62, 166, 167, 167, 0, 63, 165, 164,
+	167, 63, 166, 167, 167, 0, 65, 0,
 	66, 0, 67, 0, 68, 0, 69, 0,
 	70, 0, 71, 79, 0, 72, 0, 73,
 	0, 74, 0, 75, 0, 76, 76, 0,
 	76, 77, 76, 77, 0, 78, 77, 78,
-	77, 0, 78, 167, 78, 167, 0, 168,
+	77, 0, 78, 168, 78, 168, 0, 169,
 	0, 81, 0, 82, 0, 83, 0, 84,
 	0, 85, 0, 86, 0, 87, 87, 0,
-	87, 169, 87, 169, 0, 89, 0, 90,
+	87, 170, 87, 170, 0, 89, 0, 90,
 	0, 91, 0, 92, 0, 93, 0, 94,
 	0, 95, 0, 96, 0, 97, 97, 0,
-	97, 97, 170, 170, 170, 0, 99, 0,
+	97, 97, 171, 171, 171, 0, 99, 0,
 	100, 0, 101, 0, 102, 0, 103, 0,
 	104, 0, 105, 0, 106, 0, 107, 0,
-	108, 108, 0, 108, 171, 173, 108, 172,
-	173, 173, 0, 109, 155, 171, 173, 109,
-	172, 173, 173, 0, 111, 0, 112, 0,
+	108, 108, 0, 108, 172, 175, 108, 174,
+	175, 175, 0, 109, 173, 172, 175, 109,
+	174, 175, 175, 0, 111, 0, 112, 0,
 	113, 0, 114, 0, 115, 0, 116, 0,
 	117, 0, 118, 0, 119, 119, 0, 119,
-	119, 174, 0, 121, 0, 122, 0, 123,
-	0, 124, 124, 0, 124, 124, 175, 0,
+	119, 176, 0, 121, 0, 122, 0, 123,
+	0, 124, 124, 0, 124, 124, 177, 0,
 	126, 147, 0, 127, 127, 0, 127, 127,
 	128, 128, 128, 0, 129, 129, 129, 0,
 	130, 0, 131, 131, 131, 0, 132, 132,
@@ -314,51 +312,51 @@ static const short _cfg_line_m_cond_targs[] = {
 	137, 0, 138, 138, 138, 0, 139, 0,
 	140, 140, 140, 0, 141, 141, 141, 0,
 	142, 0, 143, 143, 143, 0, 144, 144,
-	144, 0, 145, 145, 0, 145, 176, 145,
-	176, 0, 146, 177, 146, 0, 148, 148,
+	144, 0, 145, 145, 0, 145, 178, 145,
+	178, 0, 146, 179, 146, 0, 148, 148,
 	0, 148, 148, 149, 149, 149, 0, 150,
 	150, 149, 149, 149, 0, 150, 150, 151,
-	0, 152, 152, 151, 0, 152, 152, 178,
-	178, 178, 0, 153, 179, 153, 0, 154,
+	0, 152, 152, 151, 0, 152, 152, 180,
+	180, 180, 0, 153, 181, 153, 0, 154,
 	155, 1, 11, 19, 80, 88, 98, 110,
 	120, 125, 154, 0, 155, 7, 7, 156,
 	156, 156, 0, 10, 10, 157, 157, 157,
 	0, 18, 18, 158, 0, 18, 18, 159,
 	0, 18, 18, 160, 0, 57, 57, 161,
 	0, 163, 163, 162, 155, 163, 163, 162,
-	155, 63, 164, 63, 164, 0, 63, 164,
-	166, 63, 165, 166, 166, 0, 63, 63,
-	166, 166, 166, 0, 18, 167, 18, 167,
-	0, 18, 18, 0, 18, 169, 18, 169,
-	0, 18, 18, 170, 170, 170, 0, 109,
-	171, 109, 171, 0, 109, 171, 173, 109,
-	172, 173, 173, 0, 109, 109, 173, 173,
-	173, 0, 18, 18, 174, 0, 18, 18,
-	175, 0, 146, 176, 146, 176, 0, 177,
-	153, 153, 178, 178, 178, 0, 179, 0,
-	1, 2, 3, 4, 5, 6, 7, 8,
-	9, 10, 11, 12, 13, 14, 15, 16,
-	17, 18, 19, 20, 21, 22, 23, 24,
-	25, 26, 27, 28, 29, 30, 31, 32,
-	33, 34, 35, 36, 37, 38, 39, 40,
-	41, 42, 43, 44, 45, 46, 47, 48,
-	49, 50, 51, 52, 53, 54, 55, 56,
-	57, 58, 59, 60, 61, 62, 63, 64,
-	65, 66, 67, 68, 69, 70, 71, 72,
-	73, 74, 75, 76, 77, 78, 79, 80,
-	81, 82, 83, 84, 85, 86, 87, 88,
-	89, 90, 91, 92, 93, 94, 95, 96,
-	97, 98, 99, 100, 101, 102, 103, 104,
-	105, 106, 107, 108, 109, 110, 111, 112,
-	113, 114, 115, 116, 117, 118, 119, 120,
-	121, 122, 123, 124, 125, 126, 127, 128,
-	129, 130, 131, 132, 133, 134, 135, 136,
-	137, 138, 139, 140, 141, 142, 143, 144,
-	145, 146, 147, 148, 149, 150, 151, 152,
-	153, 154, 155, 156, 157, 158, 159, 160,
-	161, 162, 163, 164, 165, 166, 167, 168,
-	169, 170, 171, 172, 173, 174, 175, 176,
-	177, 178, 179, 0
+	155, 63, 164, 63, 164, 0, 165, 63,
+	164, 167, 63, 166, 167, 167, 0, 63,
+	63, 167, 167, 167, 0, 18, 168, 18,
+	168, 0, 18, 18, 0, 18, 170, 18,
+	170, 0, 18, 18, 171, 171, 171, 0,
+	109, 172, 109, 172, 0, 173, 109, 172,
+	175, 109, 174, 175, 175, 0, 109, 109,
+	175, 175, 175, 0, 18, 18, 176, 0,
+	18, 18, 177, 0, 146, 178, 146, 178,
+	0, 179, 153, 153, 180, 180, 180, 0,
+	181, 0, 1, 2, 3, 4, 5, 6,
+	7, 8, 9, 10, 11, 12, 13, 14,
+	15, 16, 17, 18, 19, 20, 21, 22,
+	23, 24, 25, 26, 27, 28, 29, 30,
+	31, 32, 33, 34, 35, 36, 37, 38,
+	39, 40, 41, 42, 43, 44, 45, 46,
+	47, 48, 49, 50, 51, 52, 53, 54,
+	55, 56, 57, 58, 59, 60, 61, 62,
+	63, 64, 65, 66, 67, 68, 69, 70,
+	71, 72, 73, 74, 75, 76, 77, 78,
+	79, 80, 81, 82, 83, 84, 85, 86,
+	87, 88, 89, 90, 91, 92, 93, 94,
+	95, 96, 97, 98, 99, 100, 101, 102,
+	103, 104, 105, 106, 107, 108, 109, 110,
+	111, 112, 113, 114, 115, 116, 117, 118,
+	119, 120, 121, 122, 123, 124, 125, 126,
+	127, 128, 129, 130, 131, 132, 133, 134,
+	135, 136, 137, 138, 139, 140, 141, 142,
+	143, 144, 145, 146, 147, 148, 149, 150,
+	151, 152, 153, 154, 155, 156, 157, 158,
+	159, 160, 161, 162, 163, 164, 165, 166,
+	167, 168, 169, 170, 171, 172, 173, 174,
+	175, 176, 177, 178, 179, 180, 181, 0
 };
 
 static const signed char _cfg_line_m_cond_actions[] = {
@@ -388,7 +386,7 @@ static const signed char _cfg_line_m_cond_actions[] = {
 	0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0,
-	0, 1, 0, 1, 0, 46, 0, 46,
+	0, 1, 0, 1, 0, 9, 0, 9,
 	0, 0, 0, 1, 0, 1, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0,
@@ -420,21 +418,21 @@ static const signed char _cfg_line_m_cond_actions[] = {
 	0, 5, 5, 0, 0, 0, 0, 1,
 	1, 1, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 13, 13, 0,
-	0, 0, 0, 15, 15, 0, 0, 0,
-	0, 19, 19, 0, 0, 23, 23, 0,
-	0, 25, 25, 0, 0, 29, 29, 0,
+	0, 0, 0, 0, 0, 11, 11, 0,
+	0, 0, 0, 13, 13, 0, 0, 0,
+	0, 17, 17, 0, 0, 21, 21, 0,
+	0, 23, 23, 0, 0, 29, 29, 0,
 	0, 29, 29, 0, 0, 0, 0, 1,
-	0, 37, 0, 37, 0, 0, 64, 0,
-	0, 64, 0, 0, 0, 0, 55, 55,
-	0, 0, 0, 0, 49, 0, 49, 0,
-	0, 31, 31, 0, 43, 0, 43, 0,
-	0, 27, 27, 0, 0, 0, 0, 40,
-	0, 40, 0, 0, 68, 0, 0, 68,
-	0, 0, 0, 0, 58, 58, 0, 0,
-	0, 0, 21, 21, 0, 0, 17, 17,
-	0, 0, 9, 0, 9, 0, 0, 0,
-	11, 11, 0, 0, 0, 0, 0, 0,
+	0, 9, 0, 9, 0, 0, 0, 9,
+	0, 0, 9, 0, 0, 0, 0, 9,
+	9, 0, 0, 0, 0, 48, 0, 48,
+	0, 0, 33, 33, 0, 45, 0, 45,
+	0, 0, 25, 25, 0, 0, 0, 0,
+	9, 0, 9, 0, 0, 0, 9, 0,
+	0, 9, 0, 0, 0, 0, 9, 9,
+	0, 0, 0, 0, 19, 19, 0, 0,
+	15, 15, 0, 0, 9, 0, 9, 0,
+	0, 0, 9, 9, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0,
@@ -454,36 +452,36 @@ static const signed char _cfg_line_m_cond_actions[] = {
 	0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 13, 15, 19, 23, 25,
-	29, 29, 0, 37, 64, 55, 49, 31,
-	43, 27, 40, 68, 58, 21, 17, 52,
-	33, 61, 35, 0
+	0, 0, 0, 0, 0, 11, 13, 17,
+	21, 23, 29, 29, 0, 39, 27, 39,
+	39, 48, 33, 45, 25, 42, 31, 42,
+	42, 19, 15, 51, 35, 54, 37, 0
 };
 
 static const short _cfg_line_m_eof_trans[] = {
-	584, 585, 586, 587, 588, 589, 590, 591,
-	592, 593, 594, 595, 596, 597, 598, 599,
-	600, 601, 602, 603, 604, 605, 606, 607,
-	608, 609, 610, 611, 612, 613, 614, 615,
-	616, 617, 618, 619, 620, 621, 622, 623,
-	624, 625, 626, 627, 628, 629, 630, 631,
-	632, 633, 634, 635, 636, 637, 638, 639,
-	640, 641, 642, 643, 644, 645, 646, 647,
-	648, 649, 650, 651, 652, 653, 654, 655,
-	656, 657, 658, 659, 660, 661, 662, 663,
-	664, 665, 666, 667, 668, 669, 670, 671,
-	672, 673, 674, 675, 676, 677, 678, 679,
-	680, 681, 682, 683, 684, 685, 686, 687,
-	688, 689, 690, 691, 692, 693, 694, 695,
-	696, 697, 698, 699, 700, 701, 702, 703,
-	704, 705, 706, 707, 708, 709, 710, 711,
-	712, 713, 714, 715, 716, 717, 718, 719,
-	720, 721, 722, 723, 724, 725, 726, 727,
-	728, 729, 730, 731, 732, 733, 734, 735,
-	736, 737, 738, 739, 740, 741, 742, 743,
-	744, 745, 746, 747, 748, 749, 750, 751,
-	752, 753, 754, 755, 756, 757, 758, 759,
-	760, 761, 762, 763, 0
+	586, 587, 588, 589, 590, 591, 592, 593,
+	594, 595, 596, 597, 598, 599, 600, 601,
+	602, 603, 604, 605, 606, 607, 608, 609,
+	610, 611, 612, 613, 614, 615, 616, 617,
+	618, 619, 620, 621, 622, 623, 624, 625,
+	626, 627, 628, 629, 630, 631, 632, 633,
+	634, 635, 636, 637, 638, 639, 640, 641,
+	642, 643, 644, 645, 646, 647, 648, 649,
+	650, 651, 652, 653, 654, 655, 656, 657,
+	658, 659, 660, 661, 662, 663, 664, 665,
+	666, 667, 668, 669, 670, 671, 672, 673,
+	674, 675, 676, 677, 678, 679, 680, 681,
+	682, 683, 684, 685, 686, 687, 688, 689,
+	690, 691, 692, 693, 694, 695, 696, 697,
+	698, 699, 700, 701, 702, 703, 704, 705,
+	706, 707, 708, 709, 710, 711, 712, 713,
+	714, 715, 716, 717, 718, 719, 720, 721,
+	722, 723, 724, 725, 726, 727, 728, 729,
+	730, 731, 732, 733, 734, 735, 736, 737,
+	738, 739, 740, 741, 742, 743, 744, 745,
+	746, 747, 748, 749, 750, 751, 752, 753,
+	754, 755, 756, 757, 758, 759, 760, 761,
+	762, 763, 764, 765, 766, 767, 0
 };
 
 static const int cfg_line_m_start = 154;
@@ -493,7 +491,7 @@ static const int cfg_line_m_error = 0;
 static const int cfg_line_m_en_main = 154;
 
 
-#line 286 "cfg.rl"
+#line 293 "cfg.rl"
 
 
 static int do_parse_cfg_line(cfg_parse_state &cps, const char *p, size_t plen,
@@ -503,15 +501,15 @@ const size_t linenum)
 	const char *eof = pe;
 	
 
-#line 501 "cfg.cpp"
+#line 499 "cfg.cpp"
 	{
 		cps.cs = (int)cfg_line_m_start;
 	}
 	
-#line 294 "cfg.rl"
+#line 301 "cfg.rl"
 
 
-#line 506 "cfg.cpp"
+#line 504 "cfg.cpp"
 	{
 		int _klen;
 		unsigned int _trans = 0;
@@ -594,7 +592,7 @@ const size_t linenum)
 #line 67 "cfg.rl"
 							cps.st = p; }
 						
-#line 588 "cfg.cpp"
+#line 586 "cfg.cpp"
 
 						break; 
 					}
@@ -606,7 +604,7 @@ const size_t linenum)
 							lc_string_inplace(cps.duid, cps.duid_len);
 						}
 						
-#line 599 "cfg.cpp"
+#line 597 "cfg.cpp"
 
 						break; 
 					}
@@ -627,7 +625,7 @@ const size_t linenum)
 							}
 						}
 						
-#line 619 "cfg.cpp"
+#line 617 "cfg.cpp"
 
 						break; 
 					}
@@ -650,7 +648,7 @@ const size_t linenum)
 							}
 						}
 						
-#line 641 "cfg.cpp"
+#line 639 "cfg.cpp"
 
 						break; 
 					}
@@ -659,30 +657,17 @@ const size_t linenum)
 #line 101 "cfg.rl"
 							
 							size_t l;
-							assign_strbuf(cps.ipaddr, &l, sizeof cps.ipaddr, cps.st, p);
-							lc_string_inplace(cps.ipaddr, l);
+							assign_strbuf(cps.ipaddrs[cps.nipaddrs], &l, sizeof cps.ipaddrs[cps.nipaddrs], cps.st, p);
+							lc_string_inplace(cps.ipaddrs[cps.nipaddrs++], l);
 						}
 						
-#line 653 "cfg.cpp"
+#line 651 "cfg.cpp"
 
 						break; 
 					}
 					case 5:  {
 							{
 #line 106 "cfg.rl"
-							
-							size_t l;
-							assign_strbuf(cps.ipaddr, &l, sizeof cps.ipaddr, cps.st, p);
-							lc_string_inplace(cps.ipaddr, l);
-						}
-						
-#line 665 "cfg.cpp"
-
-						break; 
-					}
-					case 6:  {
-							{
-#line 111 "cfg.rl"
 							
 							char buf[IFNAMSIZ];
 							ptrdiff_t blen = p - cps.st;
@@ -696,13 +681,13 @@ const size_t linenum)
 							emplace_bind4(linenum, buf);
 						}
 						
-#line 684 "cfg.cpp"
+#line 670 "cfg.cpp"
 
 						break; 
 					}
-					case 7:  {
+					case 6:  {
 							{
-#line 123 "cfg.rl"
+#line 118 "cfg.rl"
 							
 							char buf[IFNAMSIZ];
 							ptrdiff_t blen = p - cps.st;
@@ -716,31 +701,31 @@ const size_t linenum)
 							emplace_bind6(linenum, buf);
 						}
 						
-#line 703 "cfg.cpp"
+#line 689 "cfg.cpp"
+
+						break; 
+					}
+					case 7:  {
+							{
+#line 130 "cfg.rl"
+							set_user_runas(MARKED_STRING()); }
+						
+#line 697 "cfg.cpp"
 
 						break; 
 					}
 					case 8:  {
 							{
-#line 135 "cfg.rl"
-							set_user_runas(MARKED_STRING()); }
+#line 131 "cfg.rl"
+							set_chroot_path(MARKED_STRING()); }
 						
-#line 711 "cfg.cpp"
+#line 705 "cfg.cpp"
 
 						break; 
 					}
 					case 9:  {
 							{
-#line 136 "cfg.rl"
-							set_chroot_path(MARKED_STRING()); }
-						
-#line 719 "cfg.cpp"
-
-						break; 
-					}
-					case 10:  {
-							{
-#line 137 "cfg.rl"
+#line 132 "cfg.rl"
 							
 							char buf[64];
 							ptrdiff_t blen = p - cps.st;
@@ -757,13 +742,13 @@ const size_t linenum)
 							set_s6_notify_fd(fd);
 						}
 						
-#line 741 "cfg.cpp"
+#line 727 "cfg.cpp"
 
 						break; 
 					}
-					case 11:  {
+					case 10:  {
 							{
-#line 152 "cfg.rl"
+#line 147 "cfg.rl"
 							
 							char buf[64];
 							ptrdiff_t blen = p - cps.st;
@@ -778,13 +763,13 @@ const size_t linenum)
 							}
 						}
 						
-#line 761 "cfg.cpp"
+#line 747 "cfg.cpp"
 
 						break; 
 					}
-					case 12:  {
+					case 11:  {
 							{
-#line 165 "cfg.rl"
+#line 160 "cfg.rl"
 							
 							char buf[64];
 							ptrdiff_t blen = p - cps.st;
@@ -800,13 +785,13 @@ const size_t linenum)
 							}
 						}
 						
-#line 782 "cfg.cpp"
+#line 768 "cfg.cpp"
 
 						break; 
 					}
-					case 13:  {
+					case 12:  {
 							{
-#line 179 "cfg.rl"
+#line 174 "cfg.rl"
 							
 							char interface[IFNAMSIZ];
 							ptrdiff_t blen = p - cps.st;
@@ -820,134 +805,138 @@ const size_t linenum)
 							cps.ifindex = emplace_interface(linenum, interface, cps.default_preference);
 						}
 						
-#line 801 "cfg.cpp"
+#line 787 "cfg.cpp"
+
+						break; 
+					}
+					case 13:  {
+							{
+#line 186 "cfg.rl"
+							
+							size_t n = sizeof(in6_addr) * cps.nipaddrs;
+							in6_addr *addrs = static_cast<in6_addr *>(malloc(n));
+							if (!addrs) abort();
+							for (size_t i = 0; i < cps.nipaddrs; ++i) {
+								if (!string_to_ipaddr(&addrs[i], cps.ipaddrs[i], strlen(cps.ipaddrs[i]))) {
+									log_line("invalid ip address (%s) at line %zu", cps.ipaddrs[i], linenum);
+									cps.parse_error = true;
+									{p += 1; goto _out; }
+								}
+							}
+							emplace_dns_servers(linenum, cps.ifindex, addrs, cps.nipaddrs);
+						}
+						
+#line 807 "cfg.cpp"
 
 						break; 
 					}
 					case 14:  {
-							{
-#line 191 "cfg.rl"
-							
-							in6_addr t;
-							if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
-								cps.parse_error = true;
-								{p += 1; goto _out; }
-							}
-							emplace_dns_server(linenum, cps.ifindex, &t);
-						}
-						
-#line 816 "cfg.cpp"
-
-						break; 
-					}
-					case 15:  {
 							{
 #line 199 "cfg.rl"
 							
 							emplace_dns_search(linenum, cps.ifindex, MARKED_STRING());
 						}
 						
-#line 826 "cfg.cpp"
+#line 817 "cfg.cpp"
+
+						break; 
+					}
+					case 15:  {
+							{
+#line 202 "cfg.rl"
+							
+							size_t n = sizeof(in6_addr) * cps.nipaddrs;
+							in6_addr *addrs = static_cast<in6_addr *>(malloc(n));
+							if (!addrs) abort();
+							for (size_t i = 0; i < cps.nipaddrs; ++i) {
+								if (!string_to_ipaddr(&addrs[i], cps.ipaddrs[i], strlen(cps.ipaddrs[i]))) {
+									log_line("invalid ip address (%s) at line %zu", cps.ipaddrs[i], linenum);
+									cps.parse_error = true;
+									{p += 1; goto _out; }
+								}
+							}
+							emplace_ntp_servers(linenum, cps.ifindex, addrs, cps.nipaddrs);
+						}
+						
+#line 837 "cfg.cpp"
 
 						break; 
 					}
 					case 16:  {
 							{
-#line 202 "cfg.rl"
+#line 215 "cfg.rl"
 							
 							in6_addr t;
-							if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
-								cps.parse_error = true;
-								{p += 1; goto _out; }
-							}
-							emplace_ntp_server(linenum, cps.ifindex, &t);
-						}
-						
-#line 841 "cfg.cpp"
-
-						break; 
-					}
-					case 17:  {
-							{
-#line 210 "cfg.rl"
-							
-							in6_addr t;
-							if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
+							if (!string_to_ipaddr(&t, cps.ipaddrs[0], linenum)) {
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
 							emplace_gateway_v4(linenum, cps.ifindex, &t);
 						}
 						
-#line 856 "cfg.cpp"
+#line 852 "cfg.cpp"
 
 						break; 
 					}
-					case 18:  {
+					case 17:  {
 							{
-#line 218 "cfg.rl"
+#line 223 "cfg.rl"
 							
-							memcpy(cps.ipaddr2, cps.ipaddr, sizeof cps.ipaddr2);
-						}
-						
-#line 866 "cfg.cpp"
-
-						break; 
-					}
-					case 19:  {
-							{
-#line 221 "cfg.rl"
-							
+							if (cps.nipaddrs != 2) {
+								fprintf(stderr, "XXX: dynrange nipaddrs != 2 (%zu)\n", cps.nipaddrs);
+								cps.parse_error = true;
+								{p += 1; goto _out; }
+							}
 							in6_addr tlo;
-							if (!string_to_ipaddr(&tlo, cps.ipaddr2, linenum)) {
+							if (!string_to_ipaddr(&tlo, cps.ipaddrs[0], linenum)) {
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
 							in6_addr thi;
-							if (!string_to_ipaddr(&thi, cps.ipaddr, linenum)) {
+							if (!string_to_ipaddr(&thi, cps.ipaddrs[1], linenum)) {
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
 							emplace_dynamic_range(linenum, cps.ifindex, &tlo, &thi, cps.default_lifetime);
 						}
 						
-#line 886 "cfg.cpp"
+#line 877 "cfg.cpp"
 
 						break; 
 					}
-					case 20:  {
+					case 18:  {
 							{
-#line 234 "cfg.rl"
+#line 241 "cfg.rl"
 							
 							emplace_dynamic_v6(linenum, cps.ifindex);
 						}
 						
-#line 896 "cfg.cpp"
+#line 887 "cfg.cpp"
 
 						break; 
 					}
-					case 21:  {
+					case 19:  {
 							{
-#line 237 "cfg.rl"
+#line 244 "cfg.rl"
 							
 							in6_addr t;
-							if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
+							if (!string_to_ipaddr(&t, cps.ipaddrs[0], linenum)) {
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
 							emplace_dhcp4_state(linenum, cps.ifindex, cps.macaddr, &t, cps.default_lifetime);
 						}
 						
-#line 911 "cfg.cpp"
+#line 902 "cfg.cpp"
 
 						break; 
 					}
-					case 22:  {
+					case 20:  {
 							{
-#line 245 "cfg.rl"
+#line 252 "cfg.rl"
 							
 							in6_addr t;
-							if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
+							if (!string_to_ipaddr(&t, cps.ipaddrs[0], linenum)) {
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
@@ -956,7 +945,7 @@ const size_t linenum)
 							cps.iaid, &t, cps.default_lifetime);
 						}
 						
-#line 928 "cfg.cpp"
+#line 919 "cfg.cpp"
 
 						break; 
 					}
@@ -980,7 +969,7 @@ const size_t linenum)
 		_out: {}
 	}
 	
-#line 295 "cfg.rl"
+#line 302 "cfg.rl"
 
 	
 	if (cps.parse_error) return -1;

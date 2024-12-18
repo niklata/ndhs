@@ -383,18 +383,17 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, sbufs &ss,
 bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
 {
     const auto dns_servers = query_dns_servers(ifindex_);
-    if (!dns_servers) return true;
+    if (!dns_servers.n) return true;
 
-    if (d6s.optreq_dns && dns_servers->size()) {
+    if (d6s.optreq_dns && dns_servers.n) {
+        size_t siz = dns_servers.n * 16;
+        if (ss.se - ss.si < (ptrdiff_t)(siz + 4)) return false;
         dhcp6_opt send_dns;
         send_dns.type(23);
-        send_dns.length(dns_servers->size() * 16);
-        if (!send_dns.write(ss)) return false;
-        for (const auto &i: *dns_servers) {
-            if (ss.se - ss.si < 16) return false;
-            memcpy(ss.si, &i, 16);
-            ss.si += 16;
-        }
+        send_dns.length(siz);
+        if (!send_dns.write(ss)) abort();
+        memcpy(ss.si, dns_servers.addrs, siz);
+        ss.si += siz;
     }
     struct blob d6b = query_dns6_search_blob(ifindex_);
     if (d6s.optreq_dns_search && (d6b.s && d6b.n)) {
@@ -407,36 +406,31 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
         ss.si += d6b.n;
     }
     const auto ntp_servers = query_ntp_servers(ifindex_);
-    if (d6s.optreq_ntp && (ntp_servers && ntp_servers->size())) {
-        uint16_t len(0);
+    if (d6s.optreq_ntp && ntp_servers.n) {
+        size_t siz = ntp_servers.n * 20;
+        if (ss.se - ss.si < (ptrdiff_t)(siz + 4)) return false;
         dhcp6_opt send_ntp;
         send_ntp.type(56);
-        if (ntp_servers) len += 4 + ntp_servers->size() * 16;
-        send_ntp.length(len);
-        if (!send_ntp.write(ss)) return false;
-
-        for (const auto &i: *ntp_servers) {
+        send_ntp.length(siz);
+        if (!send_ntp.write(ss)) abort();
+        for (size_t i = 0; i < ntp_servers.n; ++i) {
             dhcp6_opt n6_svr;
             n6_svr.type(1);
             n6_svr.length(16);
-            if (!n6_svr.write(ss)) return false;
-            if (ss.se - ss.si < 16) return false;
-            memcpy(ss.si, &i, 16);
+            if (!n6_svr.write(ss)) abort();
+            memcpy(ss.si, &ntp_servers.addrs[i], 16);
             ss.si += 16;
         }
     }
     if (d6s.optreq_sntp) {
-        uint16_t len(0);
+        size_t siz = ntp_servers.n * 16;
+        if (ss.se - ss.si < (ptrdiff_t)(siz + 4)) return false;
         dhcp6_opt send_sntp;
         send_sntp.type(31);
-        if (ntp_servers) len += ntp_servers->size() * 16;
-        send_sntp.length(len);
-        if (!send_sntp.write(ss)) return false;
-        for (const auto &i: *ntp_servers) {
-            if (ss.se - ss.si < 16) return false;
-            memcpy(ss.si, &i, 16);
-            ss.si += 16;
-        }
+        send_sntp.length(siz);
+        if (!send_sntp.write(ss)) abort();
+        memcpy(ss.si, ntp_servers.addrs, siz);
+        ss.si += siz;
     }
     return true;
 }

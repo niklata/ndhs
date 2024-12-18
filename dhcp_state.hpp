@@ -26,6 +26,11 @@ struct blob {
     const char *s;
 };
 
+struct addrlist {
+    size_t n;
+    in6_addr *addrs;
+};
+
 void create_blobs();
 bool emplace_bind4(size_t linenum, const char *interface);
 bool emplace_bind6(size_t linenum, const char *interface);
@@ -35,8 +40,8 @@ bool emplace_dhcp6_state(size_t linenum, int ifindex,
                          uint32_t iaid, const in6_addr *v6_addr, uint32_t default_lifetime);
 bool emplace_dhcp4_state(size_t linenum, int ifindex, const uint8_t *macaddr,
                          const in6_addr *v4_addr, uint32_t default_lifetime);
-bool emplace_dns_server(size_t linenum, int ifindex, const in6_addr *addr);
-bool emplace_ntp_server(size_t linenum, int ifindex, const in6_addr *addr);
+bool emplace_dns_servers(size_t linenum, int ifindex, in6_addr *addrs, size_t naddrs);
+bool emplace_ntp_servers(size_t linenum, int ifindex, in6_addr *addrs, size_t naddrs);
 bool emplace_subnet(int ifindex, const in6_addr *addr);
 bool emplace_gateway_v4(size_t linenum, int ifindex, const in6_addr *addr);
 bool emplace_broadcast(int ifindex, const in6_addr *addr);
@@ -49,8 +54,8 @@ const dhcpv6_entry *query_dhcp6_state(int ifindex,
                                       const char *duid, size_t duid_len,
                                       uint32_t iaid);
 const dhcpv4_entry *query_dhcp4_state(int ifindex, const uint8_t *hwaddr);
-const std::vector<in6_addr> *query_dns_servers(int ifindex);
-const std::vector<in6_addr> *query_ntp_servers(int ifindex);
+struct addrlist query_dns_servers(int ifindex);
+struct addrlist query_ntp_servers(int ifindex);
 struct blob query_dns4_search_blob(int ifindex);
 struct blob query_dns6_search_blob(int ifindex);
 const in6_addr *query_gateway_v4(int ifindex);

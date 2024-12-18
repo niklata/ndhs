@@ -40,7 +40,8 @@ static void str_slist_destroy(struct str_slist **head)
 struct interface_data
 {
     interface_data(int ifindex_)
-        : ifindex(ifindex_), p_dns_search(nullptr), p_ntp6_fqdns(nullptr),
+        : ifindex(ifindex_), dnsaddrs(0, nullptr), ntpaddrs(0, nullptr),
+          p_dns_search(nullptr),
           d4_dns_search_blob(nullptr), ra6_dns_search_blob(nullptr),
           d4_dns_search_blob_size(0), ra6_dns_search_blob_size(0),
           dynamic_lifetime(0), preference(0), use_dhcpv4(false),
@@ -49,15 +50,14 @@ struct interface_data
     int ifindex;
     std::vector<dhcpv6_entry> s6addrs; // static assigned v6 leases
     std::vector<dhcpv4_entry> s4addrs; // static assigned v4 leases
-    std::vector<in6_addr> dns_servers;
-    std::vector<in6_addr> ntp_servers;
+    struct addrlist dnsaddrs;
+    struct addrlist ntpaddrs;
     in6_addr subnet;
     in6_addr broadcast;
     in6_addr gateway_v4;
     in6_addr dynamic_range_lo;
     in6_addr dynamic_range_hi;
     struct str_slist *p_dns_search;
-    struct str_slist *p_ntp6_fqdns;
     char *d4_dns_search_blob;
     char *ra6_dns_search_blob;
     size_t d4_dns_search_blob_size;
@@ -305,24 +305,30 @@ bool emplace_dhcp4_state(size_t linenum, int ifindex, const uint8_t *macaddr,
     return false;
 }
 
-bool emplace_dns_server(size_t linenum, int ifindex, const in6_addr *addr)
+bool emplace_dns_servers(size_t linenum, int ifindex, in6_addr *addrs, size_t naddrs)
 {
     auto is = lookup_interface(ifindex);
     if (is) {
-        is->dns_servers.emplace_back(*addr);
+        free(is->dnsaddrs.addrs);
+        is->dnsaddrs.n = naddrs;
+        is->dnsaddrs.addrs = addrs;
         return true;
     }
+    free(addrs);
     log_line("%s: No interface specified at line %zu\n", __func__, linenum);
     return false;
 }
 
-bool emplace_ntp_server(size_t linenum, int ifindex, const in6_addr *addr)
+bool emplace_ntp_servers(size_t linenum, int ifindex, in6_addr *addrs, size_t naddrs)
 {
     auto is = lookup_interface(ifindex);
     if (is) {
-        is->ntp_servers.emplace_back(*addr);
+        free(is->ntpaddrs.addrs);
+        is->ntpaddrs.n = naddrs;
+        is->ntpaddrs.addrs = addrs;
         return true;
     }
+    free(addrs);
     log_line("%s: No interface specified at line %zu\n", __func__, linenum);
     return false;
 }
@@ -437,18 +443,18 @@ const dhcpv4_entry *query_dhcp4_state(int ifindex, const uint8_t *hwaddr)
     return nullptr;
 }
 
-const std::vector<in6_addr> *query_dns_servers(int ifindex)
+struct addrlist query_dns_servers(int ifindex)
 {
     auto is = lookup_interface(ifindex);
-    if (!is) return nullptr;
-    return &is->dns_servers;
+    if (!is) return (struct addrlist){ .n = 0, .addrs = nullptr };
+    return is->dnsaddrs;
 }
 
-const std::vector<in6_addr> *query_ntp_servers(int ifindex)
+struct addrlist query_ntp_servers(int ifindex)
 {
     auto is = lookup_interface(ifindex);
-    if (!is) return nullptr;
-    return &is->ntp_servers;
+    if (!is) return (struct addrlist){ .n = 0, .addrs = nullptr };
+    return is->ntpaddrs;
 }
 
 struct blob query_dns4_search_blob(int ifindex)

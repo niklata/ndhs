@@ -301,20 +301,14 @@ void D4Listener::send_reply(const dhcpmsg &reply)
         send_reply_do(reply, SendReplyType::Broadcast);
 }
 
-struct iplist
-{
-    size_t n;
-    const in6_addr *addrs[32];
-};
-
-static bool iplist_option(dhcpmsg *reply, uint8_t code, const struct iplist *ipl)
+static bool iplist_option(dhcpmsg *reply, uint8_t code, const struct addrlist *ipl)
 {
     char buf[256]; // max option size is 255 bytes
     size_t off = 0;
     for (size_t i = 0; i < ipl->n; ++i) {
         if (off + 4 >= sizeof buf) break; // silently drop if too many
-        if (ipaddr_is_v4(ipl->addrs[i])) {
-            memcpy(buf + off, ipaddr_v4_bytes(ipl->addrs[i]), 4);
+        if (ipaddr_is_v4(&ipl->addrs[i])) {
+            memcpy(buf + off, ipaddr_v4_bytes(&ipl->addrs[i]), 4);
             off += 4;
         }
     }
@@ -426,26 +420,10 @@ bool D4Listener::create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_ass
     }
 
     auto dns_servers = query_dns_servers(ifindex_);
-    if (dns_servers) {
-        struct iplist ipl;
-        memset(&ipl, 0, sizeof ipl);
-        for (auto &i: *dns_servers) {
-            ipl.addrs[ipl.n++] = &i;
-            if (ipl.n == sizeof ipl.addrs / sizeof ipl.addrs[0]) break;
-        }
-        iplist_option(&reply, DCODE_DNS, &ipl);
-    }
+    if (dns_servers.n) iplist_option(&reply, DCODE_DNS, &dns_servers);
 
     auto ntp_servers = query_ntp_servers(ifindex_);
-    if (ntp_servers) {
-        struct iplist ipl;
-        memset(&ipl, 0, sizeof ipl);
-        for (auto &i: *dns_servers) {
-            ipl.addrs[ipl.n++] = &i;
-            if (ipl.n == sizeof ipl.addrs / sizeof ipl.addrs[0]) break;
-        }
-        iplist_option(&reply, DCODE_NTPSVR, &ipl);
-    }
+    if (ntp_servers.n) iplist_option(&reply, DCODE_NTPSVR, &ntp_servers);
 
     struct blob d4b = query_dns4_search_blob(ifindex_);
     if (d4b.n && d4b.s) add_option_domain_name(&reply, d4b.s, d4b.n);
