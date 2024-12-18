@@ -62,8 +62,8 @@ functioning in the case of unforseen or unrecoverable errors.
 
 ## Configuration Format
 
-Comments are denoted by the C++-style `//` comment marker and may follow
-any command, so long as the `//` is separated from the final argument
+Comments are denoted by the POSIX-style `#` comment marker and may follow
+any command, so long as the `#` is separated from the final argument
 by at least one space or tab.  Comments may also start at the beginning
 of a line, as one would expect.
 
@@ -138,11 +138,13 @@ specified by the typical hexadecimal string delimited by `:`.
 
 `dns_server` specifies a list of dns servers for the address.  The ip
 addresses are in the typical string representations for ipv4 or ipv6
-addresses.  Multiple addresses are delimited by spaces or tabs.
+addresses.  Multiple addresses are delimited by spaces or tabs.  Only
+the most recent `dns_server` option for an interface has any effect.
 
 `ntp_server` specifies a list of ntp servers for the address.  The ip
 addresses are in the typical string representations for ipv4 or ipv6
-addresses.  Multiple addresses are delimited by spaces or tabs.
+addresses.  Multiple addresses are delimited by spaces or tabs.  Only
+the most recent `ntp_server` option for an interface has any effect.
 
 `dynamic_range` enables ipv4 dynamic lease assignment for the interface
 and specifies the both-sides inclusive range of ipv4 addresses that
@@ -162,11 +164,11 @@ bind4 eth0 eth1
 bind6 eth0
 default_lifetime 3600
 
-// Supports both ipv6 and ipv4.
+# Supports both ipv6 and ipv4.
 interface eth0
-v4 aa:bb:cc:dd:ee:ff 192.168.1.2 // Desktop
-v6 0000000000000000000000000000 00000000  aaaa:bbbb:cccc:dddd:1:2:3:4 // Desktop
-v6 00-00-00-00-00-00-00-00-00-00-00-00-00-00 00000000  aaaa:bbbb:cccc:dddd:1:2:3:4 // Desktop 2
+v4 aa:bb:cc:dd:ee:ff 192.168.1.2 # Desktop
+v6 0000000000000000000000000000 00000000  aaaa:bbbb:cccc:dddd:1:2:3:4 # Desktop
+v6 00-00-00-00-00-00-00-00-00-00-00-00-00-00 00000000  aaaa:bbbb:cccc:dddd:1:2:3:4 # Desktop 2
 subnet 255.255.255.0
 gateway 192.168.1.1
 broadcast 192.168.1.255
@@ -176,9 +178,9 @@ ntp_server 192.168.1.1 aaaa:bbbb:cccc:dddd::1
 dynamic_range 192.168.1.100 192.168.1.254
 dynamic_v6
 
-// Supports only ipv4.  Maybe it's wifi?
+# Supports only ipv4.  Maybe it's wifi?
 interface eth1
-v4 aa:bb:cc:dd:ee:ff 192.168.2.2 // Desktop
+v4 aa:bb:cc:dd:ee:ff 192.168.2.2 # Desktop
 subnet 255.255.255.0
 gateway 192.168.2.1
 broadcast 192.168.2.255
