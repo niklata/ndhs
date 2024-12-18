@@ -17,9 +17,6 @@ extern "C" {
 #include "options.h"
 }
 
-// Expect a client to reply within this value in seconds
-#define CS_SWAP_INTERVAL 60
-
 // hwaddr must be exactly 6 bytes
 static uint64_t hwaddr_to_int64(uint8_t *hwaddr)
 {
@@ -33,85 +30,74 @@ static uint64_t hwaddr_to_int64(uint8_t *hwaddr)
 
 namespace detail {
 
-ClientStates::ClientStates() : currentMap_(0)
+ClientStates::ClientStates()
 {
-    clock_gettime(CLOCK_BOOTTIME, &expires_);
-    expires_.tv_sec += CS_SWAP_INTERVAL;
+    memset(map_, 0, sizeof map_);
 }
 
-std::vector<ClientStates::StateItem>::iterator ClientStates::find(int n, uint64_t h)
+struct ClientStates::StateItem *ClientStates::find(uint64_t h)
 {
-    auto iend = map_[n].end();
-    for (auto i = map_[n].begin(); i != iend; ++i) {
-        if (i->hwaddr_ == h) return i;
+    for (size_t i = 0; i < D4_CLIENT_STATE_TABLESIZE; ++i) {
+        if (map_[i].hwaddr_ == h) {
+            struct timespec now;
+            clock_gettime(CLOCK_BOOTTIME, &now);
+            if (now.tv_sec > map_[i].ts_.tv_sec + D4_XID_LIFE_SECS) {
+                memset(&map_[i], 0, sizeof map_[i]);
+                break;
+            }
+            return &map_[i];
+        }
     }
-    return iend;
+    return nullptr;
 }
 
-void ClientStates::stateAdd(uint32_t xid, uint8_t *hwaddr, uint8_t state)
+bool ClientStates::stateAdd(uint32_t xid, uint8_t *hwaddr, uint8_t state)
 {
-    maybe_swap();
-    if (!state) return;
+    if (!state) return false;
     uint64_t key = hwaddr_to_int64(hwaddr);
-    auto i = find(currentMap_, key);
-    if (i == map_[currentMap_].end()) {
-        map_[currentMap_].emplace_back(key, xid, state);
-    } else {
-        i->xid_ = xid;
-        i->state_ = state;
+    struct timespec now;
+    clock_gettime(CLOCK_BOOTTIME, &now);
+    struct StateItem *m = nullptr, *e = nullptr;
+    struct StateItem zi;
+    memset(&zi, 0, sizeof zi);
+    for (size_t i = 0; i < D4_CLIENT_STATE_TABLESIZE; ++i) {
+        if (map_[i].ts_.tv_sec && now.tv_sec > map_[i].ts_.tv_sec + D4_XID_LIFE_SECS) {
+            // Expire entries as we see them.
+            memset(&map_[i], 0, sizeof map_[i]);
+        } else {
+            if (map_[i].hwaddr_ == key) {
+                m = &map_[i];
+                break;
+            }
+        }
+        if (!e && !memcmp(&map_[i], &zi, sizeof zi)) e = &map_[i];
     }
-    auto j = find(!currentMap_, key);
-    if (j != map_[!currentMap_].end())
-        map_[!currentMap_].erase(j);
+    if (!m) {
+        if (!e) return false; // Out of space.
+        m = e;
+    }
+    *m = (struct StateItem){
+        .ts_ = now,
+        .hwaddr_ = key,
+        .xid_ = xid,
+        .state_ = state,
+    };
+    return true;
 }
 
 uint8_t ClientStates::stateGet(uint32_t xid, uint8_t *hwaddr)
 {
-    maybe_swap();
     uint64_t key = hwaddr_to_int64(hwaddr);
-    auto i = find(currentMap_, key);
-    if (i == map_[currentMap_].end()) {
-        i = find(!currentMap_, key);
-        if (i != map_[!currentMap_].end()) {
-            // Transfer into the newest map.
-            map_[currentMap_].push_back(*i);
-            map_[!currentMap_].erase(i);
-            i = map_[currentMap_].end() - 1;
-        } else {
-            return DHCPNULL;
-        }
-    }
-    if (i->xid_ != xid) return DHCPNULL;
-    return i->state_;
+    struct StateItem *m = find(key);
+    if (!m || m->xid_ != xid) return DHCPNULL;
+    return m->state_;
 }
 
 void ClientStates::stateKill(uint8_t *hwaddr)
 {
-    maybe_swap();
     uint64_t key = hwaddr_to_int64(hwaddr);
-    auto i = find(currentMap_, key);
-    if (i != map_[currentMap_].end()) {
-        map_[currentMap_].erase(i);
-        return;
-    }
-    i = find(!currentMap_, key);
-    if (i != map_[!currentMap_].end()) {
-        map_[!currentMap_].erase(i);
-    }
-}
-
-void ClientStates::maybe_swap(void)
-{
-    struct timespec now;
-    clock_gettime(CLOCK_BOOTTIME, &now);
-    if (now.tv_sec < expires_.tv_sec) return;
-    if (now.tv_sec == expires_.tv_sec && now.tv_nsec < expires_.tv_nsec) return;
-
-    now.tv_sec += CS_SWAP_INTERVAL;
-    expires_ = now;
-    int k = !currentMap_;
-    map_[k].clear();
-    currentMap_ = k;
+    struct StateItem *m = find(key);
+    if (m) memset(m, 0, sizeof *m);
 }
 
 } // detail
@@ -518,7 +504,8 @@ void D4Listener::process_receive(const char *buf, size_t buflen)
         case DHCPREQUEST:
         case DHCPDISCOVER:
             cs = msgtype;
-            state_.stateAdd(dhcpmsg_.xid, dhcpmsg_.chaddr, cs);
+            if (!state_.stateAdd(dhcpmsg_.xid, dhcpmsg_.chaddr, cs))
+                return; // Possible DoS; silently drop.
             break;
         case DHCPINFORM:
             // No need to track state since we just INFORM => ACK

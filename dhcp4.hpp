@@ -5,52 +5,40 @@
 
 #include <time.h> // ClientStates
 #include <nk/sys/posix/handle.hpp>
-#include <vector>
 #include "dhcp.h"
 extern "C" {
 #include <ipaddr.h>
 #include <net/if.h>
 }
 
+// Number of entries for one of the two tables.  Exists per interface.
+#define D4_CLIENT_STATE_TABLESIZE 256
+#define D4_XID_LIFE_SECS 60
+
 namespace detail {
 
-// There are two hashtables, a 'new' and a 'marked for death' table.  If these
-// tables are not empty, a timer with period t will wake up and delete all
-// entries on the 'm4d' table and move the 'new' table to replace the 'm4d'
-// table.  If an entry on the 'm4d' table is accessed, it will be moved to the
-// 'new' table.  New entries will be added to the 'new' table.  If both tables
-// are emptied, the timer can stop until a new entry is added.  We optimize
-// the scheme by not actually performing moves: instead, we store an index
-// to the 'new' table, and the 'marked for death' table is the unindexed table.
-//
-// This scheme requires no per-item timestamping and will bound the lifetime of any
-// object to be p < lifetime < 2p.  A further refinement would be to scale
-// p to be inversely proportional to the number of entries on the 'new'
-// and 'm4d' tables.  This change would cause the deletion rate to increase
-// smoothly under heavy load, providing resistance to OOM DoS at the cost of
-// making it so that clients will need to complete their transactions quickly.
+// Timestamps are cheap on modern hardware, so we can do
+// things precisely.  We optimize for cache locality.
 struct ClientStates
 {
     ClientStates();
     ClientStates(const ClientStates &) = delete;
     ClientStates &operator=(const ClientStates &) = delete;
 
-    void stateAdd(uint32_t xid, uint8_t *hwaddr, uint8_t state);
+    bool stateAdd(uint32_t xid, uint8_t *hwaddr, uint8_t state);
     uint8_t stateGet(uint32_t xid, uint8_t *hwaddr);
     void stateKill(uint8_t *hwaddr);
 private:
-    void maybe_swap(void);
     struct StateItem
     {
+        struct timespec ts_; // Set once at creation
         uint64_t hwaddr_;
         uint32_t xid_;
-        uint8_t state_;
+        uint32_t state_;
     };
-    std::vector<StateItem>::iterator find(int n, uint64_t h);
+    struct StateItem *find(uint64_t h);
 
-    struct timespec expires_;
-    std::vector<StateItem> map_[2];
-    int currentMap_; // Either 0 or 1.
+    struct StateItem map_[D4_CLIENT_STATE_TABLESIZE];
 };
 
 }
