@@ -16,6 +16,12 @@ extern "C" {
 }
 
 #define MAX_LINE 2048
+// The RFC allows for 128 raw bytes, which would correspond
+// to a value of 256, but I believe this is a mistake, as it
+// is simply unnecessary to have a 1024-bit value to guard
+// against collisions even with random strings.  256-bit
+// security is enough to avoid birthday attacks.
+#define MAX_DUID 64
 
 #ifdef __GNUC__
 #pragma GCC diagnostic ignored "-Wold-style-cast"
@@ -46,7 +52,7 @@ struct lease_state_v6
     size_t duid_len;
     int64_t expire_time;
     uint32_t iaid;
-    char duid[128]; // not null terminated
+    char duid[MAX_DUID]; // not null terminated, hex string
 };
 
 // The vectors here are sorted by addr.
@@ -370,7 +376,7 @@ struct dynlease_parse_state {
     size_t duid_len;
     uint32_t iaid;
     bool parse_error;
-    char duid[128];
+    char duid[MAX_DUID];
     char interface[IFNAMSIZ];
     char v6_addr[48];
     char v4_addr[16];
