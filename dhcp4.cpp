@@ -412,17 +412,23 @@ bool D4Listener::create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_ass
     memcpy(&broadcast_addr, ipaddr_v4_bytes(broadcast), sizeof broadcast_addr);
     add_option_broadcast(&reply, broadcast_addr);
 
-    log_line("dhcp4: Sending reply %u.%u.%u.%u\n", reply.yiaddr & 255,
-             (reply.yiaddr >> 8) & 255, (reply.yiaddr >> 16) & 255, (reply.yiaddr >> 24) & 255);
+    auto router = query_gateway_v4(ifindex_);
+    if (router) {
+        uint32_t router_addr;
+        memcpy(&router_addr, ipaddr_v4_bytes(router), sizeof router_addr);
+        add_option_router(&reply, router_addr);
+    }
 
-    auto routers = query_gateway(ifindex_);
     auto dns4 = query_dns4_servers(ifindex_);
     auto ntp4 = query_ntp4_servers(ifindex_);
-    if (routers) iplist_option(&reply, DCODE_ROUTER, *routers);
     if (dns4) iplist_option(&reply, DCODE_DNS, *dns4);
     if (ntp4) iplist_option(&reply, DCODE_NTPSVR, *ntp4);
     struct blob d4b = query_dns4_search_blob(ifindex_);
     if (d4b.n && d4b.s) add_option_domain_name(&reply, d4b.s, d4b.n);
+
+    log_line("dhcp4: Sending reply %u.%u.%u.%u\n", reply.yiaddr & 255,
+             (reply.yiaddr >> 8) & 255, (reply.yiaddr >> 16) & 255, (reply.yiaddr >> 24) & 255);
+
     return true;
 }
 

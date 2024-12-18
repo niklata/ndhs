@@ -232,6 +232,10 @@ void add_option_broadcast(struct dhcpmsg *packet, uint32_t bc)
 {
     add_u32_option(packet, DCODE_BROADCAST, bc);
 }
+void add_option_router(struct dhcpmsg *packet, uint32_t router)
+{
+    add_u32_option(packet, DCODE_ROUTER, router);
+}
 #endif
 
 void add_option_msgtype(struct dhcpmsg *packet, uint8_t type)

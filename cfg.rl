@@ -217,7 +217,7 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
             cps.parse_error = true;
             fbreak;
         }
-        emplace_gateway(linenum, cps.ifindex, &t);
+        emplace_gateway_v4(linenum, cps.ifindex, &t);
     }
     action DynRangePreEn {
         memcpy(cps.ipaddr2, cps.ipaddr, sizeof cps.ipaddr2);

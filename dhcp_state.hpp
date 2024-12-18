@@ -42,7 +42,7 @@ bool emplace_dns_server(size_t linenum, int ifindex,
 bool emplace_ntp_server(size_t linenum, int ifindex,
                         const in6_addr *addr, addr_type atype);
 bool emplace_subnet(int ifindex, const in6_addr *addr);
-bool emplace_gateway(size_t linenum, int ifindex, const in6_addr *addr);
+bool emplace_gateway_v4(size_t linenum, int ifindex, const in6_addr *addr);
 bool emplace_broadcast(int ifindex, const in6_addr *addr);
 bool emplace_dynamic_range(size_t linenum, int ifindex,
                            const in6_addr *lo_addr, const in6_addr *hi_addr,
@@ -59,7 +59,7 @@ struct blob query_dns4_search_blob(int ifindex);
 struct blob query_dns6_search_blob(int ifindex);
 const std::vector<in6_addr> *query_ntp6_servers(int ifindex);
 const std::vector<in6_addr> *query_ntp4_servers(int ifindex);
-const std::vector<in6_addr> *query_gateway(int ifindex);
+const in6_addr *query_gateway_v4(int ifindex);
 const in6_addr *query_subnet(int ifindex);
 const in6_addr *query_broadcast(int ifindex);
 bool query_dynamic_range(int ifindex, in6_addr *lo, in6_addr *hi);

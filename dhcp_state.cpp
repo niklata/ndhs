@@ -49,13 +49,13 @@ struct interface_data
     int ifindex;
     std::vector<dhcpv6_entry> s6addrs; // static assigned v6 leases
     std::vector<dhcpv4_entry> s4addrs; // static assigned v4 leases
-    std::vector<in6_addr> gateway;
     std::vector<in6_addr> dns6_servers;
     std::vector<in6_addr> dns4_servers;
     std::vector<in6_addr> ntp6_servers;
     std::vector<in6_addr> ntp4_servers;
     in6_addr subnet;
     in6_addr broadcast;
+    in6_addr gateway_v4;
     in6_addr dynamic_range_lo;
     in6_addr dynamic_range_hi;
     struct str_slist *p_dns_search;
@@ -290,13 +290,12 @@ bool emplace_dhcp6_state(size_t linenum, int ifindex,
 bool emplace_dhcp4_state(size_t linenum, int ifindex, const uint8_t *macaddr,
                          const in6_addr *v4_addr, uint32_t default_lifetime)
 {
+    if (!ipaddr_is_v4(v4_addr)) {
+        log_line("Bad IPv4 address at line %zu\n", linenum);
+        return false;
+    }
     auto is = lookup_interface(ifindex);
     if (is) {
-        if (!ipaddr_is_v4(v4_addr)) {
-            log_line("Bad IPv4 address at line %zu\n", linenum);
-            return false;
-        }
-
         dhcpv4_entry t;
         memcpy(t.macaddr, macaddr, sizeof t.macaddr);
         t.address = *v4_addr;
@@ -315,12 +314,12 @@ bool emplace_dns_server(size_t linenum, int ifindex,
         log_line("Invalid address type at line %zu\n", linenum);
         return false;
     }
+    if ((atype == addr_type::v4 && !ipaddr_is_v4(addr)) || (atype == addr_type::v6 && ipaddr_is_v4(addr))) {
+        log_line("Bad IP address at line %zu\n", linenum);
+        return false;
+    }
     auto is = lookup_interface(ifindex);
     if (is) {
-        if ((atype == addr_type::v4 && !ipaddr_is_v4(addr)) || (atype == addr_type::v6 && ipaddr_is_v4(addr))) {
-            log_line("Bad IP address at line %zu\n", linenum);
-            return false;
-        }
         if (atype == addr_type::v4) {
             is->dns4_servers.emplace_back(*addr);
         } else {
@@ -339,12 +338,12 @@ bool emplace_ntp_server(size_t linenum, int ifindex,
         log_line("Invalid address type at line %zu\n", linenum);
         return false;
     }
+    if ((atype == addr_type::v4 && !ipaddr_is_v4(addr)) || (atype == addr_type::v6 && ipaddr_is_v4(addr))) {
+        log_line("Bad IP address at line %zu\n", linenum);
+        return false;
+    }
     auto is = lookup_interface(ifindex);
     if (is) {
-        if ((atype == addr_type::v4 && !ipaddr_is_v4(addr)) || (atype == addr_type::v6 && ipaddr_is_v4(addr))) {
-            log_line("Bad IP address at line %zu\n", linenum);
-            return false;
-        }
         if (atype == addr_type::v4) {
             is->ntp4_servers.emplace_back(*addr);
         } else {
@@ -358,27 +357,27 @@ bool emplace_ntp_server(size_t linenum, int ifindex,
 
 bool emplace_subnet(int ifindex, const in6_addr *addr)
 {
+    if (!ipaddr_is_v4(addr)) {
+        log_line("%s: Bad IP address for interface #%d\n", __func__, ifindex);
+        return false;
+    }
     auto is = lookup_interface(ifindex);
     if (is) {
-        if (!ipaddr_is_v4(addr)) {
-            log_line("%s: Bad IP address for interface #%d\n", __func__, ifindex);
-            return false;
-        }
         is->subnet = *addr;
         return true;
     }
     return false;
 }
 
-bool emplace_gateway(size_t linenum, int ifindex, const in6_addr *addr)
+bool emplace_gateway_v4(size_t linenum, int ifindex, const in6_addr *addr)
 {
+    if (!ipaddr_is_v4(addr)) {
+        log_line("%s: Bad IP address for interface #%d\n", __func__, ifindex);
+        return false;
+    }
     auto is = lookup_interface(ifindex);
     if (is) {
-        if (!ipaddr_is_v4(addr)) {
-            log_line("%s: Bad IP address for interface #%d\n", __func__, ifindex);
-            return false;
-        }
-        is->gateway.emplace_back(*addr);
+        is->gateway_v4 = *addr;
         return true;
     }
     log_line("%s: No interface specified at line %zu\n", __func__, linenum);
@@ -387,12 +386,12 @@ bool emplace_gateway(size_t linenum, int ifindex, const in6_addr *addr)
 
 bool emplace_broadcast(int ifindex, const in6_addr *addr)
 {
+    if (!ipaddr_is_v4(addr)) {
+        log_line("%s: Bad IP address for interface #%d\n", __func__, ifindex);
+        return false;
+    }
     auto is = lookup_interface(ifindex);
     if (is) {
-        if (!ipaddr_is_v4(addr)) {
-            log_line("%s: Bad IP address for interface #%d\n", __func__, ifindex);
-            return false;
-        }
         is->broadcast = *addr;
         return true;
     }
@@ -403,12 +402,12 @@ bool emplace_dynamic_range(size_t linenum, int ifindex,
                            const in6_addr *lo_addr, const in6_addr *hi_addr,
                            uint32_t dynamic_lifetime)
 {
+    if (!ipaddr_is_v4(lo_addr) || !ipaddr_is_v4(hi_addr)) {
+        log_line("Bad IPv4 address at line %zu\n", linenum);
+        return false;
+    }
     auto is = lookup_interface(ifindex);
     if (is) {
-        if (!ipaddr_is_v4(lo_addr) || !ipaddr_is_v4(hi_addr)) {
-            log_line("Bad IPv4 address at line %zu\n", linenum);
-            return false;
-        }
         bool inorder = memcmp(lo_addr, hi_addr, sizeof *lo_addr) <= 0;
         is->dynamic_range_lo = inorder? *lo_addr : *hi_addr;
         is->dynamic_range_hi = inorder? *hi_addr : *lo_addr;
@@ -508,11 +507,11 @@ const std::vector<in6_addr> *query_ntp4_servers(int ifindex)
     return &is->ntp4_servers;
 }
 
-const std::vector<in6_addr> *query_gateway(int ifindex)
+const in6_addr *query_gateway_v4(int ifindex)
 {
     auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
-    return &is->gateway;
+    return &is->gateway_v4;
 }
 
 const in6_addr *query_subnet(int ifindex)

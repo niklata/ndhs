@@ -880,7 +880,7 @@ const size_t linenum)
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
-							emplace_gateway(linenum, cps.ifindex, &t);
+							emplace_gateway_v4(linenum, cps.ifindex, &t);
 						}
 						
 #line 860 "cfg.cpp"
