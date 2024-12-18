@@ -3,7 +3,7 @@
 #include <poll.h>
 #include <arpa/inet.h>
 #include <net/if.h>
-#include "rng.hpp"
+#include "rng.h"
 #include "nlsocket.hpp"
 #include "dhcp_state.hpp"
 extern "C" {

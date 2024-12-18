@@ -4,7 +4,9 @@
 
 static nk::rng::prng random_prng;
 
+extern "C" {
 uint64_t nk_random_u64() {
     return random_prng();
+}
 }
 

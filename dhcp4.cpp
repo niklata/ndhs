@@ -9,7 +9,7 @@
 #include "nlsocket.hpp"
 #include "dynlease.hpp"
 #include "sbufs.h"
-#include "rng.hpp"
+#include "rng.h"
 #include "nk/netbits.h"
 extern "C" {
 #include "nk/log.h"

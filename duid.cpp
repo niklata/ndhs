@@ -13,7 +13,7 @@ extern "C" {
 #include "nk/log.h"
 }
 #include "duid.hpp"
-#include "rng.hpp"
+#include "rng.h"
 
 #define DUID_PATH "/store/duid.txt"
 char g_server_duid[g_server_duid_len];
@@ -23,10 +23,8 @@ static void print_duid()
     if (g_server_duid_len <= 0) return;
     log_line("DUID is '");
     char tbuf[16] = {0};
-    snprintf(tbuf, sizeof tbuf, "%.2hhx", static_cast<uint8_t>(g_server_duid[0]));
-    log_line("%s", tbuf);
-    for (unsigned i = 1; i < g_server_duid_len; ++i) {
-        snprintf(tbuf, sizeof tbuf, "-%.2hhx", static_cast<uint8_t>(g_server_duid[i]));
+    for (unsigned i = 0; i < g_server_duid_len; ++i) {
+        snprintf(tbuf, sizeof tbuf, "%.2hhx", static_cast<uint8_t>(g_server_duid[i]));
         log_line("%s", tbuf);
     }
     log_line("'\n");
