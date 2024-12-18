@@ -54,7 +54,6 @@ struct interface_data
     std::vector<in6_addr> dns4_servers;
     std::vector<in6_addr> ntp6_servers;
     std::vector<in6_addr> ntp4_servers;
-    std::vector<in6_addr> ntp6_multicasts;
     in6_addr subnet;
     in6_addr broadcast;
     in6_addr dynamic_range_lo;
@@ -507,13 +506,6 @@ const std::vector<in6_addr> *query_ntp4_servers(int ifindex)
     auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
     return &is->ntp4_servers;
-}
-
-const std::vector<in6_addr> *query_ntp6_multicasts(int ifindex)
-{
-    auto is = lookup_interface(ifindex);
-    if (!is) return nullptr;
-    return &is->ntp6_multicasts;
 }
 
 const std::vector<in6_addr> *query_gateway(int ifindex)

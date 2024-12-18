@@ -59,7 +59,6 @@ struct blob query_dns4_search_blob(int ifindex);
 struct blob query_dns6_search_blob(int ifindex);
 const std::vector<in6_addr> *query_ntp6_servers(int ifindex);
 const std::vector<in6_addr> *query_ntp4_servers(int ifindex);
-const std::vector<in6_addr> *query_ntp6_multicasts(int ifindex);
 const std::vector<in6_addr> *query_gateway(int ifindex);
 const in6_addr *query_subnet(int ifindex);
 const in6_addr *query_broadcast(int ifindex);

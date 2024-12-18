@@ -407,15 +407,11 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
         ss.si += d6b.n;
     }
     const auto ntp6_servers = query_ntp6_servers(ifindex_);
-    const auto ntp6_multicasts = query_ntp6_multicasts(ifindex_);
-    if (d6s.optreq_ntp
-        && ((ntp6_servers && ntp6_servers->size())
-            || (ntp6_multicasts && ntp6_multicasts->size()))) {
+    if (d6s.optreq_ntp && (ntp6_servers && ntp6_servers->size())) {
         uint16_t len(0);
         dhcp6_opt send_ntp;
         send_ntp.type(56);
         if (ntp6_servers) len += 4 + ntp6_servers->size() * 16;
-        if (ntp6_multicasts) len += 4 + ntp6_multicasts->size() * 16;
         send_ntp.length(len);
         if (!send_ntp.write(ss)) return false;
 
@@ -424,15 +420,6 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
             n6_svr.type(1);
             n6_svr.length(16);
             if (!n6_svr.write(ss)) return false;
-            if (ss.se - ss.si < 16) return false;
-            memcpy(ss.si, &i, 16);
-            ss.si += 16;
-        }
-        for (const auto &i: *ntp6_multicasts) {
-            dhcp6_opt n6_mc;
-            n6_mc.type(2);
-            n6_mc.length(16);
-            if (!n6_mc.write(ss)) return false;
             if (ss.se - ss.si < 16) return false;
             memcpy(ss.si, &i, 16);
             ss.si += 16;
