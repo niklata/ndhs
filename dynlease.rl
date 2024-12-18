@@ -318,13 +318,16 @@ bool dynlease_serialize(const char *path)
         const auto &ls = i.state;
         for (const auto &j: ls) {
             // Don't write out dynamic leases that have expired.
-            if (get_current_ts() >= j.expire_time)
-                continue;
+            if (get_current_ts() >= j.expire_time) continue;
+            // A valid DUID is required.
+            if (j.duid_len == 0) continue;
 
             char abuf[48];
             if (!ipaddr_to_string(abuf, sizeof abuf, &j.addr)) goto out1;
             if (fprintf(f, "v6 %s %s ", iface, abuf) < 0) goto err0;
-            for (const auto &k: j.duid) if (fprintf(f, "%.2hhx", k) < 0) goto err0;
+            for (size_t k = 0; k < j.duid_len; ++k) {
+                if (fprintf(f, "%.2hhx", j.duid[k]) < 0) goto err0;
+            }
             if (fprintf(f, " %u %lu\n", j.iaid, j.expire_time) < 0) goto err0;
             continue;
         err0:
