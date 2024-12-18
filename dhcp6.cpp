@@ -6,7 +6,7 @@
 #include "dhcp6.hpp"
 #include "dynlease.hpp"
 #include "attach_bpf.h"
-#include "duid.hpp"
+#include "duid.h"
 extern "C" {
 #include "nk/io.h"
 }

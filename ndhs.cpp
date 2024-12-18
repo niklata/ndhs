@@ -35,7 +35,7 @@ extern "C" {
 #include "dhcp4.hpp"
 #include "dhcp_state.hpp"
 #include "dynlease.hpp"
-#include "duid.hpp"
+#include "duid.h"
 
 enum class pfd_type
 {
