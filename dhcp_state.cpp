@@ -364,10 +364,6 @@ bool emplace_gateway_v4(size_t linenum, int ifindex, const in6_addr *addr)
 
 bool emplace_broadcast(int ifindex, const in6_addr *addr)
 {
-    if (!ipaddr_is_v4(addr)) {
-        log_line("%s: Bad IP address for interface #%d\n", __func__, ifindex);
-        return false;
-    }
     auto is = lookup_interface(ifindex);
     if (is) {
         is->broadcast = *addr;
