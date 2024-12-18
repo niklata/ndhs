@@ -21,7 +21,7 @@ extern void set_s6_notify_fd(int fd);
 #endif
 
 struct cfg_parse_state {
-	cfg_parse_state() : st(nullptr), cs(0), last_addr(addr_type::null), ifindex(-1), default_lifetime(7200),
+	cfg_parse_state() : st(nullptr), cs(0), ifindex(-1), default_lifetime(7200),
 	default_preference(0), parse_error(false) {}
 	void newline() {
 		// Do NOT clear ifindex here; it is stateful between lines!
@@ -30,7 +30,6 @@ struct cfg_parse_state {
 		memset(ipaddr2, 0, sizeof ipaddr2);
 		memset(macaddr, 0, sizeof macaddr);
 		duid_len = 0;
-		last_addr = addr_type::null;
 		iaid = 0;
 		parse_error = false;
 	}
@@ -42,7 +41,6 @@ struct cfg_parse_state {
 	char ipaddr2[48];
 	uint8_t macaddr[6];
 	size_t duid_len;
-	addr_type last_addr;
 	int ifindex;
 	uint32_t iaid;
 	uint32_t default_lifetime;
@@ -64,11 +62,11 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
 }
 
 
-#line 288 "cfg.rl"
+#line 284 "cfg.rl"
 
 
 
-#line 69 "cfg.cpp"
+#line 67 "cfg.cpp"
 static const signed char _cfg_line_m_actions[] = {
 	0, 1, 0, 1, 1, 1, 2, 1,
 	3, 1, 4, 1, 5, 1, 6, 1,
@@ -495,7 +493,7 @@ static const int cfg_line_m_error = 0;
 static const int cfg_line_m_en_main = 154;
 
 
-#line 290 "cfg.rl"
+#line 286 "cfg.rl"
 
 
 static int do_parse_cfg_line(cfg_parse_state &cps, const char *p, size_t plen,
@@ -505,15 +503,15 @@ const size_t linenum)
 	const char *eof = pe;
 	
 
-#line 503 "cfg.cpp"
+#line 501 "cfg.cpp"
 	{
 		cps.cs = (int)cfg_line_m_start;
 	}
 	
-#line 298 "cfg.rl"
+#line 294 "cfg.rl"
 
 
-#line 508 "cfg.cpp"
+#line 506 "cfg.cpp"
 	{
 		int _klen;
 		unsigned int _trans = 0;
@@ -593,28 +591,28 @@ const size_t linenum)
 				{
 					case 0:  {
 							{
-#line 69 "cfg.rl"
+#line 67 "cfg.rl"
 							cps.st = p; }
 						
-#line 590 "cfg.cpp"
+#line 588 "cfg.cpp"
 
 						break; 
 					}
 					case 1:  {
 							{
-#line 71 "cfg.rl"
+#line 69 "cfg.rl"
 							
 							assign_strbuf(cps.duid, &cps.duid_len, sizeof cps.duid, cps.st, p);
 							lc_string_inplace(cps.duid, cps.duid_len);
 						}
 						
-#line 601 "cfg.cpp"
+#line 599 "cfg.cpp"
 
 						break; 
 					}
 					case 2:  {
 							{
-#line 75 "cfg.rl"
+#line 73 "cfg.rl"
 							
 							char buf[64];
 							ptrdiff_t blen = p - cps.st;
@@ -629,13 +627,13 @@ const size_t linenum)
 							}
 						}
 						
-#line 621 "cfg.cpp"
+#line 619 "cfg.cpp"
 
 						break; 
 					}
 					case 3:  {
 							{
-#line 88 "cfg.rl"
+#line 86 "cfg.rl"
 							
 							char buf[32];
 							ptrdiff_t blen = p - cps.st;
@@ -652,41 +650,39 @@ const size_t linenum)
 							}
 						}
 						
-#line 643 "cfg.cpp"
+#line 641 "cfg.cpp"
 
 						break; 
 					}
 					case 4:  {
 							{
-#line 103 "cfg.rl"
+#line 101 "cfg.rl"
 							
 							size_t l;
 							assign_strbuf(cps.ipaddr, &l, sizeof cps.ipaddr, cps.st, p);
 							lc_string_inplace(cps.ipaddr, l);
-							cps.last_addr = addr_type::v4;
 						}
 						
-#line 656 "cfg.cpp"
+#line 653 "cfg.cpp"
 
 						break; 
 					}
 					case 5:  {
 							{
-#line 109 "cfg.rl"
+#line 106 "cfg.rl"
 							
 							size_t l;
 							assign_strbuf(cps.ipaddr, &l, sizeof cps.ipaddr, cps.st, p);
 							lc_string_inplace(cps.ipaddr, l);
-							cps.last_addr = addr_type::v6;
 						}
 						
-#line 669 "cfg.cpp"
+#line 665 "cfg.cpp"
 
 						break; 
 					}
 					case 6:  {
 							{
-#line 115 "cfg.rl"
+#line 111 "cfg.rl"
 							
 							char buf[IFNAMSIZ];
 							ptrdiff_t blen = p - cps.st;
@@ -700,13 +696,13 @@ const size_t linenum)
 							emplace_bind4(linenum, buf);
 						}
 						
-#line 688 "cfg.cpp"
+#line 684 "cfg.cpp"
 
 						break; 
 					}
 					case 7:  {
 							{
-#line 127 "cfg.rl"
+#line 123 "cfg.rl"
 							
 							char buf[IFNAMSIZ];
 							ptrdiff_t blen = p - cps.st;
@@ -720,31 +716,31 @@ const size_t linenum)
 							emplace_bind6(linenum, buf);
 						}
 						
-#line 707 "cfg.cpp"
+#line 703 "cfg.cpp"
 
 						break; 
 					}
 					case 8:  {
 							{
-#line 139 "cfg.rl"
+#line 135 "cfg.rl"
 							set_user_runas(MARKED_STRING()); }
 						
-#line 715 "cfg.cpp"
+#line 711 "cfg.cpp"
 
 						break; 
 					}
 					case 9:  {
 							{
-#line 140 "cfg.rl"
+#line 136 "cfg.rl"
 							set_chroot_path(MARKED_STRING()); }
 						
-#line 723 "cfg.cpp"
+#line 719 "cfg.cpp"
 
 						break; 
 					}
 					case 10:  {
 							{
-#line 141 "cfg.rl"
+#line 137 "cfg.rl"
 							
 							char buf[64];
 							ptrdiff_t blen = p - cps.st;
@@ -761,13 +757,13 @@ const size_t linenum)
 							set_s6_notify_fd(fd);
 						}
 						
-#line 745 "cfg.cpp"
+#line 741 "cfg.cpp"
 
 						break; 
 					}
 					case 11:  {
 							{
-#line 156 "cfg.rl"
+#line 152 "cfg.rl"
 							
 							char buf[64];
 							ptrdiff_t blen = p - cps.st;
@@ -782,13 +778,13 @@ const size_t linenum)
 							}
 						}
 						
-#line 765 "cfg.cpp"
+#line 761 "cfg.cpp"
 
 						break; 
 					}
 					case 12:  {
 							{
-#line 169 "cfg.rl"
+#line 165 "cfg.rl"
 							
 							char buf[64];
 							ptrdiff_t blen = p - cps.st;
@@ -804,13 +800,13 @@ const size_t linenum)
 							}
 						}
 						
-#line 786 "cfg.cpp"
+#line 782 "cfg.cpp"
 
 						break; 
 					}
 					case 13:  {
 							{
-#line 183 "cfg.rl"
+#line 179 "cfg.rl"
 							
 							char interface[IFNAMSIZ];
 							ptrdiff_t blen = p - cps.st;
@@ -824,56 +820,56 @@ const size_t linenum)
 							cps.ifindex = emplace_interface(linenum, interface, cps.default_preference);
 						}
 						
-#line 805 "cfg.cpp"
+#line 801 "cfg.cpp"
 
 						break; 
 					}
 					case 14:  {
 							{
-#line 195 "cfg.rl"
+#line 191 "cfg.rl"
 							
 							in6_addr t;
 							if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
-							emplace_dns_server(linenum, cps.ifindex, &t, cps.last_addr);
+							emplace_dns_server(linenum, cps.ifindex, &t);
 						}
 						
-#line 820 "cfg.cpp"
+#line 816 "cfg.cpp"
 
 						break; 
 					}
 					case 15:  {
 							{
-#line 203 "cfg.rl"
+#line 199 "cfg.rl"
 							
 							emplace_dns_search(linenum, cps.ifindex, MARKED_STRING());
 						}
 						
-#line 830 "cfg.cpp"
+#line 826 "cfg.cpp"
 
 						break; 
 					}
 					case 16:  {
 							{
-#line 206 "cfg.rl"
+#line 202 "cfg.rl"
 							
 							in6_addr t;
 							if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
 								cps.parse_error = true;
 								{p += 1; goto _out; }
 							}
-							emplace_ntp_server(linenum, cps.ifindex, &t, cps.last_addr);
+							emplace_ntp_server(linenum, cps.ifindex, &t);
 						}
 						
-#line 845 "cfg.cpp"
+#line 841 "cfg.cpp"
 
 						break; 
 					}
 					case 17:  {
 							{
-#line 214 "cfg.rl"
+#line 210 "cfg.rl"
 							
 							in6_addr t;
 							if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
@@ -883,24 +879,24 @@ const size_t linenum)
 							emplace_gateway_v4(linenum, cps.ifindex, &t);
 						}
 						
-#line 860 "cfg.cpp"
+#line 856 "cfg.cpp"
 
 						break; 
 					}
 					case 18:  {
 							{
-#line 222 "cfg.rl"
+#line 218 "cfg.rl"
 							
 							memcpy(cps.ipaddr2, cps.ipaddr, sizeof cps.ipaddr2);
 						}
 						
-#line 870 "cfg.cpp"
+#line 866 "cfg.cpp"
 
 						break; 
 					}
 					case 19:  {
 							{
-#line 225 "cfg.rl"
+#line 221 "cfg.rl"
 							
 							in6_addr tlo;
 							if (!string_to_ipaddr(&tlo, cps.ipaddr2, linenum)) {
@@ -915,24 +911,24 @@ const size_t linenum)
 							emplace_dynamic_range(linenum, cps.ifindex, &tlo, &thi, cps.default_lifetime);
 						}
 						
-#line 890 "cfg.cpp"
+#line 886 "cfg.cpp"
 
 						break; 
 					}
 					case 20:  {
 							{
-#line 238 "cfg.rl"
+#line 234 "cfg.rl"
 							
 							emplace_dynamic_v6(linenum, cps.ifindex);
 						}
 						
-#line 900 "cfg.cpp"
+#line 896 "cfg.cpp"
 
 						break; 
 					}
 					case 21:  {
 							{
-#line 241 "cfg.rl"
+#line 237 "cfg.rl"
 							
 							in6_addr t;
 							if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
@@ -942,13 +938,13 @@ const size_t linenum)
 							emplace_dhcp4_state(linenum, cps.ifindex, cps.macaddr, &t, cps.default_lifetime);
 						}
 						
-#line 915 "cfg.cpp"
+#line 911 "cfg.cpp"
 
 						break; 
 					}
 					case 22:  {
 							{
-#line 249 "cfg.rl"
+#line 245 "cfg.rl"
 							
 							in6_addr t;
 							if (!string_to_ipaddr(&t, cps.ipaddr, linenum)) {
@@ -960,7 +956,7 @@ const size_t linenum)
 							cps.iaid, &t, cps.default_lifetime);
 						}
 						
-#line 932 "cfg.cpp"
+#line 928 "cfg.cpp"
 
 						break; 
 					}
@@ -984,7 +980,7 @@ const size_t linenum)
 		_out: {}
 	}
 	
-#line 299 "cfg.rl"
+#line 295 "cfg.rl"
 
 	
 	if (cps.parse_error) return -1;

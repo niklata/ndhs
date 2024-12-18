@@ -20,7 +20,7 @@ extern void set_s6_notify_fd(int fd);
 #endif
 
 struct cfg_parse_state {
-    cfg_parse_state() : st(nullptr), cs(0), last_addr(addr_type::null), ifindex(-1), default_lifetime(7200),
+    cfg_parse_state() : st(nullptr), cs(0), ifindex(-1), default_lifetime(7200),
                         default_preference(0), parse_error(false) {}
     void newline() {
         // Do NOT clear ifindex here; it is stateful between lines!
@@ -29,7 +29,6 @@ struct cfg_parse_state {
         memset(ipaddr2, 0, sizeof ipaddr2);
         memset(macaddr, 0, sizeof macaddr);
         duid_len = 0;
-        last_addr = addr_type::null;
         iaid = 0;
         parse_error = false;
     }
@@ -41,7 +40,6 @@ struct cfg_parse_state {
     char ipaddr2[48];
     uint8_t macaddr[6];
     size_t duid_len;
-    addr_type last_addr;
     int ifindex;
     uint32_t iaid;
     uint32_t default_lifetime;
@@ -104,13 +102,11 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
         size_t l;
         assign_strbuf(cps.ipaddr, &l, sizeof cps.ipaddr, cps.st, p);
         lc_string_inplace(cps.ipaddr, l);
-        cps.last_addr = addr_type::v4;
     }
     action V6AddrEn {
         size_t l;
         assign_strbuf(cps.ipaddr, &l, sizeof cps.ipaddr, cps.st, p);
         lc_string_inplace(cps.ipaddr, l);
-        cps.last_addr = addr_type::v6;
     }
     action Bind4En {
         char buf[IFNAMSIZ];
@@ -198,7 +194,7 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
             cps.parse_error = true;
             fbreak;
         }
-        emplace_dns_server(linenum, cps.ifindex, &t, cps.last_addr);
+        emplace_dns_server(linenum, cps.ifindex, &t);
     }
     action DnsSearchEn {
         emplace_dns_search(linenum, cps.ifindex, MARKED_STRING());
@@ -209,7 +205,7 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
             cps.parse_error = true;
             fbreak;
         }
-        emplace_ntp_server(linenum, cps.ifindex, &t, cps.last_addr);
+        emplace_ntp_server(linenum, cps.ifindex, &t);
     }
     action GatewayEn {
         in6_addr t;

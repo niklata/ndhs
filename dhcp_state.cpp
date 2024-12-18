@@ -49,10 +49,8 @@ struct interface_data
     int ifindex;
     std::vector<dhcpv6_entry> s6addrs; // static assigned v6 leases
     std::vector<dhcpv4_entry> s4addrs; // static assigned v4 leases
-    std::vector<in6_addr> dns6_servers;
-    std::vector<in6_addr> dns4_servers;
-    std::vector<in6_addr> ntp6_servers;
-    std::vector<in6_addr> ntp4_servers;
+    std::vector<in6_addr> dns_servers;
+    std::vector<in6_addr> ntp_servers;
     in6_addr subnet;
     in6_addr broadcast;
     in6_addr gateway_v4;
@@ -307,48 +305,22 @@ bool emplace_dhcp4_state(size_t linenum, int ifindex, const uint8_t *macaddr,
     return false;
 }
 
-bool emplace_dns_server(size_t linenum, int ifindex,
-                        const in6_addr *addr, addr_type atype)
+bool emplace_dns_server(size_t linenum, int ifindex, const in6_addr *addr)
 {
-    if (atype == addr_type::null) {
-        log_line("Invalid address type at line %zu\n", linenum);
-        return false;
-    }
-    if ((atype == addr_type::v4 && !ipaddr_is_v4(addr)) || (atype == addr_type::v6 && ipaddr_is_v4(addr))) {
-        log_line("Bad IP address at line %zu\n", linenum);
-        return false;
-    }
     auto is = lookup_interface(ifindex);
     if (is) {
-        if (atype == addr_type::v4) {
-            is->dns4_servers.emplace_back(*addr);
-        } else {
-            is->dns6_servers.emplace_back(*addr);
-        }
+        is->dns_servers.emplace_back(*addr);
         return true;
     }
     log_line("%s: No interface specified at line %zu\n", __func__, linenum);
     return false;
 }
 
-bool emplace_ntp_server(size_t linenum, int ifindex,
-                        const in6_addr *addr, addr_type atype)
+bool emplace_ntp_server(size_t linenum, int ifindex, const in6_addr *addr)
 {
-    if (atype == addr_type::null) {
-        log_line("Invalid address type at line %zu\n", linenum);
-        return false;
-    }
-    if ((atype == addr_type::v4 && !ipaddr_is_v4(addr)) || (atype == addr_type::v6 && ipaddr_is_v4(addr))) {
-        log_line("Bad IP address at line %zu\n", linenum);
-        return false;
-    }
     auto is = lookup_interface(ifindex);
     if (is) {
-        if (atype == addr_type::v4) {
-            is->ntp4_servers.emplace_back(*addr);
-        } else {
-            is->ntp6_servers.emplace_back(*addr);
-        }
+        is->ntp_servers.emplace_back(*addr);
         return true;
     }
     log_line("%s: No interface specified at line %zu\n", __func__, linenum);
@@ -465,18 +437,18 @@ const dhcpv4_entry *query_dhcp4_state(int ifindex, const uint8_t *hwaddr)
     return nullptr;
 }
 
-const std::vector<in6_addr> *query_dns6_servers(int ifindex)
+const std::vector<in6_addr> *query_dns_servers(int ifindex)
 {
     auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
-    return &is->dns6_servers;
+    return &is->dns_servers;
 }
 
-const std::vector<in6_addr> *query_dns4_servers(int ifindex)
+const std::vector<in6_addr> *query_ntp_servers(int ifindex)
 {
     auto is = lookup_interface(ifindex);
     if (!is) return nullptr;
-    return &is->dns4_servers;
+    return &is->ntp_servers;
 }
 
 struct blob query_dns4_search_blob(int ifindex)
@@ -491,20 +463,6 @@ struct blob query_dns6_search_blob(int ifindex)
     auto is = lookup_interface(ifindex);
     if (!is) return (struct blob){ .n = 0, .s = nullptr };
     return (struct blob){ .n = is->ra6_dns_search_blob_size, .s = is->ra6_dns_search_blob };
-}
-
-const std::vector<in6_addr> *query_ntp6_servers(int ifindex)
-{
-    auto is = lookup_interface(ifindex);
-    if (!is) return nullptr;
-    return &is->ntp6_servers;
-}
-
-const std::vector<in6_addr> *query_ntp4_servers(int ifindex)
-{
-    auto is = lookup_interface(ifindex);
-    if (!is) return nullptr;
-    return &is->ntp4_servers;
 }
 
 const in6_addr *query_gateway_v4(int ifindex)

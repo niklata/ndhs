@@ -382,15 +382,15 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, sbufs &ss,
 // see if it is in the opt_req before adding it to the reply.
 bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
 {
-    const auto dns6_servers = query_dns6_servers(ifindex_);
-    if (!dns6_servers) return true;
+    const auto dns_servers = query_dns_servers(ifindex_);
+    if (!dns_servers) return true;
 
-    if (d6s.optreq_dns && dns6_servers->size()) {
+    if (d6s.optreq_dns && dns_servers->size()) {
         dhcp6_opt send_dns;
         send_dns.type(23);
-        send_dns.length(dns6_servers->size() * 16);
+        send_dns.length(dns_servers->size() * 16);
         if (!send_dns.write(ss)) return false;
-        for (const auto &i: *dns6_servers) {
+        for (const auto &i: *dns_servers) {
             if (ss.se - ss.si < 16) return false;
             memcpy(ss.si, &i, 16);
             ss.si += 16;
@@ -406,16 +406,16 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
         memcpy(ss.si, d6b.s, d6b.n);
         ss.si += d6b.n;
     }
-    const auto ntp6_servers = query_ntp6_servers(ifindex_);
-    if (d6s.optreq_ntp && (ntp6_servers && ntp6_servers->size())) {
+    const auto ntp_servers = query_ntp_servers(ifindex_);
+    if (d6s.optreq_ntp && (ntp_servers && ntp_servers->size())) {
         uint16_t len(0);
         dhcp6_opt send_ntp;
         send_ntp.type(56);
-        if (ntp6_servers) len += 4 + ntp6_servers->size() * 16;
+        if (ntp_servers) len += 4 + ntp_servers->size() * 16;
         send_ntp.length(len);
         if (!send_ntp.write(ss)) return false;
 
-        for (const auto &i: *ntp6_servers) {
+        for (const auto &i: *ntp_servers) {
             dhcp6_opt n6_svr;
             n6_svr.type(1);
             n6_svr.length(16);
@@ -429,10 +429,10 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
         uint16_t len(0);
         dhcp6_opt send_sntp;
         send_sntp.type(31);
-        if (ntp6_servers) len += ntp6_servers->size() * 16;
+        if (ntp_servers) len += ntp_servers->size() * 16;
         send_sntp.length(len);
         if (!send_sntp.write(ss)) return false;
-        for (const auto &i: *ntp6_servers) {
+        for (const auto &i: *ntp_servers) {
             if (ss.se - ss.si < 16) return false;
             memcpy(ss.si, &i, 16);
             ss.si += 16;

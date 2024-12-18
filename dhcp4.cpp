@@ -301,16 +301,22 @@ void D4Listener::send_reply(const dhcpmsg &reply)
         send_reply_do(reply, SendReplyType::Broadcast);
 }
 
-static bool iplist_option(dhcpmsg *reply, uint8_t code,
-                          const std::vector<in6_addr> &addrs)
+struct iplist
+{
+    size_t n;
+    const in6_addr *addrs[32];
+};
+
+static bool iplist_option(dhcpmsg *reply, uint8_t code, const struct iplist *ipl)
 {
     char buf[256]; // max option size is 255 bytes
     size_t off = 0;
-    for (const auto &i: addrs) {
+    for (size_t i = 0; i < ipl->n; ++i) {
         if (off + 4 >= sizeof buf) break; // silently drop if too many
-        if (!ipaddr_is_v4(&i)) return false;
-        memcpy(buf + off, ipaddr_v4_bytes(&i), 4);
-        off += 4;
+        if (ipaddr_is_v4(ipl->addrs[i])) {
+            memcpy(buf + off, ipaddr_v4_bytes(ipl->addrs[i]), 4);
+            off += 4;
+        }
     }
     buf[off] = 0;
     if (!off) return false;
@@ -419,10 +425,28 @@ bool D4Listener::create_reply(dhcpmsg &reply, const uint8_t *hwaddr, bool do_ass
         add_option_router(&reply, router_addr);
     }
 
-    auto dns4 = query_dns4_servers(ifindex_);
-    auto ntp4 = query_ntp4_servers(ifindex_);
-    if (dns4) iplist_option(&reply, DCODE_DNS, *dns4);
-    if (ntp4) iplist_option(&reply, DCODE_NTPSVR, *ntp4);
+    auto dns_servers = query_dns_servers(ifindex_);
+    if (dns_servers) {
+        struct iplist ipl;
+        memset(&ipl, 0, sizeof ipl);
+        for (auto &i: *dns_servers) {
+            ipl.addrs[ipl.n++] = &i;
+            if (ipl.n == sizeof ipl.addrs / sizeof ipl.addrs[0]) break;
+        }
+        iplist_option(&reply, DCODE_DNS, &ipl);
+    }
+
+    auto ntp_servers = query_ntp_servers(ifindex_);
+    if (ntp_servers) {
+        struct iplist ipl;
+        memset(&ipl, 0, sizeof ipl);
+        for (auto &i: *dns_servers) {
+            ipl.addrs[ipl.n++] = &i;
+            if (ipl.n == sizeof ipl.addrs / sizeof ipl.addrs[0]) break;
+        }
+        iplist_option(&reply, DCODE_NTPSVR, &ipl);
+    }
+
     struct blob d4b = query_dns4_search_blob(ifindex_);
     if (d4b.n && d4b.s) add_option_domain_name(&reply, d4b.s, d4b.n);
 

@@ -441,14 +441,14 @@ bool RA6Listener::send_advert()
         }
     }
 
-    auto dns6_servers = query_dns6_servers(ifinfo->index);
+    auto dns_servers = query_dns_servers(ifinfo->index);
     struct blob d6b = query_dns6_search_blob(ifinfo->index);
 
-    if (dns6_servers && dns6_servers->size()) {
-        ra6_dns.length(dns6_servers->size());
+    if (dns_servers && dns_servers->size()) {
+        ra6_dns.length(dns_servers->size());
         ra6_dns.lifetime(advi_s_max_ * 2);
         csum = net_checksum16_add(csum, net_checksum16(&ra6_dns, sizeof ra6_dns));
-        pktl += sizeof ra6_dns + 16 * dns6_servers->size();
+        pktl += sizeof ra6_dns + 16 * dns_servers->size();
     }
 
     size_t dns_search_slack = 0;
@@ -464,8 +464,8 @@ bool RA6Listener::send_advert()
     csum = net_checksum16_add(csum, net_checksum16(&mc6_allhosts.sin6_addr, sizeof mc6_allhosts.sin6_addr));
     csum = net_checksum16_add(csum, net_checksum16(&pktl, sizeof pktl));
     csum = net_checksum16_add(csum, net_checksum16(&icmp_nexthdr, 1));
-    if (dns6_servers) {
-        for (const auto &i: *dns6_servers) {
+    if (dns_servers) {
+        for (const auto &i: *dns_servers) {
             csum = net_checksum16_add(csum, net_checksum16(&i, sizeof i));
         }
     }
@@ -480,9 +480,9 @@ bool RA6Listener::send_advert()
     for (const auto &i: ra6_pfxs) {
         if (!i.write(ss)) return false;
     }
-    if (dns6_servers && dns6_servers->size()) {
+    if (dns_servers && dns_servers->size()) {
         if (!ra6_dns.write(ss)) return false;
-        for (const auto &i: *dns6_servers) {
+        for (const auto &i: *dns_servers) {
             if (ss.se - ss.si < 16) return false;
             memcpy(ss.si, &i, 16);
             ss.si += 16;
