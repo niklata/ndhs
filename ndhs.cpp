@@ -76,10 +76,9 @@ static void count_bound_listeners(const struct netif_info *, bool use_v4, bool u
 static void get_interface_addresses(const struct netif_info *ifinfo, bool, bool, uint8_t, void *)
 {
     if (!nl_socket.get_interface_addresses(ifinfo->index)) {
-        // XXX: Maybe this should be a fatal error?  It indicates
-        //      the kernel changed the list of interfaces between
-        //      bound_interfaces_names() and now.
-        log_line("Interface %s does not exist!\n", ifinfo->name);
+        // Indicates that the kernel changed the list of interfaces
+        // between bound_interfaces_names() and now.
+        suicide("netlink: Interface %s does not exist!  Restarting.\n", ifinfo->name);
     }
 }
 
