@@ -3,10 +3,7 @@
 #define NDHS_VERSION "2.0"
 #define LEASEFILE_PATH "/store/dynlease.txt"
 
-#include <memory>
-#include <string>
-#include <vector>
-#include <climits>
+#include <limits.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,15 +37,20 @@ extern "C" {
 enum class pfd_type
 {
     netlink,
-    dhcp6,
     dhcp4,
+    dhcp6,
     radv6,
 };
 
 struct pfd_meta
 {
     pfd_type pfdt;
-    void *data;
+    // These are owning pointers.
+    union {
+        D4Listener *ld4;
+        D6Listener *ld6;
+        RA6Listener *lr6;
+    };
 };
 
 static const char *configfile = "/etc/ndhs.conf";
@@ -59,15 +61,17 @@ static int s6_notify_fd = -1;
 
 NLSocket nl_socket;
 
-static std::vector<std::unique_ptr<D6Listener>> v6_listeners;
-static std::vector<std::unique_ptr<D4Listener>> v4_listeners;
-static std::vector<std::unique_ptr<RA6Listener>> r6_listeners;
-
 static struct pollfd *poll_array;
 static struct pfd_meta *poll_meta;
-static size_t poll_size;
+static size_t poll_size = 1;
 
 extern bool parse_config(const char *path);
+
+static void count_bound_listeners(const struct netif_info *, bool use_v4, bool use_v6, uint8_t, void *)
+{
+    if (use_v4) poll_size += 1;
+    if (use_v6) poll_size += 2;
+}
 
 static void get_interface_addresses(const struct netif_info *ifinfo, bool, bool, uint8_t, void *)
 {
@@ -81,60 +85,68 @@ static void get_interface_addresses(const struct netif_info *ifinfo, bool, bool,
 
 static void create_interface_listener(const struct netif_info *ifinfo,
                                       bool use_v4, bool use_v6,
-                                      uint8_t preference, void *)
+                                      uint8_t preference, void *ud)
 {
+    struct pollfd pt;
+    pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+    pt.revents = 0;
+
+    size_t *pfdc = static_cast<size_t *>(ud);
     if (use_v6) {
-        auto d6l = std::make_unique<D6Listener>();
+        D6Listener *d6l = new D6Listener();
         if (d6l->init(ifinfo->name, preference)) {
-            auto r6l = std::make_unique<RA6Listener>();
+            RA6Listener *r6l = new RA6Listener();
             if (r6l->init(ifinfo->name)) {
-                v6_listeners.emplace_back(std::move(d6l));
-                r6_listeners.emplace_back(std::move(r6l));
-            } else log_line("Can't bind to rav6 interface: %s\n", ifinfo->name);
-        } else log_line("Can't bind to dhcpv6 interface: %s\n", ifinfo->name);
+                pt.fd = d6l->fd();
+                poll_array[*pfdc] = pt;
+                poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = pfd_type::dhcp6, .ld6 = d6l };
+
+                pt.fd = r6l->fd();
+                poll_array[*pfdc] = pt;
+                poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = pfd_type::radv6, .lr6 = r6l };
+            } else {
+                log_line("Can't bind to rav6 interface: %s\n", ifinfo->name);
+                delete r6l;
+            }
+        } else {
+            log_line("Can't bind to dhcpv6 interface: %s\n", ifinfo->name);
+            delete d6l;
+        }
     }
     if (use_v4) {
-        auto d4l = std::make_unique<D4Listener>();
+        D4Listener *d4l = new D4Listener();
         if (d4l->init(ifinfo->name)) {
-            v4_listeners.emplace_back(std::move(d4l));
-        } else log_line("Can't bind to dhcpv4 interface: %s\n", ifinfo->name);
+            pt.fd = d4l->fd();
+            poll_array[*pfdc] = pt;
+            poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = pfd_type::dhcp4, .ld4 = d4l };
+        } else {
+            log_line("Can't bind to dhcpv4 interface: %s\n", ifinfo->name);
+            delete d4l;
+        }
     }
 }
 
 static void init_listeners()
 {
+    bound_interfaces_foreach(count_bound_listeners, nullptr);
+    poll_array = static_cast<struct pollfd *>(malloc(poll_size * sizeof *poll_array));
+    poll_meta = static_cast<struct pfd_meta *>(malloc(poll_size * sizeof *poll_meta));
+    if (!poll_array || !poll_meta) abort();
+
     bound_interfaces_foreach(get_interface_addresses, nullptr);
-    bound_interfaces_foreach(create_interface_listener, nullptr);
 
     struct pollfd pt;
     pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
     pt.revents = 0;
 
-    poll_size = 1 + v4_listeners.size() + v6_listeners.size() + r6_listeners.size();
-    poll_array = static_cast<struct pollfd *>(malloc(poll_size * sizeof *poll_array));
-    poll_meta = static_cast<struct pfd_meta *>(malloc(poll_size * sizeof *poll_meta));
-    if (!poll_array || !poll_meta) abort();
-
     pt.fd = nl_socket.fd();
     poll_array[0] = pt;
-    poll_meta[0] = (struct pfd_meta){ .pfdt = pfd_type::netlink, .data = &nl_socket };
+    poll_meta[0] = (struct pfd_meta){ .pfdt = pfd_type::netlink };
 
     size_t pfdc = 1;
-    for (auto &i: v4_listeners) {
-        pt.fd = i->fd();
-        poll_array[pfdc] = pt;
-        poll_meta[pfdc++] = (struct pfd_meta){ .pfdt = pfd_type::dhcp4, .data = i.get() };
-    }
-    for (auto &i: v6_listeners) {
-        pt.fd = i->fd();
-        poll_array[pfdc] = pt;
-        poll_meta[pfdc++] = (struct pfd_meta){ .pfdt = pfd_type::dhcp6, .data = i.get() };
-    }
-    for (auto &i: r6_listeners) {
-        pt.fd = i->fd();
-        poll_array[pfdc] = pt;
-        poll_meta[pfdc++] = (struct pfd_meta){ .pfdt = pfd_type::radv6, .data = i.get() };
-    }
+    bound_interfaces_foreach(create_interface_listener, &pfdc);
+    assert(pfdc <= poll_size);
+    poll_size = pfdc;
 }
 
 int64_t get_current_ts()
@@ -292,36 +304,32 @@ int main(int ac, char *av[])
 
     for (;;) {
         int timeout = INT_MAX;
-        for (auto &i: r6_listeners) {
-            auto t = i->send_periodic_advert();
-            timeout = timeout < t ? timeout : t;
-        }
-        dynlease_gc();
-        if (poll(poll_array, poll_size, timeout > 0 ? timeout : 0) < 0) {
-            if (errno != EINTR) suicide("poll failed\n");
-        }
-        if (l_signal_exit) break;
         for (size_t i = 0, iend = poll_size; i < iend; ++i) {
             if (poll_array[i].revents & (POLLHUP|POLLERR|POLLRDHUP))
                 suicide("fd closed unexpectedly\n");
             switch (poll_meta[i].pfdt) {
             case pfd_type::netlink:
                 if (poll_array[i].revents & POLLIN) nl_socket.process_input();
-            break;
-            case pfd_type::dhcp6: {
-                auto d6 = static_cast<D6Listener *>(poll_meta[i].data);
-                if (poll_array[i].revents & POLLIN) d6->process_input();
-            } break;
-            case pfd_type::dhcp4: {
-                auto d4 = static_cast<D4Listener *>(poll_meta[i].data);
-                if (poll_array[i].revents & POLLIN) d4->process_input();
-            } break;
+                break;
+            case pfd_type::dhcp4:
+                if (poll_array[i].revents & POLLIN) poll_meta[i].ld4->process_input();
+                break;
+            case pfd_type::dhcp6:
+                if (poll_array[i].revents & POLLIN) poll_meta[i].ld6->process_input();
+                break;
             case pfd_type::radv6: {
-                auto r6 = static_cast<RA6Listener *>(poll_meta[i].data);
-                if (poll_array[i].revents & POLLIN) r6->process_input();
-            } break;
+                if (poll_array[i].revents & POLLIN) poll_meta[i].lr6->process_input();
+                auto t = poll_meta[i].lr6->send_periodic_advert();
+                timeout = timeout < t ? timeout : t;
+                break;
+            }
             }
         }
+        dynlease_gc();
+        if (poll(poll_array, poll_size, timeout > 0 ? timeout : 0) < 0) {
+            if (errno != EINTR) suicide("poll failed\n");
+        }
+        if (l_signal_exit) break;
     }
 
     dynlease_serialize(LEASEFILE_PATH);
