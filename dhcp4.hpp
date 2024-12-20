@@ -4,7 +4,6 @@
 #define NDHS_DHCP4_HPP
 
 #include <time.h> // ClientStates
-#include <nk/sys/posix/handle.hpp>
 #include "dhcp.h"
 extern "C" {
 #include <ipaddr.h>
@@ -52,7 +51,7 @@ public:
 
     [[nodiscard]] bool init(const char *ifname);
     void process_input();
-    auto fd() const { return fd_(); }
+    auto fd() const { return fd_; }
     const char *ifname() const { return ifname_; }
 private:
     bool create_dhcp4_socket();
@@ -72,7 +71,7 @@ private:
     uint8_t validate_dhcp(size_t len) const;
     void process_receive(const char *buf, size_t bytes_xferred);
 
-    nk::sys::handle fd_;
+    int fd_;
     struct dhcpmsg dhcpmsg_;
     char ifname_[IFNAMSIZ];
     int ifindex_;

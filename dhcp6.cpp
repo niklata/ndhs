@@ -46,27 +46,32 @@ static in6_addr v6_addr_random(const in6_addr *prefix, uint8_t prefixlen)
 
 bool D6Listener::create_dhcp6_socket()
 {
-    auto tfd = nk::sys::handle{ socket(AF_INET6, SOCK_DGRAM|SOCK_CLOEXEC, IPPROTO_UDP) };
-    if (!tfd) {
-        log_line("dhcp6: Failed to create v6 UDP socket on %s: %s\n", ifname_, strerror(errno));
-        return false;
-    }
     in6_addr mc6_alldhcp_ras;
-    if (!ipaddr_from_string(&mc6_alldhcp_ras, "ff02::1:2")) return false;
-    if (!attach_multicast(tfd(), ifname_, &mc6_alldhcp_ras)) return false;
-    attach_bpf(tfd());
-
     sockaddr_in6 sai;
+    if (fd_ > 0) close(fd_);
+    fd_ = socket(AF_INET6, SOCK_DGRAM|SOCK_CLOEXEC, IPPROTO_UDP);
+    if (fd_ < 0) {
+        log_line("dhcp6: Failed to create v6 UDP socket on %s: %s\n", ifname_, strerror(errno));
+        goto err0;
+    }
+    if (!ipaddr_from_string(&mc6_alldhcp_ras, "ff02::1:2")) goto err1;
+    if (!attach_multicast(fd_, ifname_, &mc6_alldhcp_ras)) goto err1;
+    attach_bpf(fd_);
+
     memset(&sai, 0, sizeof sai); // s6_addr is set to any here
     sai.sin6_family = AF_INET6;
     sai.sin6_port = htons(547);
-    if (bind(tfd(), (const sockaddr *)&sai, sizeof sai)) {
+    if (bind(fd_, (const sockaddr *)&sai, sizeof sai)) {
         log_line("dhcp6: Failed to bind to UDP 547 on %s: %s\n", ifname_, strerror(errno));
-        return false;
+        goto err1;
     }
 
-    swap(fd_, tfd);
     return true;
+err1:
+    close(fd_);
+    fd_ = -1;
+err0:
+    return false;
 }
 
 bool D6Listener::init(const char *ifname, uint8_t preference)
@@ -119,7 +124,7 @@ void D6Listener::process_input()
     for (;;) {
         sockaddr_storage sai;
         socklen_t sailen = sizeof sai;
-        auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, (sockaddr *)&sai, &sailen);
+        auto buflen = recvfrom(fd_, buf, sizeof buf, MSG_DONTWAIT, (sockaddr *)&sai, &sailen);
         if (buflen < 0) {
             int err = errno;
             if (err == EINTR) continue;
@@ -856,7 +861,7 @@ void D6Listener::process_receive(char *buf, size_t buflen,
      memcpy(&sao, &sai, sizeof sao);
      sao.sin6_port = htons(546);
      size_t slen = ss.si > sbuf ? static_cast<size_t>(ss.si - sbuf) : 0;
-     if (safe_sendto(fd_(), sbuf, slen, 0, (const sockaddr *)&sao, sizeof sao) < 0) {
+     if (safe_sendto(fd_, sbuf, slen, 0, (const sockaddr *)&sao, sizeof sao) < 0) {
          log_line("dhcp6: sendto (%s) failed on %s: %s\n", sip_str, ifname_, strerror(errno));
          return;
      }

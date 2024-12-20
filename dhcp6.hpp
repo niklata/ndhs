@@ -5,7 +5,6 @@
 
 #include <stdint.h>
 #include <nk/netbits.h>
-#include <nk/sys/posix/handle.hpp>
 #include "dhcp_state.hpp"
 #include "radv6.hpp"
 #include "sbufs.h"
@@ -194,7 +193,7 @@ struct D6Listener
 
     [[nodiscard]] bool init(const char *ifname, uint8_t preference);
     void process_input();
-    auto fd() const { return fd_(); }
+    auto fd() const { return fd_; }
     const char *ifname() const { return ifname_; }
 private:
     using prev_opt_state = std::pair<int8_t, uint16_t>; // Type of parent opt and length left
@@ -256,7 +255,7 @@ private:
     in6_addr link_local_ip_;
     char ifname_[IFNAMSIZ];
     int ifindex_;
-    nk::sys::handle fd_;
+    int fd_;
     unsigned char prefixlen_;
     uint8_t preference_;
     bool using_bpf_:1;

@@ -105,54 +105,64 @@ void ClientStates::stateKill(uint8_t *hwaddr)
 extern NLSocket nl_socket;
 extern int64_t get_current_ts();
 
-// Must be called after ifname_ is set.
+// Must be called after ifname_ is set and only should be called once.
 bool D4Listener::create_dhcp4_socket()
 {
-    auto tfd = nk::sys::handle{ socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, IPPROTO_UDP) };
-    if (!tfd) {
-        log_line("dhcp4: Failed to create v4 UDP socket on %s: %s\n", ifname_, strerror(errno));
-        return false;
-    }
-    const int iv = 1;
-    if (setsockopt(tfd(), SOL_SOCKET, SO_BROADCAST, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
-        log_line("dhcp4: Failed to set broadcast flag on %s: %s\n", ifname_, strerror(errno));
-        return false;
-    }
-    if (setsockopt(tfd(), SOL_SOCKET, SO_DONTROUTE, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
-        log_line("dhcp4: Failed to set do not route flag on %s: %s\n", ifname_, strerror(errno));
-        return false;
-    }
-    if (setsockopt(tfd(), SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
-        log_line("dhcp4: Failed to set reuse address flag on %s: %s\n", ifname_, strerror(errno));
-        return false;
-    }
-    sockaddr_in sai;
-    sai.sin_family = AF_INET;
-    sai.sin_port = htons(67);
-    sai.sin_addr.s_addr = 0; // any
-    if (bind(tfd(), (const sockaddr *)&sai, sizeof sai)) {
-        log_line("dhcp4: Failed to bind to UDP 67 on %s: %s\n", ifname_, strerror(errno));
-        return false;
-    }
-
-    size_t ifname_len = strlen(ifname_);
     struct ifreq ifr;
-    memset(&ifr, 0, sizeof ifr);
-    if (ifname_len >= sizeof ifr.ifr_name) {
-        log_line("dhcp4: Interface name '%s' is too long: %zu >= %zu\n",
-                 ifname_, ifname_len, sizeof ifr.ifr_name);
-        return false;
+    const int iv = 1;
+    if (fd_ > 0) close(fd_);
+    fd_ = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, IPPROTO_UDP);
+    if (fd_ < 0) {
+        log_line("dhcp4: Failed to create v4 UDP socket on %s: %s\n", ifname_, strerror(errno));
+        goto err0;
     }
-    memcpy(ifr.ifr_name, ifname_, ifname_len);
-    if (setsockopt(tfd(), SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
-        log_line("dhcp4: Failed to bind socket to device on %s: %s\n", ifname_, strerror(errno));
-        return false;
+    if (setsockopt(fd_, SOL_SOCKET, SO_BROADCAST, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
+        log_line("dhcp4: Failed to set broadcast flag on %s: %s\n", ifname_, strerror(errno));
+        goto err1;
+    }
+    if (setsockopt(fd_, SOL_SOCKET, SO_DONTROUTE, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
+        log_line("dhcp4: Failed to set do not route flag on %s: %s\n", ifname_, strerror(errno));
+        goto err1;
+    }
+    if (setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&iv), sizeof iv) == -1) {
+        log_line("dhcp4: Failed to set reuse address flag on %s: %s\n", ifname_, strerror(errno));
+        goto err1;
+    }
+    {
+        sockaddr_in sai;
+        sai.sin_family = AF_INET;
+        sai.sin_port = htons(67);
+        sai.sin_addr.s_addr = 0; // any
+        if (bind(fd_, (const sockaddr *)&sai, sizeof sai)) {
+            log_line("dhcp4: Failed to bind to UDP 67 on %s: %s\n", ifname_, strerror(errno));
+            goto err1;
+        }
     }
 
-    swap(fd_, tfd);
+    {
+        size_t ifname_len = strlen(ifname_);
+        memset(&ifr, 0, sizeof ifr);
+        if (ifname_len >= sizeof ifr.ifr_name) {
+            log_line("dhcp4: Interface name '%s' is too long: %zu >= %zu\n",
+                     ifname_, ifname_len, sizeof ifr.ifr_name);
+            goto err1;
+        }
+        memcpy(ifr.ifr_name, ifname_, ifname_len);
+    }
+    if (setsockopt(fd_, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
+        log_line("dhcp4: Failed to bind socket to device on %s: %s\n", ifname_, strerror(errno));
+        goto err1;
+    }
+
     return true;
+err1:
+    close(fd_);
+    fd_ = -1;
+err0:
+    return false;
 }
 
+// Only intended to be called once per listener.
 bool D4Listener::init(const char *ifname)
 {
     size_t ifname_src_size = strlen(ifname);
@@ -194,7 +204,7 @@ void D4Listener::process_input()
     for (;;) {
         sockaddr_storage sai;
         socklen_t sailen = sizeof sai;
-        auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, (sockaddr *)&sai, &sailen);
+        auto buflen = recvfrom(fd_, buf, sizeof buf, MSG_DONTWAIT, (sockaddr *)&sai, &sailen);
         if (buflen < 0) {
             int err = errno;
             if (err == EINTR) continue;
@@ -238,7 +248,7 @@ bool D4Listener::send_to(const void *buf, size_t len, uint32_t addr, int port)
     sai.sin_family = AF_INET;
     sai.sin_port = htons(port);
     sai.sin_addr.s_addr = addr;
-    const auto r = safe_sendto(fd_(), static_cast<const char *>(buf), len, 0, (const sockaddr *)&sai, sizeof sai);
+    const auto r = safe_sendto(fd_, static_cast<const char *>(buf), len, 0, (const sockaddr *)&sai, sizeof sai);
     if (r < 0) {
         log_line("dhcp4: D4Listener sendto failed: %s\n", strerror(errno));
         return false;

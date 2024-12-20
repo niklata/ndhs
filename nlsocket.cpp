@@ -22,14 +22,13 @@ void NLSocket::init()
     got_newlink_ = false;
     query_ifindex_ = -1;
 
-    auto tfd = nk::sys::handle{ nl_open(NETLINK_ROUTE, RTMGRP_LINK, 0) };
-    if (!tfd) suicide("NLSocket: failed to create netlink socket\n");
-    swap(fd_, tfd);
+    fd_ = nl_open(NETLINK_ROUTE, RTMGRP_LINK, 0);
+    if (fd_ < 0) suicide("NLSocket: failed to create netlink socket\n");
 
     request_links();
 
     struct pollfd pfd;
-    pfd.fd = fd_();
+    pfd.fd = fd_;
     pfd.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
     pfd.revents = 0;
     for (;(got_newlink_ == false);) {
@@ -53,7 +52,7 @@ bool NLSocket::get_interface_addresses(int ifindex)
     request_addrs(query_ifindex_);
 
     struct pollfd pfd;
-    pfd.fd = fd_();
+    pfd.fd = fd_;
     pfd.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
     pfd.revents = 0;
     while (query_ifindex_ >= 0) {
@@ -75,7 +74,7 @@ void NLSocket::process_input()
 {
     char buf[8192];
     for (;;) {
-        auto buflen = recv(fd_(), buf, sizeof buf, MSG_DONTWAIT);
+        auto buflen = recv(fd_, buf, sizeof buf, MSG_DONTWAIT);
         if (buflen < 0) {
             int err = errno;
             if (err == EINTR) continue;
@@ -89,14 +88,14 @@ void NLSocket::process_input()
 void NLSocket::request_links()
 {
     auto link_seq = nlseq_++;
-    if (nl_sendgetlinks(fd_(), link_seq) < 0)
+    if (nl_sendgetlinks(fd_, link_seq) < 0)
         suicide("nlsocket: failed to get initial rtlink state\n");
 }
 
 void NLSocket::request_addrs(int ifidx)
 {
     auto addr_seq = nlseq_++;
-    if (nl_sendgetaddr(fd_(), addr_seq, static_cast<uint32_t>(ifidx)) < 0)
+    if (nl_sendgetaddr(fd_, addr_seq, static_cast<uint32_t>(ifidx)) < 0)
         suicide("nlsocket: failed to get initial rtaddr state\n");
 }
 

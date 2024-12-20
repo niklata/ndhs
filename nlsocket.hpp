@@ -4,7 +4,6 @@
 #define NDHS_NLSOCKET_HPP_
 #include <stdint.h>
 #include <vector>
-#include <nk/sys/posix/handle.hpp>
 extern "C" {
 #include <ipaddr.h>
 #include <net/if.h>
@@ -60,7 +59,7 @@ struct NLSocket
     [[nodiscard]] bool get_interface_addresses(int ifindex);
 
     void process_input();
-    auto fd() const { return fd_(); }
+    auto fd() const { return fd_; }
     [[nodiscard]] int get_ifindex(const char *name) const {
         for (auto &i: ifaces_) {
             if (!strcmp(name, i.name)) return i.index;
@@ -94,7 +93,7 @@ private:
     void request_addrs(int ifidx);
     std::vector<netif_info> ifaces_;
     int query_ifindex_;
-    nk::sys::handle fd_;
+    int fd_;
     uint32_t nlseq_;
     bool got_newlink_:1;
 };

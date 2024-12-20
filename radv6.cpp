@@ -305,45 +305,51 @@ static const uint8_t icmp_nexthdr(58); // Assigned value
 
 bool RA6Listener::init(const char *ifname)
 {
+    sockaddr_in6 sai;
+    size_t ifname_src_size = strlen(ifname);
+    if (ifname_src_size >= sizeof ifname_) {
+        log_line("RA6Listener: Interface name (%s) too long\n", ifname);
+        goto err0;
+    }
+
     if (!init_addrs) {
-        if (!sa6_from_string(&ip6_any, "::")) return false;
-        if (!sa6_from_string(&mc6_allhosts, "ff02::1")) return false;
-        if (!sa6_from_string(&mc6_allrouters, "ff02::2")) return false;
+        if (!sa6_from_string(&ip6_any, "::")) goto err0;
+        if (!sa6_from_string(&mc6_allhosts, "ff02::1")) goto err0;
+        if (!sa6_from_string(&mc6_allrouters, "ff02::2")) goto err0;
         init_addrs = true;
     }
 
     advi_s_max_ = 600;
     using_bpf_ = false;
-    size_t ifname_src_size = strlen(ifname);
-    if (ifname_src_size >= sizeof ifname_) {
-        log_line("RA6Listener: Interface name (%s) too long\n", ifname);
-        return false;
-    }
     *static_cast<char *>(mempcpy(ifname_, ifname, ifname_src_size)) = 0;
 
-    auto tfd = nk::sys::handle{ socket(AF_INET6, SOCK_RAW|SOCK_CLOEXEC, IPPROTO_ICMPV6) };
-    if (!tfd) {
+    if (fd_ > 0) close(fd_);
+    fd_ = socket(AF_INET6, SOCK_RAW|SOCK_CLOEXEC, IPPROTO_ICMPV6);
+    if (fd_ < 0) {
         log_line("ra6: Failed to create v6 ICMP socket on %s: %s\n", ifname_, strerror(errno));
-        return false;
+        goto err0;
     }
-    if (!attach_multicast(tfd(), ifname_, mc6_allrouters))
-        return false;
-    attach_bpf(tfd());
+    if (!attach_multicast(fd_, ifname_, mc6_allrouters))
+        goto err1;
+    attach_bpf(fd_);
 
-    sockaddr_in6 sai;
     memset(&sai, 0, sizeof sai); // s6_addr, s6_port are set to any/0 here
     sai.sin6_family = AF_INET6;
-    if (bind(tfd(), (const sockaddr *)&sai, sizeof sai)) {
+    if (bind(fd_, (const sockaddr *)&sai, sizeof sai)) {
         log_line("ra6: Failed to bind ICMP route advertisement listener on %s: %s\n", ifname_, strerror(errno));
-        return false;
+        goto err1;
     }
-    swap(fd_, tfd);
 
     if (!send_advert())
         log_line("ra6: Failed to send initial router advertisement on %s\n", ifname_);
     set_next_advert_ts();
 
     return true;
+err1:
+    close(fd_);
+    fd_ = -1;
+err0:
+    return false;
 }
 
 void RA6Listener::process_input()
@@ -352,7 +358,7 @@ void RA6Listener::process_input()
     for (;;) {
         sockaddr_storage sai;
         socklen_t sailen = sizeof sai;
-        auto buflen = recvfrom(fd_(), buf, sizeof buf, MSG_DONTWAIT, (sockaddr *)&sai, &sailen);
+        auto buflen = recvfrom(fd_, buf, sizeof buf, MSG_DONTWAIT, (sockaddr *)&sai, &sailen);
         if (buflen < 0) {
             int err = errno;
             if (err == EINTR) continue;
@@ -499,7 +505,7 @@ bool RA6Listener::send_advert()
     }
     const size_t slen = ss.si > sbuf ? static_cast<size_t>(ss.si - sbuf) : 0;
 
-    if (safe_sendto(fd_(), sbuf, slen, 0, (const sockaddr *)&mc6_allhosts, sizeof mc6_allhosts) < 0) {
+    if (safe_sendto(fd_, sbuf, slen, 0, (const sockaddr *)&mc6_allhosts, sizeof mc6_allhosts) < 0) {
         log_line("ra6: sendto failed on %s: %s\n", ifname_, strerror(errno));
         return false;
     }

@@ -4,7 +4,6 @@
 #define NDHS_RADV6_HPP_
 
 #include <time.h>
-#include <nk/sys/posix/handle.hpp>
 #include "sbufs.h"
 extern "C" {
 #include <net/if.h>
@@ -19,7 +18,7 @@ struct RA6Listener
     [[nodiscard]] bool init(const char *ifname);
     void process_input();
     int send_periodic_advert();
-    auto fd() const { return fd_(); }
+    auto fd() const { return fd_; }
     const char *ifname() const { return ifname_; }
 private:
     void process_receive(char *buf, size_t buflen,
@@ -30,7 +29,7 @@ private:
     void attach_bpf(int fd);
     struct timespec advert_ts_;
     char ifname_[IFNAMSIZ];
-    nk::sys::handle fd_;
+    int fd_;
     unsigned advi_s_max_;
     bool using_bpf_:1;
 };
