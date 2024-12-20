@@ -27,7 +27,7 @@ struct netif_addrinfo
     unsigned char addr_type;
     unsigned char prefixlen;
     unsigned char flags;
-    AddressScope scope;
+    unsigned char scope;
 };
 
 void NLSocket::init()
@@ -136,14 +136,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
     nia.prefixlen = ifa->ifa_prefixlen;
     nia.flags = ifa->ifa_flags;
     nia.if_index = static_cast<int>(ifa->ifa_index);
-    switch (ifa->ifa_scope) {
-    case RT_SCOPE_UNIVERSE: nia.scope = AddressScope::Global; break;
-    case RT_SCOPE_SITE: nia.scope = AddressScope::Site; break;
-    case RT_SCOPE_LINK: nia.scope = AddressScope::Link; break;
-    case RT_SCOPE_HOST: nia.scope = AddressScope::Host; break;
-    case RT_SCOPE_NOWHERE: nia.scope = AddressScope::None; break;
-    default: log_line("nlsocket: Unknown scope: %u\n", ifa->ifa_scope); return;
-    }
+    nia.scope = ifa->ifa_scope;
     if (tb[IFA_ADDRESS]) {
         if (nia.addr_type == AF_INET6)
             parse_raw_address6(&nia.address, tb, IFA_ADDRESS);
@@ -274,7 +267,7 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
         for (auto &i: ifaces_) {
             if (!strcmp(i.name, nii.name)) {
                 // Preserve the addresses if we're just modifying fields.
-                std::swap(nii.addrs, i.addrs);
+                nii.addrs = std::move(i.addrs);
                 i = std::move(nii);
                 update = true;
                 break;

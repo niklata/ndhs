@@ -10,19 +10,11 @@ extern "C" {
 #include "nl.h"
 }
 
-enum class AddressScope {
-    Global = RT_SCOPE_UNIVERSE,
-    Site = RT_SCOPE_SITE,
-    Link = RT_SCOPE_LINK,
-    Host = RT_SCOPE_HOST,
-    None = RT_SCOPE_NOWHERE,
-};
-
 struct netif_addr
 {
     in6_addr address;
     unsigned char prefixlen;
-    AddressScope scope;
+    unsigned char scope;
 };
 
 struct netif_info
