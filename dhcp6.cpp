@@ -96,24 +96,22 @@ bool D6Listener::init(const char *ifname, uint8_t preference)
 
     log_line("dhcp6: DHCPv6 Preference is %u on %s\n", preference_, ifname_);
 
-    for (const auto &i: ifinfo->addrs) {
-        if (i.scope == RT_SCOPE_UNIVERSE && !ipaddr_is_v4(&i.address)) {
-            local_ip_ = i.address;
-            prefixlen_ = i.prefixlen;
-            local_ip_prefix_ = mask_v6_addr(&local_ip_, prefixlen_);
-            char abuf[48];
-            char abufp[48];
-            if (!ipaddr_to_string(abuf, sizeof abuf, &local_ip_)) abort();
-            if (!ipaddr_to_string(abufp, sizeof abufp, &local_ip_prefix_)) abort();
-            log_line("dhcp6: IP address for %s is %s/%u.  Prefix is %s.\n",
-                     ifname, abuf, +prefixlen_, abufp);
-        } else if (i.scope == RT_SCOPE_LINK && !ipaddr_is_v4(&i.address)) {
-            link_local_ip_ = i.address;
-            char abuf[48];
-            if (!ipaddr_to_string(abuf, sizeof abuf, &link_local_ip_)) abort();
-            log_line("dhcp6: Link-local IP address for %s is %s.\n", ifname, abuf);
-        }
+    if (!ifinfo->has_v6_address_global || !ifinfo->has_v6_address_link) {
+        log_line("dhcp6: Failed to get ip address for %s\n", ifname_);
+        return false;
     }
+    local_ip_ = ifinfo->v6_address_global;
+    prefixlen_ = ifinfo->v6_prefixlen_global;
+    link_local_ip_ = ifinfo->v6_address_link;
+    local_ip_prefix_ = mask_v6_addr(&local_ip_, prefixlen_);
+    char abuf[48];
+    char abufp[48];
+    if (!ipaddr_to_string(abuf, sizeof abuf, &local_ip_)) abort();
+    if (!ipaddr_to_string(abufp, sizeof abufp, &local_ip_prefix_)) abort();
+    log_line("dhcp6: IP address for %s is %s/%u.  Prefix is %s.\n",
+             ifname, abuf, +prefixlen_, abufp);
+    if (!ipaddr_to_string(abuf, sizeof abuf, &link_local_ip_)) abort();
+    log_line("dhcp6: Link-local IP address for %s is %s.\n", ifname, abuf);
 
     if (!create_dhcp6_socket()) return false;
 

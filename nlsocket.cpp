@@ -178,17 +178,9 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
         if (query_ifindex_ == nia.if_index) query_ifindex_ = -1;
         for (auto &i: ifaces_) {
             if (i.index == nia.if_index) {
-                // Update if the address already exists
-                for (auto j = i.addrs.begin(), jend = i.addrs.end(); j != jend; ++j) {
-                    if (!memcmp(&j->address, &nia.address, sizeof nia.address)) {
-                        j->address = nia.address;
-                        j->prefixlen = nia.prefixlen;
-                        j->scope = nia.scope;
-                        return;
-                    }
-                }
-                // Otherwise add it.
-                if (nia.addr_type == AF_INET) {
+                if (nia.addr_type == AF_INET || ipaddr_is_v4(&nia.address)) {
+                    i.has_v4_address = true;
+                    i.v4_address = nia.address;
                     emplace_broadcast(nia.if_index, &nia.broadcast_address);
 
                     uint32_t subnet = 0xffffffffu;
@@ -200,8 +192,17 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
                         if (!ipaddr_from_string(&taddr, sbuf)) abort();
                         emplace_subnet(nia.if_index, &taddr);
                     }
+                    return;
+                } else if (nia.addr_type == AF_INET6) {
+                    if (nia.scope == RT_SCOPE_UNIVERSE) {
+                        i.has_v6_address_global = true;
+                        i.v6_address_global = nia.address;
+                        i.v6_prefixlen_global = nia.prefixlen;
+                    } else if (nia.scope == RT_SCOPE_LINK) {
+                        i.has_v6_address_link = true;
+                        i.v6_address_link = nia.address;
+                    }
                 }
-                i.addrs.emplace_back(nia.address, nia.prefixlen, nia.scope);
                 return;
             }
         }
@@ -210,12 +211,25 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
     case RTM_DELADDR: {
         for (auto &i: ifaces_) {
             if (i.index == nia.if_index) {
-                for (auto j = i.addrs.begin(), jend = i.addrs.end(); j != jend; ++j) {
-                    if (!memcmp(&j->address, &nia.address, sizeof nia.address)) {
-                        i.addrs.erase(j);
-                        return;
+                if (i.has_v4_address && (nia.addr_type == AF_INET || ipaddr_is_v4(&nia.address))) {
+                    if (!memcmp(&i.v4_address, &nia.address, sizeof nia.address)) {
+                        memset(&i.v4_address, 0, sizeof i.v4_address);
+                        i.has_v4_address = false;
+                    }
+                } else if ((i.has_v6_address_global || i.has_v6_address_link) && nia.addr_type == AF_INET6) {
+                    if (nia.scope == RT_SCOPE_UNIVERSE) {
+                        if (!memcmp(&i.v6_address_global, &nia.address, sizeof nia.address)) {
+                            memset(&i.v6_address_global, 0, sizeof i.v6_address_global);
+                            i.has_v6_address_global = false;
+                        }
+                    } else if (nia.scope == RT_SCOPE_LINK) {
+                        if (!memcmp(&i.v6_address_link, &nia.address, sizeof nia.address)) {
+                            memset(&i.v6_address_link, 0, sizeof i.v6_address_link);
+                            i.has_v6_address_link = false;
+                        }
                     }
                 }
+                return;
             }
         }
     }
@@ -268,9 +282,17 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
         bool update = false;
         for (auto &i: ifaces_) {
             if (!strcmp(i.name, nii.name)) {
-                // Preserve the addresses if we're just modifying fields.
-                nii.addrs = std::move(i.addrs);
-                i = std::move(nii);
+                // We don't alter name or index, and addresses are not
+                // sent in this message, so don't alter those.
+                i.family = nii.family;
+                i.device_type = nii.device_type;
+                i.flags = nii.flags;
+                i.change_mask = nii.change_mask;
+                i.mtu = nii.mtu;
+                i.link_type = nii.link_type;
+                memcpy(&i.macaddr, &nii.macaddr, sizeof i.macaddr);
+                memcpy(&i.macbc, &nii.macbc, sizeof i.macbc);
+                i.is_active = nii.is_active;
                 update = true;
                 break;
             }

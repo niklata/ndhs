@@ -10,13 +10,6 @@ extern "C" {
 #include "nl.h"
 }
 
-struct netif_addr
-{
-    in6_addr address;
-    unsigned char prefixlen;
-    unsigned char scope;
-};
-
 struct netif_info
 {
     char name[IFNAMSIZ];
@@ -31,7 +24,13 @@ struct netif_info
     char macbc[6];
     bool is_active:1;
 
-    std::vector<netif_addr> addrs;
+    bool has_v4_address:1;
+    bool has_v6_address_global:1;
+    bool has_v6_address_link:1;
+    in6_addr v4_address;
+    in6_addr v6_address_global;
+    in6_addr v6_address_link;
+    unsigned char v6_prefixlen_global;
 };
 
 struct NLSocket

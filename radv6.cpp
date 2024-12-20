@@ -398,7 +398,7 @@ bool RA6Listener::send_advert()
     ra6_advert_header ra6adv_hdr;
     ra6_source_lla_opt ra6_slla;
     ra6_mtu_opt ra6_mtu;
-    std::vector<ra6_prefix_info_opt> ra6_pfxs;
+    ra6_prefix_info_opt ra6_pfxi;
     ra6_rdns_opt ra6_dns;
     ra6_dns_search_opt ra6_dsrch;
     uint16_t csum;
@@ -408,6 +408,10 @@ bool RA6Listener::send_advert()
     auto ifinfo = nl_socket.get_ifinfo(ifname_);
     if (!ifinfo) {
         log_line("ra6: Failed to get interface index for %s\n", ifname_);
+        return false;
+    }
+    if (!ifinfo->has_v6_address_global) {
+        log_line("ra6: Failed to get global ipv6 address for %s\n", ifname_);
         return false;
     }
 
@@ -433,21 +437,14 @@ bool RA6Listener::send_advert()
            (csum, net_checksum16(&ra6_mtu, sizeof ra6_mtu));
 
     // Prefix Information
-    for (const auto &i: ifinfo->addrs) {
-        if (i.scope == RT_SCOPE_UNIVERSE && !ipaddr_is_v4(&i.address)) {
-            ra6_prefix_info_opt ra6_pfxi;
-            ra6_pfxi.prefix(&i.address, i.prefixlen);
-            ra6_pfxi.on_link(true);
-            ra6_pfxi.auto_addr_cfg(false);
-            ra6_pfxi.router_addr_flag(true);
-            ra6_pfxi.valid_lifetime(2592000);
-            ra6_pfxi.preferred_lifetime(604800);
-            ra6_pfxs.push_back(ra6_pfxi);
-            csum = net_checksum16_add(csum, net_checksum16(&ra6_pfxi, sizeof ra6_pfxi));
-            pktl += sizeof ra6_pfxi;
-            break;
-        }
-    }
+    ra6_pfxi.prefix(&ifinfo->v6_address_global, ifinfo->v6_prefixlen_global);
+    ra6_pfxi.on_link(true);
+    ra6_pfxi.auto_addr_cfg(false);
+    ra6_pfxi.router_addr_flag(true);
+    ra6_pfxi.valid_lifetime(2592000);
+    ra6_pfxi.preferred_lifetime(604800);
+    csum = net_checksum16_add(csum, net_checksum16(&ra6_pfxi, sizeof ra6_pfxi));
+    pktl += sizeof ra6_pfxi;
 
     auto dns_servers = query_dns_servers(ifinfo->index);
     struct blob d6b = query_dns6_search_blob(ifinfo->index);
@@ -485,9 +482,7 @@ bool RA6Listener::send_advert()
     if (!ra6adv_hdr.write(ss)) return false;
     if (!ra6_slla.write(ss)) return false;
     if (!ra6_mtu.write(ss)) return false;
-    for (const auto &i: ra6_pfxs) {
-        if (!i.write(ss)) return false;
-    }
+    if (!ra6_pfxi.write(ss)) return false;
     if (dns_servers.n) {
         if (!ra6_dns.write(ss)) return false;
         size_t siz = 16 * dns_servers.n;

@@ -183,19 +183,15 @@ bool D4Listener::init(const char *ifname)
     }
     ifindex_ = ifinfo->index;
 
-    for (const auto &i: ifinfo->addrs) {
-        if (ipaddr_is_v4(&i.address)) {
-            local_ip_ = i.address;
-            char abuf[48];
-            if (!ipaddr_to_string(abuf, sizeof abuf, &local_ip_)) abort();
-            log_line("dhcp4: IP address for %s is %s\n", ifname, abuf);
-        }
-    }
-
-    if (!ipaddr_is_v4(&local_ip_)) {
+    if (!ifinfo->has_v4_address) {
         log_line("dhcp4: Interface (%s) has no IP address\n", ifname);
         return false;
     }
+    local_ip_ = ifinfo->v4_address;
+    char abuf[48];
+    if (!ipaddr_to_string(abuf, sizeof abuf, &local_ip_)) abort();
+    log_line("dhcp4: IP address for %s is %s\n", ifname, abuf);
+
 
     return true;
 }
