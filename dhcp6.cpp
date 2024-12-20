@@ -1,6 +1,5 @@
 // Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
-#include "rng.h"
 #include "nlsocket.hpp"
 #include "multicast6.hpp"
 #include "dhcp6.hpp"
@@ -9,7 +8,10 @@
 #include "duid.h"
 extern "C" {
 #include "nk/io.h"
+#include "nk/random.h"
 }
+
+extern struct nk_random_state g_rngstate;
 
 #define MAX_DYN_LEASES 1000u
 #define MAX_DYN_ATTEMPTS 100u
@@ -37,8 +39,8 @@ static in6_addr v6_addr_random(const in6_addr *prefix, uint8_t prefixlen)
     const auto keep_r_bits = prefixlen % 8u;
     memcpy(b, prefix, sizeof b);
     unsigned i = 15;
-    for (; i > keep_bytes; --i) b[i] = nk_random_u64();
-    uint8_t c = nk_random_u64();
+    for (; i > keep_bytes; --i) b[i] = nk_random_u64(&g_rngstate);
+    uint8_t c = nk_random_u64(&g_rngstate);
     b[i] |= c & (0xff >> keep_r_bits);
     memcpy(&ret, b, sizeof ret);
     return ret;

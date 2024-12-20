@@ -9,13 +9,15 @@
 #include "nlsocket.hpp"
 #include "dynlease.hpp"
 #include "sbufs.h"
-#include "rng.h"
 #include "nk/netbits.h"
 extern "C" {
 #include "nk/log.h"
 #include "nk/io.h"
+#include "nk/random.h"
 #include "options.h"
 }
+
+extern struct nk_random_state g_rngstate;
 
 // hwaddr must be exactly 6 bytes
 static uint64_t hwaddr_to_int64(uint8_t *hwaddr)
@@ -356,7 +358,7 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     uint32_t ah = decode32be(ipaddr_v4_bytes(&dr_hi));
     const uint64_t ar = ah > al ? ah - al : al - ah;
     // The extremely small distribution skew does not matter here.
-    const auto rqs = nk_random_u64() % (ar + 1);
+    const auto rqs = nk_random_u64(&g_rngstate) % (ar + 1);
 
     // OK, here we have bisected our range using rqs.
     // [al .. ah] => [al .. rqs .. ah]

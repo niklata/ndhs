@@ -14,13 +14,15 @@
 #include "multicast6.hpp"
 #include "attach_bpf.h"
 #include "sbufs.h"
-#include "rng.h"
 
 extern "C" {
 #include "nk/net_checksum16.h"
 #include "nk/log.h"
 #include "nk/io.h"
+#include "nk/random.h"
 }
+
+extern struct nk_random_state g_rngstate;
 
 static inline void toggle_bit(bool v, void *data, size_t arrayidx, unsigned char bitidx)
 {
@@ -385,7 +387,7 @@ void RA6Listener::set_next_advert_ts()
 {
     unsigned advi_s_min = advi_s_max_ / 3 > 3u ? advi_s_max_ / 3 : 3u;
     // The extremely small distribution skew does not matter here.
-    unsigned advi_s = (unsigned)(nk_random_u64() % (advi_s_max_ - advi_s_min)) + advi_s_min;
+    unsigned advi_s = (unsigned)(nk_random_u64(&g_rngstate) % (advi_s_max_ - advi_s_min)) + advi_s_min;
     clock_gettime(CLOCK_BOOTTIME, &advert_ts_);
     advert_ts_.tv_sec += advi_s;
 }

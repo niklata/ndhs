@@ -26,6 +26,7 @@ extern "C" {
 #include "nk/log.h"
 #include "nk/privs.h"
 #include "nk/io.h"
+#include "nk/random.h"
 }
 #include "nlsocket.hpp"
 #include "dhcp6.hpp"
@@ -52,6 +53,8 @@ struct pfd_meta
         RA6Listener *lr6;
     };
 };
+
+nk_random_state g_rngstate;
 
 static const char *configfile = "/etc/ndhs.conf";
 static char *chroot_path;
@@ -268,6 +271,7 @@ static void process_options(int ac, char *av[])
         }
     }
 
+    nk_random_init(&g_rngstate);
     nl_socket.init();
 
     if (!parse_config(configfile))

@@ -3,13 +3,15 @@
 #include <poll.h>
 #include <arpa/inet.h>
 #include <net/if.h>
-#include "rng.h"
 #include "nlsocket.hpp"
 #include "dhcp_state.hpp"
 extern "C" {
 #include "nk/log.h"
+#include "nk/random.h"
 #include "nl.h"
 }
+
+extern struct nk_random_state g_rngstate;
 
 // The NLMSG_* macros include c-style casts.
 #ifdef __GNUC__
@@ -32,7 +34,7 @@ struct netif_addrinfo
 
 void NLSocket::init()
 {
-    nlseq_ = nk_random_u64();
+    nlseq_ = nk_random_u64(&g_rngstate);
     got_newlink_ = false;
     query_ifindex_ = -1;
 

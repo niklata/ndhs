@@ -10,8 +10,10 @@
 #include <arpa/inet.h>
 #include "nk/io.h"
 #include "nk/log.h"
+#include "nk/random.h"
 #include "duid.h"
-#include "rng.h"
+
+extern struct nk_random_state g_rngstate;
 
 #define DUID_PATH "/store/duid.txt"
 char g_server_duid[SERVER_DUID_LEN];
@@ -36,8 +38,8 @@ static void generate_duid(void)
     uint16_t typefield = htons(4);
     memcpy(g_server_duid + off, &typefield, sizeof typefield);
     off += sizeof typefield;
-    uint64_t r0 = nk_random_u64();
-    uint64_t r1 = nk_random_u64();
+    uint64_t r0 = nk_random_u64(&g_rngstate);
+    uint64_t r1 = nk_random_u64(&g_rngstate);
     memcpy(g_server_duid + off, &r0, sizeof r0);
     off += sizeof r0;
     memcpy(g_server_duid + off, &r1, sizeof r1);
