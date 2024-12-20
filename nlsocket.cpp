@@ -16,6 +16,20 @@ extern "C" {
 #pragma GCC diagnostic ignored "-Wold-style-cast"
 #endif
 
+struct netif_addrinfo
+{
+    char if_name[IFNAMSIZ];
+    int if_index;
+    in6_addr address;
+    in6_addr peer_address;
+    in6_addr broadcast_address;
+    in6_addr anycast_address;
+    unsigned char addr_type;
+    unsigned char prefixlen;
+    unsigned char flags;
+    AddressScope scope;
+};
+
 void NLSocket::init()
 {
     nlseq_ = nk_random_u64();
@@ -115,7 +129,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
     memset(tb, 0, sizeof tb);
     nl_rtattr_parse(nlh, sizeof *ifa, rtattr_assign, tb);
 
-    netif_addr nia;
+    netif_addrinfo nia;
     nia.addr_type = ifa->ifa_family;
     if (nia.addr_type != AF_INET6 && nia.addr_type != AF_INET)
         return;
@@ -123,11 +137,11 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
     nia.flags = ifa->ifa_flags;
     nia.if_index = static_cast<int>(ifa->ifa_index);
     switch (ifa->ifa_scope) {
-    case RT_SCOPE_UNIVERSE: nia.scope = netif_addr::Scope::Global; break;
-    case RT_SCOPE_SITE: nia.scope = netif_addr::Scope::Site; break;
-    case RT_SCOPE_LINK: nia.scope = netif_addr::Scope::Link; break;
-    case RT_SCOPE_HOST: nia.scope = netif_addr::Scope::Host; break;
-    case RT_SCOPE_NOWHERE: nia.scope = netif_addr::Scope::None; break;
+    case RT_SCOPE_UNIVERSE: nia.scope = AddressScope::Global; break;
+    case RT_SCOPE_SITE: nia.scope = AddressScope::Site; break;
+    case RT_SCOPE_LINK: nia.scope = AddressScope::Link; break;
+    case RT_SCOPE_HOST: nia.scope = AddressScope::Host; break;
+    case RT_SCOPE_NOWHERE: nia.scope = AddressScope::None; break;
     default: log_line("nlsocket: Unknown scope: %u\n", ifa->ifa_scope); return;
     }
     if (tb[IFA_ADDRESS]) {
@@ -172,7 +186,9 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
                 // Update if the address already exists
                 for (auto j = i.addrs.begin(), jend = i.addrs.end(); j != jend; ++j) {
                     if (!memcmp(&j->address, &nia.address, sizeof nia.address)) {
-                        *j = nia;
+                        j->address = nia.address;
+                        j->prefixlen = nia.prefixlen;
+                        j->scope = nia.scope;
                         return;
                     }
                 }
@@ -190,7 +206,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
                         emplace_subnet(nia.if_index, &taddr);
                     }
                 }
-                i.addrs.emplace_back(nia);
+                i.addrs.emplace_back(nia.address, nia.prefixlen, nia.scope);
                 return;
             }
         }

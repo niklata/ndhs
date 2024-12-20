@@ -432,7 +432,7 @@ bool RA6Listener::send_advert()
 
     // Prefix Information
     for (const auto &i: ifinfo->addrs) {
-        if (i.scope == netif_addr::Scope::Global && !ipaddr_is_v4(&i.address)) {
+        if (i.scope == AddressScope::Global && !ipaddr_is_v4(&i.address)) {
             ra6_prefix_info_opt ra6_pfxi;
             ra6_pfxi.prefix(&i.address, i.prefixlen);
             ra6_pfxi.on_link(true);

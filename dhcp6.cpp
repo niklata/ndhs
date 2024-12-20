@@ -95,7 +95,7 @@ bool D6Listener::init(const char *ifname, uint8_t preference)
     log_line("dhcp6: DHCPv6 Preference is %u on %s\n", preference_, ifname_);
 
     for (const auto &i: ifinfo->addrs) {
-        if (i.scope == netif_addr::Scope::Global && !ipaddr_is_v4(&i.address)) {
+        if (i.scope == AddressScope::Global && !ipaddr_is_v4(&i.address)) {
             local_ip_ = i.address;
             prefixlen_ = i.prefixlen;
             local_ip_prefix_ = mask_v6_addr(&local_ip_, prefixlen_);
@@ -105,7 +105,7 @@ bool D6Listener::init(const char *ifname, uint8_t preference)
             if (!ipaddr_to_string(abufp, sizeof abufp, &local_ip_prefix_)) abort();
             log_line("dhcp6: IP address for %s is %s/%u.  Prefix is %s.\n",
                      ifname, abuf, +prefixlen_, abufp);
-        } else if (i.scope == netif_addr::Scope::Link && !ipaddr_is_v4(&i.address)) {
+        } else if (i.scope == AddressScope::Link && !ipaddr_is_v4(&i.address)) {
             link_local_ip_ = i.address;
             char abuf[48];
             if (!ipaddr_to_string(abuf, sizeof abuf, &link_local_ip_)) abort();
