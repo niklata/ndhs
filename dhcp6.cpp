@@ -572,16 +572,14 @@ bool D6Listener::handle_decline_msg(const d6msg_state &d6s, sbufs &ss)
 
 bool D6Listener::options_consume(d6msg_state &d6s, size_t v)
 {
-    for (auto &i: d6s.prev_opt) {
-        if (i.second < v) return false; // option_depth would underflow
-        i.second -= v;
+    size_t nempty = 0;
+    for (size_t i = 0; i < d6s.prev_opt_n; ++i) {
+        if (d6s.prev_opt_remlen[i] < v) return false; // option_depth would underflow
+        d6s.prev_opt_remlen[i] -= v;
+        if (d6s.prev_opt_remlen[i] == 0) ++nempty;
     }
-    while (!d6s.prev_opt.empty() && d6s.prev_opt.back().second == 0)
-        d6s.prev_opt.pop_back();
-    for (const auto &i: d6s.prev_opt) {
-        // Tricky: Guard against client sending invalid suboption lengths.
-        if (i.second <= 0) return false; // depth ran out of length but has suboption size left
-    }
+    assert(nempty <= d6s.prev_opt_n);
+    d6s.prev_opt_n -= nempty;
     return true;
 }
 
@@ -686,8 +684,15 @@ void D6Listener::process_receive(char *buf, size_t buflen,
              OPTIONS_CONSUME(d6s.ias.back().size);
 
              const auto na_options_len = l - 12;
-             if (na_options_len > 0)
-                 d6s.prev_opt.emplace_back(std::make_pair(3, na_options_len));
+             if (na_options_len > 0) {
+                 if (d6s.prev_opt_n >= D6_MAX_ENCAP_DEPTH) {
+                     log_line("dhcp6: Client sent too deep >(%zu) of option encapsulation on %s\n",
+                              d6s.prev_opt_n, ifname_);
+                     return;
+                 }
+                 d6s.prev_opt_code[d6s.prev_opt_n] = 3;
+                 d6s.prev_opt_remlen[d6s.prev_opt_n++] = na_options_len;
+             }
 
              log_line("dhcp6: IA_NA: iaid=%u opt_len=%u on %s\n",
                       d6s.ias.back().iaid, na_options_len, ifname_);
@@ -696,11 +701,11 @@ void D6Listener::process_receive(char *buf, size_t buflen,
                  log_line("dhcp6: Client-sent option IAADDR has a bad length (%u) on %s\n", l, ifname_);
                  return;
              }
-             if (d6s.prev_opt.size() != 1) {
+             if (d6s.prev_opt_n != 1) {
                  log_line("dhcp6: Client-sent option IAADDR is not nested on %s\n", ifname_);
                  return;
              }
-             if (d6s.prev_opt.back().first != 3) {
+             if (d6s.prev_opt_code[0] != 3) {
                  log_line("dhcp6: Client-sent option IAADDR must follow IA_NA on %s\n", ifname_);
                  return;
              }
@@ -711,13 +716,14 @@ void D6Listener::process_receive(char *buf, size_t buflen,
              OPTIONS_CONSUME(d6s.ias.back().ia_na_addrs.back().size);
 
              auto iaa_options_len = l - 24;
-             if (iaa_options_len > 0)
-                 d6s.prev_opt.emplace_back(std::make_pair(5, iaa_options_len));
+             if (iaa_options_len > 0) {
+                 d6s.prev_opt_code[d6s.prev_opt_n] = 5;
+                 d6s.prev_opt_remlen[d6s.prev_opt_n++] = iaa_options_len;
+             }
 
              char abuf[48];
              if (!ipaddr_to_string(abuf, sizeof abuf, &d6s.ias.back().ia_na_addrs.back().addr)) abort();
              log_line("dhcp6: IA Address: %s opt_len=%d on %s\n", abuf, iaa_options_len, ifname_);
-
          } else if (ot == 6) { // OptionRequest
              if (l % 2) {
                  log_line("dhcp6: Client-sent option Request has a bad length (%d) on %s\n", l, ifname_);

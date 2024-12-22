@@ -185,6 +185,8 @@ struct d6_statuscode
     }
 };
 
+#define D6_MAX_ENCAP_DEPTH 4
+
 struct D6Listener
 {
     D6Listener() {}
@@ -196,10 +198,9 @@ struct D6Listener
     auto fd() const { return fd_; }
     const char *ifname() const { return ifname_; }
 private:
-    using prev_opt_state = std::pair<int8_t, uint16_t>; // Type of parent opt and length left
     struct d6msg_state
     {
-        d6msg_state() : client_duid_str_size(0), client_duid_blob_size(0), server_duid_blob_size(0),
+        d6msg_state() : prev_opt_n(0), client_duid_str_size(0), client_duid_blob_size(0), server_duid_blob_size(0),
                         optreq_exists(false), optreq_dns(false), optreq_dns_search(false),
                         optreq_sntp(false), optreq_info_refresh_time(false), optreq_ntp(false),
                         use_rapid_commit(false) {}
@@ -208,7 +209,9 @@ private:
         char client_duid_blob[128];
         char server_duid_blob[128];
         std::vector<d6_ia> ias;
-        std::vector<prev_opt_state> prev_opt;
+        uint8_t prev_opt_code[D6_MAX_ENCAP_DEPTH];
+        uint16_t prev_opt_remlen[D6_MAX_ENCAP_DEPTH];
+        size_t prev_opt_n;
         size_t client_duid_str_size;
         size_t client_duid_blob_size;
         size_t server_duid_blob_size;
