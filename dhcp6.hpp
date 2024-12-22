@@ -62,6 +62,8 @@ private:
     char xid_[3] = {};
 };
 
+#define D6_MAX_IA_ADDRS 8
+
 struct d6_ia_addr {
     in6_addr addr;
     uint32_t prefer_lifetime;
@@ -91,8 +93,11 @@ struct d6_ia {
     uint32_t iaid;
     uint32_t t1_seconds;
     uint32_t t2_seconds;
-    std::vector<d6_ia_addr> ia_na_addrs;
+    size_t ia_na_addrs_n;
+    d6_ia_addr ia_na_addrs[D6_MAX_IA_ADDRS];
     static const size_t size = 12;
+
+    d6_ia() : ia_na_addrs_n(0) {}
 
     bool read(sbufs &rbuf)
     {

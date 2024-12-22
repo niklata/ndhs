@@ -493,11 +493,11 @@ bool D6Listener::confirm_match(const d6msg_state &d6s, bool &confirmed)
     confirmed = false;
     for (const auto &i: d6s.ias) {
         log_line("dhcp6: Confirming match for duid='%s' iaid=%u...\n", d6s.client_duid_str, i.iaid);
-        if (i.ia_na_addrs.empty()) return false; // See RFC8415 18.3.3 p3
-        for (const auto &j: i.ia_na_addrs) {
-            if (!ipaddr_compare_masked(&j.addr, &local_ip_prefix_, prefixlen_)) {
+        if (!i.ia_na_addrs_n) return false; // See RFC8415 18.3.3 p3
+        for (size_t j = 0; j < i.ia_na_addrs_n; ++j) {
+            if (!ipaddr_compare_masked(&i.ia_na_addrs[j].addr, &local_ip_prefix_, prefixlen_)) {
                 char abuf[48];
-                if (!ipaddr_to_string(abuf, sizeof abuf, &j.addr)) abort();
+                if (!ipaddr_to_string(abuf, sizeof abuf, &i.ia_na_addrs[j].addr)) abort();
                 log_line("dhcp6: Invalid prefix for IA IP %s on %s. NAK.\n", abuf, ifname_);
                 return true;
             } else {
@@ -515,11 +515,12 @@ bool D6Listener::mark_addr_unused(const d6msg_state &d6s, sbufs &ss)
         bool freed_ia_addr{false};
         log_line("dhcp6: Marking duid='%s' iaid=%u unused on %s...\n", d6s.client_duid_str, i.iaid, ifname_);
         auto x = query_dhcp6_state(ifindex_, d6s.client_duid_str, d6s.client_duid_str_size, i.iaid);
-        for (const auto &j: i.ia_na_addrs) {
-            if (x && !memcmp(&j.addr, &x->address, 16)) {
+        for (size_t j = 0; j < i.ia_na_addrs_n; ++j) {
+            if (x && !memcmp(&i.ia_na_addrs[j].addr, &x->address, 16)) {
                 log_line("dhcp6: found static lease on %s\n", ifname_);
                 freed_ia_addr = true;
-            } else if (dynlease6_del(ifname_, &j.addr, d6s.client_duid_str, d6s.client_duid_str_size, i.iaid)) {
+            } else if (dynlease6_del(ifname_, &i.ia_na_addrs[j].addr, d6s.client_duid_str,
+                                     d6s.client_duid_str_size, i.iaid)) {
                 log_line("dhcp6: found dynamic lease on %s\n", ifname_);
                 freed_ia_addr = true;
             }
@@ -759,9 +760,14 @@ void D6Listener::process_receive(char *buf, size_t buflen,
              }
              if (d6s.ias.empty())
                  suicide("dhcp6: d6.ias is empty on %s\n", ifname_);
-             d6s.ias.back().ia_na_addrs.emplace_back();
-             if (!d6s.ias.back().ia_na_addrs.back().read(rs)) return;
-             OPTIONS_CONSUME(d6s.ias.back().ia_na_addrs.back().size);
+             size_t niana = d6s.ias.back().ia_na_addrs_n;
+             if (d6s.ias.back().ia_na_addrs_n >= D6_MAX_IA_ADDRS) {
+                 log_line("dhcp6: Client sent too many >(%zu) IA_NA addresses on %s\n",
+                          niana, ifname_);
+                 return;
+             }
+             if (!d6s.ias.back().ia_na_addrs[niana].read(rs)) return;
+             OPTIONS_CONSUME(d6s.ias.back().ia_na_addrs[niana].size);
 
              auto iaa_options_len = l - 24;
              if (iaa_options_len > 0) {
@@ -770,8 +776,9 @@ void D6Listener::process_receive(char *buf, size_t buflen,
              }
 
              char abuf[48];
-             if (!ipaddr_to_string(abuf, sizeof abuf, &d6s.ias.back().ia_na_addrs.back().addr)) abort();
+             if (!ipaddr_to_string(abuf, sizeof abuf, &d6s.ias.back().ia_na_addrs[niana].addr)) abort();
              log_line("dhcp6: IA Address: %s opt_len=%d on %s\n", abuf, iaa_options_len, ifname_);
+             d6s.ias.back().ia_na_addrs_n++;
          } else if (ot == 6) { // OptionRequest
              if (l % 2) {
                  log_line("dhcp6: Client-sent option Request has a bad length (%d) on %s\n", l, ifname_);
