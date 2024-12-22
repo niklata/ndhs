@@ -62,54 +62,6 @@ private:
     char xid_[3] = {};
 };
 
-// Option header.
-struct dhcp6_opt
-{
-    uint16_t type() const { return decode16be(data_); }
-    uint16_t length() const { return decode16be(data_ + 2); }
-    void type(uint16_t v) { encode16be(v, data_); }
-    void length(uint16_t v) { encode16be(v, data_ + 2); }
-    static const size_t size = 4;
-
-    bool read(sbufs &rbuf)
-    {
-        if (rbuf.brem() < size) return false;
-        memcpy(&data_, rbuf.si, sizeof data_);
-        rbuf.si += size;
-        return true;
-    }
-    bool write(sbufs &sbuf) const
-    {
-        if (sbuf.brem() < size) return false;
-        memcpy(sbuf.si, &data_, sizeof data_);
-        sbuf.si += size;
-        return true;
-    }
-private:
-    uint8_t data_[4] = {};
-};
-
-// Server Identifier Option
-struct dhcp6_opt_serverid
-{
-    dhcp6_opt_serverid(const char *s, size_t slen) : duid_string_(s), duid_len_(slen) {}
-    const char *duid_string_;
-    size_t duid_len_;
-
-    bool write(sbufs &sbuf) const
-    {
-        const auto size = dhcp6_opt::size + duid_len_;
-        if (sbuf.brem() < size) return false;
-        dhcp6_opt header;
-        header.type(2);
-        header.length(duid_len_);
-        if (!header.write(sbuf)) return false;
-        memcpy(sbuf.si, duid_string_, duid_len_);
-        sbuf.si += duid_len_;
-        return true;
-    }
-};
-
 struct d6_ia_addr {
     in6_addr addr;
     uint32_t prefer_lifetime;
