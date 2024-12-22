@@ -62,7 +62,8 @@ private:
     char xid_[3] = {};
 };
 
-#define D6_MAX_IA_ADDRS 8
+#define D6_MAX_IAS 4
+#define D6_MAX_IA_ADDRS 4
 
 struct d6_ia_addr {
     in6_addr addr;
@@ -157,7 +158,8 @@ struct D6Listener
 private:
     struct d6msg_state
     {
-        d6msg_state() : prev_opt_n(0), client_duid_str_size(0), client_duid_blob_size(0), server_duid_blob_size(0),
+        d6msg_state() : ias_n(0), prev_opt_n(0), client_duid_str_size(0),
+                        client_duid_blob_size(0), server_duid_blob_size(0),
                         optreq_exists(false), optreq_dns(false), optreq_dns_search(false),
                         optreq_sntp(false), optreq_info_refresh_time(false), optreq_ntp(false),
                         use_rapid_commit(false) {}
@@ -165,9 +167,10 @@ private:
         char client_duid_str[320];
         char client_duid_blob[128];
         char server_duid_blob[128];
-        std::vector<d6_ia> ias;
+        d6_ia ias[D6_MAX_IAS];
         uint8_t prev_opt_code[D6_MAX_ENCAP_DEPTH];
         uint16_t prev_opt_remlen[D6_MAX_ENCAP_DEPTH];
+        size_t ias_n;
         size_t prev_opt_n;
         size_t client_duid_str_size;
         size_t client_duid_blob_size;

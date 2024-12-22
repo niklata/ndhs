@@ -3,7 +3,6 @@
 #ifndef NDHS_DHCP_STATE_HPP_
 #define NDHS_DHCP_STATE_HPP_
 
-#include <vector>
 #include <ipaddr.h>
 #include <nlsocket.hpp>
 

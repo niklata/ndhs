@@ -409,9 +409,10 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, sbufs &ss,
 {
     bool ha = false;
     // Look through IAs and send IA with assigned address as an option.
-    for (const auto &i: d6s.ias) {
-        log_line("dhcp6: Querying duid='%s' iaid=%u...\n", d6s.client_duid_str, i.iaid);
-        const dhcpv6_entry *x = query_dhcp6_state(ifindex_, d6s.client_duid_str, d6s.client_duid_str_size, i.iaid);
+    for (size_t i = 0; i < d6s.ias_n; ++i) {
+        log_line("dhcp6: Querying duid='%s' iaid=%u...\n", d6s.client_duid_str, d6s.ias[i].iaid);
+        const dhcpv6_entry *x = query_dhcp6_state(ifindex_, d6s.client_duid_str,
+                                                  d6s.client_duid_str_size, d6s.ias[i].iaid);
         if (x) {
             ha = true;
             char abuf[48];
@@ -422,7 +423,7 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, sbufs &ss,
         }
         bool use_dynamic;
         if (!allot_dynamic_ip(d6s.client_duid_str, d6s.client_duid_str_size,
-                              ss, i.iaid, failcode, use_dynamic)) return false;
+                              ss, d6s.ias[i].iaid, failcode, use_dynamic)) return false;
         if (use_dynamic) ha = true;
     }
     if (!ha) log_line("dhcp6: Unable to assign any IPs on %s!\n", ifname_);
@@ -491,17 +492,17 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
 bool D6Listener::confirm_match(const d6msg_state &d6s, bool &confirmed)
 {
     confirmed = false;
-    for (const auto &i: d6s.ias) {
-        log_line("dhcp6: Confirming match for duid='%s' iaid=%u...\n", d6s.client_duid_str, i.iaid);
-        if (!i.ia_na_addrs_n) return false; // See RFC8415 18.3.3 p3
-        for (size_t j = 0; j < i.ia_na_addrs_n; ++j) {
-            if (!ipaddr_compare_masked(&i.ia_na_addrs[j].addr, &local_ip_prefix_, prefixlen_)) {
+    for (size_t i = 0; i < d6s.ias_n; ++i) {
+        log_line("dhcp6: Confirming match for duid='%s' iaid=%u...\n", d6s.client_duid_str, d6s.ias[i].iaid);
+        if (!d6s.ias[i].ia_na_addrs_n) return false; // See RFC8415 18.3.3 p3
+        for (size_t j = 0; j < d6s.ias[i].ia_na_addrs_n; ++j) {
+            if (!ipaddr_compare_masked(&d6s.ias[i].ia_na_addrs[j].addr, &local_ip_prefix_, prefixlen_)) {
                 char abuf[48];
-                if (!ipaddr_to_string(abuf, sizeof abuf, &i.ia_na_addrs[j].addr)) abort();
+                if (!ipaddr_to_string(abuf, sizeof abuf, &d6s.ias[i].ia_na_addrs[j].addr)) abort();
                 log_line("dhcp6: Invalid prefix for IA IP %s on %s. NAK.\n", abuf, ifname_);
                 return true;
             } else {
-                log_line("dhcp6: IA iaid=%u has a valid prefix on %s\n", i.iaid, ifname_);
+                log_line("dhcp6: IA iaid=%u has a valid prefix on %s\n", d6s.ias[i].iaid, ifname_);
             }
         }
     }
@@ -511,22 +512,22 @@ bool D6Listener::confirm_match(const d6msg_state &d6s, bool &confirmed)
 
 bool D6Listener::mark_addr_unused(const d6msg_state &d6s, sbufs &ss)
 {
-    for (const auto &i: d6s.ias) {
+    for (size_t i = 0; i < d6s.ias_n; ++i) {
         bool freed_ia_addr{false};
-        log_line("dhcp6: Marking duid='%s' iaid=%u unused on %s...\n", d6s.client_duid_str, i.iaid, ifname_);
-        auto x = query_dhcp6_state(ifindex_, d6s.client_duid_str, d6s.client_duid_str_size, i.iaid);
-        for (size_t j = 0; j < i.ia_na_addrs_n; ++j) {
-            if (x && !memcmp(&i.ia_na_addrs[j].addr, &x->address, 16)) {
+        log_line("dhcp6: Marking duid='%s' iaid=%u unused on %s...\n", d6s.client_duid_str, d6s.ias[i].iaid, ifname_);
+        auto x = query_dhcp6_state(ifindex_, d6s.client_duid_str, d6s.client_duid_str_size, d6s.ias[i].iaid);
+        for (size_t j = 0; j < d6s.ias[i].ia_na_addrs_n; ++j) {
+            if (x && !memcmp(&d6s.ias[i].ia_na_addrs[j].addr, &x->address, 16)) {
                 log_line("dhcp6: found static lease on %s\n", ifname_);
                 freed_ia_addr = true;
-            } else if (dynlease6_del(ifname_, &i.ia_na_addrs[j].addr, d6s.client_duid_str,
-                                     d6s.client_duid_str_size, i.iaid)) {
+            } else if (dynlease6_del(ifname_, &d6s.ias[i].ia_na_addrs[j].addr, d6s.client_duid_str,
+                                     d6s.client_duid_str_size, d6s.ias[i].iaid)) {
                 log_line("dhcp6: found dynamic lease on %s\n", ifname_);
                 freed_ia_addr = true;
             }
         }
         if (!freed_ia_addr) {
-            if (!emit_IA_code(ss, i.iaid, d6_statuscode::code::nobinding)) return false;
+            if (!emit_IA_code(ss, d6s.ias[i].iaid, d6_statuscode::code::nobinding)) return false;
             log_line("dhcp6: no dynamic lease found on %s\n", ifname_);
         }
     }
@@ -728,9 +729,14 @@ void D6Listener::process_receive(char *buf, size_t buflen,
                  log_line("dhcp6: Client-sent option IA_NA has a bad length on %s\n", ifname_);
                  return;
              }
-             d6s.ias.emplace_back();
-             if (!d6s.ias.back().read(rs)) return;
-             OPTIONS_CONSUME(d6s.ias.back().size);
+             if (d6s.ias_n >= D6_MAX_IAS) {
+                 log_line("dhcp6: Client sent too many >(%zu) IA_NA options on %s\n",
+                          d6s.ias_n, ifname_);
+                 return;
+             }
+             if (!d6s.ias[d6s.ias_n].read(rs)) return;
+             OPTIONS_CONSUME(d6s.ias[d6s.ias_n].size);
+             ++d6s.ias_n;
 
              const auto na_options_len = l - 12;
              if (na_options_len > 0) {
@@ -744,7 +750,7 @@ void D6Listener::process_receive(char *buf, size_t buflen,
              }
 
              log_line("dhcp6: IA_NA: iaid=%u opt_len=%u on %s\n",
-                      d6s.ias.back().iaid, na_options_len, ifname_);
+                      d6s.ias[d6s.ias_n - 1].iaid, na_options_len, ifname_);
          } else if (ot == 5) { // Address
              if (l < 24) {
                  log_line("dhcp6: Client-sent option IAADDR has a bad length (%u) on %s\n", l, ifname_);
@@ -758,16 +764,18 @@ void D6Listener::process_receive(char *buf, size_t buflen,
                  log_line("dhcp6: Client-sent option IAADDR must follow IA_NA on %s\n", ifname_);
                  return;
              }
-             if (d6s.ias.empty())
-                 suicide("dhcp6: d6.ias is empty on %s\n", ifname_);
-             size_t niana = d6s.ias.back().ia_na_addrs_n;
-             if (d6s.ias.back().ia_na_addrs_n >= D6_MAX_IA_ADDRS) {
+             if (!d6s.ias_n) {
+                 log_line("dhcp6: d6.ias is empty on %s\n", ifname_);
+                 return;
+             }
+             size_t niana = d6s.ias[d6s.ias_n - 1].ia_na_addrs_n;
+             if (d6s.ias[d6s.ias_n - 1].ia_na_addrs_n >= D6_MAX_IA_ADDRS) {
                  log_line("dhcp6: Client sent too many >(%zu) IA_NA addresses on %s\n",
                           niana, ifname_);
                  return;
              }
-             if (!d6s.ias.back().ia_na_addrs[niana].read(rs)) return;
-             OPTIONS_CONSUME(d6s.ias.back().ia_na_addrs[niana].size);
+             if (!d6s.ias[d6s.ias_n - 1].ia_na_addrs[niana].read(rs)) return;
+             OPTIONS_CONSUME(d6s.ias[d6s.ias_n - 1].ia_na_addrs[niana].size);
 
              auto iaa_options_len = l - 24;
              if (iaa_options_len > 0) {
@@ -776,9 +784,9 @@ void D6Listener::process_receive(char *buf, size_t buflen,
              }
 
              char abuf[48];
-             if (!ipaddr_to_string(abuf, sizeof abuf, &d6s.ias.back().ia_na_addrs[niana].addr)) abort();
+             if (!ipaddr_to_string(abuf, sizeof abuf, &d6s.ias[d6s.ias_n - 1].ia_na_addrs[niana].addr)) abort();
              log_line("dhcp6: IA Address: %s opt_len=%d on %s\n", abuf, iaa_options_len, ifname_);
-             d6s.ias.back().ia_na_addrs_n++;
+             d6s.ias[d6s.ias_n - 1].ia_na_addrs_n++;
          } else if (ot == 6) { // OptionRequest
              if (l % 2) {
                  log_line("dhcp6: Client-sent option Request has a bad length (%d) on %s\n", l, ifname_);
@@ -905,7 +913,7 @@ void D6Listener::process_receive(char *buf, size_t buflen,
          break;
      case dhcp6_msgtype::information_request:
          if (d6s.server_duid_blob_size && serverid_incorrect(d6s)) return;
-         if (!d6s.ias.empty()) return;
+         if (!d6s.ias_n) return;
          if (!handle_information_msg(d6s, ss)) return;
          break;
      default: return;
