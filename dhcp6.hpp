@@ -225,15 +225,15 @@ private:
     };
 
     bool create_dhcp6_socket();
-    [[nodiscard]] bool allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t iaid,
+    [[nodiscard]] bool allot_dynamic_ip(const char *client_duid, size_t client_duid_size,
+                                        sbufs &ss, uint32_t iaid,
                                         d6_statuscode::code failcode, bool &use_dynamic);
-    [[nodiscard]] bool emit_IA_addr(const d6msg_state &d6s, sbufs &ss, const dhcpv6_entry *v);
-    [[nodiscard]] bool emit_IA_code(const d6msg_state &d6s, sbufs &ss, uint32_t iaid,
-                                    d6_statuscode::code scode);
+    [[nodiscard]] bool emit_IA_addr(sbufs &ss, const dhcpv6_entry *v);
+    [[nodiscard]] bool emit_IA_code(sbufs &ss, uint32_t iaid, d6_statuscode::code scode);
     [[nodiscard]] bool attach_address_info(const d6msg_state &d6s, sbufs &ss,
                                            d6_statuscode::code failcode, bool *has_addrs = nullptr);
     [[nodiscard]] bool attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss);
-    [[nodiscard]] bool attach_status_code(const d6msg_state &d6s, sbufs &ss, d6_statuscode::code scode);
+    [[nodiscard]] bool attach_status_code(sbufs &ss, d6_statuscode::code scode);
     [[nodiscard]] bool write_response_header(const d6msg_state &d6s, sbufs &ss, dhcp6_msgtype mtype);
     [[nodiscard]] bool handle_solicit_msg(const d6msg_state &d6s, sbufs &ss);
     [[nodiscard]] bool handle_request_msg(const d6msg_state &d6s, sbufs &ss);

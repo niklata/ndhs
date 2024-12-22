@@ -191,12 +191,13 @@ static const char * dhcp6_opt_to_string(uint16_t opttype)
     }
 }
 
-bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t iaid,
+bool D6Listener::allot_dynamic_ip(const char *client_duid, size_t client_duid_size,
+                                  sbufs &ss, uint32_t iaid,
                                   d6_statuscode::code failcode, bool &use_dynamic)
 {
     uint32_t dynamic_lifetime;
     if (!query_use_dynamic_v6(ifindex_, &dynamic_lifetime)) {
-        if (!emit_IA_code(d6s, ss, iaid, failcode)) return false;
+        if (!emit_IA_code(ss, iaid, failcode)) return false;
         use_dynamic = false;
         return true;
     }
@@ -205,16 +206,16 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
 
     const auto expire_time = get_current_ts() + dynamic_lifetime;
 
-    in6_addr v6a = dynlease6_query_refresh(ifname_, d6s.client_duid_str, d6s.client_duid_str_size, iaid, expire_time);
+    in6_addr v6a = dynlease6_query_refresh(ifname_, client_duid, client_duid_size, iaid, expire_time);
     if (memcmp(&v6a, &in6addr_any, sizeof v6a)) {
         dhcpv6_entry de;
-        de.duid_len = d6s.client_duid_str_size;
+        de.duid_len = client_duid_size;
         if (de.duid_len > sizeof de.duid) abort();
-        memcpy(de.duid, d6s.client_duid_str, de.duid_len);
+        memcpy(de.duid, client_duid, de.duid_len);
         de.address = v6a;
         de.lifetime = dynamic_lifetime;
         de.iaid = iaid;
-        if (!emit_IA_addr(d6s, ss, &de)) return false;
+        if (!emit_IA_addr(ss, &de)) return false;
         char abuf[48];
         if (!ipaddr_to_string(abuf, sizeof abuf, &v6a)) abort();
         log_line("dhcp6: Assigned existing dynamic IP (%s) on %s\n", abuf, ifname_);
@@ -225,7 +226,7 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
     if (dynlease6_count(ifname_) >= MAX_DYN_LEASES) {
         log_line("dhcp6: Maximum number of dynamic leases (%u) reached on %s\n",
                  MAX_DYN_LEASES, ifname_);
-        if (!emit_IA_code(d6s, ss, iaid, failcode)) return false;
+        if (!emit_IA_code(ss, iaid, failcode)) return false;
         use_dynamic = false;
         return true;
     }
@@ -237,32 +238,31 @@ bool D6Listener::allot_dynamic_ip(const d6msg_state &d6s, sbufs &ss, uint32_t ia
     for (unsigned attempt = 0; attempt < MAX_DYN_ATTEMPTS; ++attempt) {
         v6a = v6_addr_random(&local_ip_prefix_, prefixlen_);
         if (!query_unused_addr_v6(ifindex_, &v6a)) continue;
-        const auto assigned = dynlease6_add(ifname_, &v6a, d6s.client_duid_str,
-                                            d6s.client_duid_str_size, iaid, expire_time);
+        const auto assigned = dynlease6_add(ifname_, &v6a, client_duid,
+                                            client_duid_size, iaid, expire_time);
         if (assigned) {
             dhcpv6_entry de;
-            de.duid_len = d6s.client_duid_str_size;
+            de.duid_len = client_duid_size;
             if (de.duid_len > sizeof de.duid) abort();
-            memcpy(de.duid, d6s.client_duid_str, de.duid_len);
+            memcpy(de.duid, client_duid, de.duid_len);
             de.address = v6a;
             de.lifetime = dynamic_lifetime;
             de.iaid = iaid;
-            if (!emit_IA_addr(d6s, ss, &de)) return false;
+            if (!emit_IA_addr(ss, &de)) return false;
             use_dynamic = true;
             return true;
         }
     }
     log_line("dhcp6: Unable to select an unused dynamic IP after %u attempts on %s\n",
              MAX_DYN_ATTEMPTS, ifname_);
-    if (!emit_IA_code(d6s, ss, iaid, failcode)) return false;
+    if (!emit_IA_code(ss, iaid, failcode)) return false;
     use_dynamic = false;
     return true;
 }
 
 #define OPT_STATUSCODE_SIZE (4)
 
-bool D6Listener::attach_status_code(const d6msg_state &, sbufs &ss,
-                                    d6_statuscode::code scode)
+bool D6Listener::attach_status_code(sbufs &ss, d6_statuscode::code scode)
 {
     static char ok_str[] = "OK";
     static char nak_str[] = "NO";
@@ -318,7 +318,7 @@ bool D6Listener::write_response_header(const d6msg_state &d6s, sbufs &ss,
 
 // We control what IAs are valid, and we never assign multiple address to a single
 // IA.  Thus there's no reason to care about that case.
-bool D6Listener::emit_IA_addr(const d6msg_state &, sbufs &ss, const dhcpv6_entry *v)
+bool D6Listener::emit_IA_addr(sbufs &ss, const dhcpv6_entry *v)
 {
     dhcp6_opt header;
     header.type(3);
@@ -340,8 +340,7 @@ bool D6Listener::emit_IA_addr(const d6msg_state &, sbufs &ss, const dhcpv6_entry
     return true;
 }
 
-bool D6Listener::emit_IA_code(const d6msg_state &d6s, sbufs &ss, uint32_t iaid,
-                              d6_statuscode::code scode)
+bool D6Listener::emit_IA_code(sbufs &ss, uint32_t iaid, d6_statuscode::code scode)
 {
     dhcp6_opt header;
     header.type(3);
@@ -352,7 +351,7 @@ bool D6Listener::emit_IA_code(const d6msg_state &d6s, sbufs &ss, uint32_t iaid,
     ia.t1_seconds = 0;
     ia.t2_seconds = 0;
     if (!ia.write(ss)) return false;
-    if (!attach_status_code(d6s, ss, scode)) return false;
+    if (!attach_status_code(ss, scode)) return false;
     return true;
 }
 
@@ -370,11 +369,12 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, sbufs &ss,
             char abuf[48];
             if (!ipaddr_to_string(abuf, sizeof abuf, &x->address)) abort();
             log_line("dhcp6: Found static address %s on %s\n", abuf, ifname_);
-            if (!emit_IA_addr(d6s, ss, x)) return false;
+            if (!emit_IA_addr(ss, x)) return false;
             continue;
         }
         bool use_dynamic;
-        if (!allot_dynamic_ip(d6s, ss, i.iaid, failcode, use_dynamic)) return false;
+        if (!allot_dynamic_ip(d6s.client_duid_str, d6s.client_duid_str_size,
+                              ss, i.iaid, failcode, use_dynamic)) return false;
         if (use_dynamic) ha = true;
     }
     if (!ha) log_line("dhcp6: Unable to assign any IPs on %s!\n", ifname_);
@@ -477,7 +477,7 @@ bool D6Listener::mark_addr_unused(const d6msg_state &d6s, sbufs &ss)
             }
         }
         if (!freed_ia_addr) {
-            if (!emit_IA_code(d6s, ss, i.iaid, d6_statuscode::code::nobinding)) return false;
+            if (!emit_IA_code(ss, i.iaid, d6_statuscode::code::nobinding)) return false;
             log_line("dhcp6: no dynamic lease found on %s\n", ifname_);
         }
     }
@@ -517,7 +517,7 @@ bool D6Listener::handle_confirm_msg(const d6msg_state &d6s, sbufs &ss)
     if (!write_response_header(d6s, ss, dhcp6_msgtype::reply)) return false;
     bool confirmed;
     if (!confirm_match(d6s, confirmed)) return false;
-    if (!attach_status_code(d6s, ss, confirmed
+    if (!attach_status_code(ss, confirmed
         ? d6_statuscode::code::success : d6_statuscode::code::notonlink)) return false;
     if (!attach_dns_ntp_info(d6s, ss)) return false;
     return true;
