@@ -207,7 +207,7 @@ void D4Listener::process_input()
             int err = errno;
             if (err == EINTR) continue;
             if (err == EAGAIN || err == EWOULDBLOCK) break;
-            suicide("dhcp6: recvfrom failed on %s: %s\n", ifname_, strerror(err));
+            suicide("dhcp4: recvfrom failed on %s: %s\n", ifname_, strerror(err));
         }
         process_receive(buf, static_cast<size_t>(buflen));
     }
