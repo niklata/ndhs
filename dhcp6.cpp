@@ -689,9 +689,8 @@ void D6Listener::process_receive(char *buf, size_t buflen,
              if (na_options_len > 0)
                  d6s.prev_opt.emplace_back(std::make_pair(3, na_options_len));
 
-             log_line("dhcp6: IA_NA: iaid=%u t1=%us t2=%us opt_len=%u on %s\n",
-                      d6s.ias.back().iaid, d6s.ias.back().t1_seconds,
-                      d6s.ias.back().t2_seconds, na_options_len, ifname_);
+             log_line("dhcp6: IA_NA: iaid=%u opt_len=%u on %s\n",
+                      d6s.ias.back().iaid, na_options_len, ifname_);
          } else if (ot == 5) { // Address
              if (l < 24) {
                  log_line("dhcp6: Client-sent option IAADDR has a bad length (%u) on %s\n", l, ifname_);
@@ -708,8 +707,6 @@ void D6Listener::process_receive(char *buf, size_t buflen,
              if (d6s.ias.empty())
                  suicide("dhcp6: d6.ias is empty on %s\n", ifname_);
              d6s.ias.back().ia_na_addrs.emplace_back();
-             if (d6s.ias.back().ia_na_addrs.empty())
-                 suicide("dhcp6: d6.ias.back().ia_na_addrs is empty on %s\n", ifname_);
              if (!d6s.ias.back().ia_na_addrs.back().read(rs)) return;
              OPTIONS_CONSUME(d6s.ias.back().ia_na_addrs.back().size);
 
@@ -719,11 +716,7 @@ void D6Listener::process_receive(char *buf, size_t buflen,
 
              char abuf[48];
              if (!ipaddr_to_string(abuf, sizeof abuf, &d6s.ias.back().ia_na_addrs.back().addr)) abort();
-             log_line("dhcp6: IA Address: %s prefer=%us valid=%us opt_len=%d on %s\n",
-                      abuf,
-                      d6s.ias.back().ia_na_addrs.back().prefer_lifetime,
-                      d6s.ias.back().ia_na_addrs.back().valid_lifetime,
-                      iaa_options_len, ifname_);
+             log_line("dhcp6: IA Address: %s opt_len=%d on %s\n", abuf, iaa_options_len, ifname_);
 
          } else if (ot == 6) { // OptionRequest
              if (l % 2) {

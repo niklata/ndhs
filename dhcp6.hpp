@@ -120,8 +120,8 @@ struct d6_ia_addr {
     {
         if (rbuf.brem() < size) return false;
         memcpy(&addr, rbuf.si, sizeof addr);
-        prefer_lifetime = decode32be(rbuf.si + 16);
-        valid_lifetime = decode32be(rbuf.si + 20);
+        prefer_lifetime = 0; // RFC8415 S25
+        valid_lifetime = 0; // RFC8415 S25
         rbuf.si += size;
         return true;
     }
@@ -146,8 +146,8 @@ struct d6_ia {
     {
         if (rbuf.brem() < size) return false;
         iaid = decode32be(rbuf.si);
-        t1_seconds = decode32be(rbuf.si + 4);
-        t2_seconds = decode32be(rbuf.si + 8);
+        t1_seconds = 0; // RFC8415 S25
+        t2_seconds = 0; // RFC8415 S25
         rbuf.si += size;
         return true;
     }
