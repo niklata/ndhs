@@ -176,61 +176,59 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
     switch (nlh->nlmsg_type) {
     case RTM_NEWADDR: {
         if (query_ifindex_ == nia.if_index) query_ifindex_ = -1;
-        for (auto &i: ifaces_) {
-            if (i.index == nia.if_index) {
-                if (nia.addr_type == AF_INET || ipaddr_is_v4(&nia.address)) {
-                    i.has_v4_address = true;
-                    i.v4_address = nia.address;
-                    emplace_broadcast(nia.if_index, &nia.broadcast_address);
+        if (nia.if_index >= 0 && nia.if_index < MAX_NL_INTERFACES) {
+            netif_info *n = &interfaces_[nia.if_index];
+            if (nia.addr_type == AF_INET || ipaddr_is_v4(&nia.address)) {
+                n->has_v4_address = true;
+                n->v4_address = nia.address;
+                emplace_broadcast(nia.if_index, &nia.broadcast_address);
 
-                    uint32_t subnet = 0xffffffffu;
-                    for (unsigned j = 0, jend = 32 - nia.prefixlen; j < jend; ++j) subnet <<= 1;
-                    subnet = htonl(subnet);
-                    char sbuf[INET_ADDRSTRLEN+1];
-                    if (inet_ntop(AF_INET, &subnet, sbuf, sizeof sbuf)) {
-                        in6_addr taddr;
-                        if (!ipaddr_from_string(&taddr, sbuf)) abort();
-                        emplace_subnet(nia.if_index, &taddr);
-                    }
-                    return;
-                } else if (nia.addr_type == AF_INET6) {
-                    if (nia.scope == RT_SCOPE_UNIVERSE) {
-                        i.has_v6_address_global = true;
-                        i.v6_address_global = nia.address;
-                        i.v6_prefixlen_global = nia.prefixlen;
-                    } else if (nia.scope == RT_SCOPE_LINK) {
-                        i.has_v6_address_link = true;
-                        i.v6_address_link = nia.address;
-                    }
+                uint32_t subnet = 0xffffffffu;
+                for (unsigned j = 0, jend = 32 - nia.prefixlen; j < jend; ++j) subnet <<= 1;
+                subnet = htonl(subnet);
+                char sbuf[INET_ADDRSTRLEN+1];
+                if (inet_ntop(AF_INET, &subnet, sbuf, sizeof sbuf)) {
+                    in6_addr taddr;
+                    if (!ipaddr_from_string(&taddr, sbuf)) abort();
+                    emplace_subnet(nia.if_index, &taddr);
                 }
                 return;
+            } else if (nia.addr_type == AF_INET6) {
+                if (nia.scope == RT_SCOPE_UNIVERSE) {
+                    n->has_v6_address_global = true;
+                    n->v6_address_global = nia.address;
+                    n->v6_prefixlen_global = nia.prefixlen;
+                } else if (nia.scope == RT_SCOPE_LINK) {
+                    n->has_v6_address_link = true;
+                    n->v6_address_link = nia.address;
+                }
             }
+            return;
         }
         log_line("nlsocket: Address for unknown interface %s\n", nia.if_name);
     }
     case RTM_DELADDR: {
-        for (auto &i: ifaces_) {
-            if (i.index == nia.if_index) {
-                if (i.has_v4_address && (nia.addr_type == AF_INET || ipaddr_is_v4(&nia.address))) {
-                    if (!memcmp(&i.v4_address, &nia.address, sizeof nia.address)) {
-                        memset(&i.v4_address, 0, sizeof i.v4_address);
-                        i.has_v4_address = false;
+        if (nia.if_index >= 0 && nia.if_index < MAX_NL_INTERFACES) {
+            netif_info *n = &interfaces_[nia.if_index];
+            if (n->has_v4_address && (nia.addr_type == AF_INET || ipaddr_is_v4(&nia.address))) {
+                if (!memcmp(&n->v4_address, &nia.address, sizeof nia.address)) {
+                    memset(&n->v4_address, 0, sizeof n->v4_address);
+                    n->has_v4_address = false;
+                }
+            } else if ((n->has_v6_address_global || n->has_v6_address_link) && nia.addr_type == AF_INET6) {
+                if (nia.scope == RT_SCOPE_UNIVERSE) {
+                    if (!memcmp(&n->v6_address_global, &nia.address, sizeof nia.address)) {
+                        memset(&n->v6_address_global, 0, sizeof n->v6_address_global);
+                        n->has_v6_address_global = false;
                     }
-                } else if ((i.has_v6_address_global || i.has_v6_address_link) && nia.addr_type == AF_INET6) {
-                    if (nia.scope == RT_SCOPE_UNIVERSE) {
-                        if (!memcmp(&i.v6_address_global, &nia.address, sizeof nia.address)) {
-                            memset(&i.v6_address_global, 0, sizeof i.v6_address_global);
-                            i.has_v6_address_global = false;
-                        }
-                    } else if (nia.scope == RT_SCOPE_LINK) {
-                        if (!memcmp(&i.v6_address_link, &nia.address, sizeof nia.address)) {
-                            memset(&i.v6_address_link, 0, sizeof i.v6_address_link);
-                            i.has_v6_address_link = false;
-                        }
+                } else if (nia.scope == RT_SCOPE_LINK) {
+                    if (!memcmp(&n->v6_address_link, &nia.address, sizeof nia.address)) {
+                        memset(&n->v6_address_link, 0, sizeof n->v6_address_link);
+                        n->has_v6_address_link = false;
                     }
                 }
-                return;
             }
+            return;
         }
     }
     default:
@@ -279,35 +277,36 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
 
     switch (nlh->nlmsg_type) {
     case RTM_NEWLINK: {
-        bool update = false;
-        for (auto &i: ifaces_) {
-            if (!strcmp(i.name, nii.name)) {
-                // We don't alter name or index, and addresses are not
-                // sent in this message, so don't alter those.
-                i.family = nii.family;
-                i.device_type = nii.device_type;
-                i.flags = nii.flags;
-                i.change_mask = nii.change_mask;
-                i.mtu = nii.mtu;
-                i.link_type = nii.link_type;
-                memcpy(&i.macaddr, &nii.macaddr, sizeof i.macaddr);
-                memcpy(&i.macbc, &nii.macbc, sizeof i.macbc);
-                i.is_active = nii.is_active;
-                update = true;
-                break;
-            }
+        if (ifm->ifi_index >= MAX_NL_INTERFACES) {
+            log_line("nlsocket: Attempt to add interface with out-of-range index (%d)\n", ifm->ifi_index);
+            break;
         }
-        if (!update) ifaces_.emplace_back(std::move(nii));
+        bool update = false;
+        if (!strcmp(interfaces_[ifm->ifi_index].name, nii.name)) {
+            // We don't alter name or index, and addresses are not
+            // sent in this message, so don't alter those.
+            netif_info *n = &interfaces_[ifm->ifi_index];
+            n->family = nii.family;
+            n->device_type = nii.device_type;
+            n->flags = nii.flags;
+            n->change_mask = nii.change_mask;
+            n->mtu = nii.mtu;
+            n->link_type = nii.link_type;
+            memcpy(&n->macaddr, &nii.macaddr, sizeof n->macaddr);
+            memcpy(&n->macbc, &nii.macbc, sizeof n->macbc);
+            n->is_active = nii.is_active;
+            update = true;
+        }
+        if (!update) memcpy(&interfaces_[ifm->ifi_index], &nii, sizeof interfaces_[0]);
         log_line("nlsocket: Adding link info: %s\n", nii.name);
         break;
     }
     case RTM_DELLINK: {
-        for (auto i = ifaces_.begin(), iend = ifaces_.end(); i != iend; ++i) {
-            if (!strcmp(i->name, nii.name)) {
-                ifaces_.erase(i);
-                break;
-            }
+        if (ifm->ifi_index >= MAX_NL_INTERFACES) {
+            log_line("nlsocket: Attempt to delete interface with out-of-range index (%d)\n", ifm->ifi_index);
+            break;
         }
+        memset(&interfaces_[ifm->ifi_index], 0, sizeof interfaces_[0]);
         break;
     }
     default:

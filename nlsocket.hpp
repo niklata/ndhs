@@ -3,7 +3,6 @@
 #ifndef NDHS_NLSOCKET_HPP_
 #define NDHS_NLSOCKET_HPP_
 #include <stdint.h>
-#include <vector>
 extern "C" {
 #include <ipaddr.h>
 #include <net/if.h>
@@ -13,25 +12,26 @@ extern "C" {
 struct netif_info
 {
     char name[IFNAMSIZ];
-    unsigned char family;
-    unsigned short device_type;
-    int index;
-    unsigned int flags;
-    unsigned int change_mask;
-    unsigned int mtu;
-    int link_type;
     char macaddr[6];
     char macbc[6];
-    bool is_active:1;
-
-    bool has_v4_address:1;
-    bool has_v6_address_global:1;
-    bool has_v6_address_link:1;
     in6_addr v4_address;
     in6_addr v6_address_global;
     in6_addr v6_address_link;
+    int index;
+    int link_type;
+    unsigned int flags;
+    unsigned int change_mask;
+    unsigned int mtu;
+    unsigned short device_type;
     unsigned char v6_prefixlen_global;
+    unsigned char family;
+    bool is_active:1;
+    bool has_v4_address:1;
+    bool has_v6_address_global:1;
+    bool has_v6_address_link:1;
 };
+
+#define MAX_NL_INTERFACES 50
 
 struct NLSocket
 {
@@ -45,8 +45,8 @@ struct NLSocket
     void process_input();
     auto fd() const { return fd_; }
     [[nodiscard]] int get_ifindex(const char *name) const {
-        for (auto &i: ifaces_) {
-            if (!strcmp(name, i.name)) return i.index;
+        for (int i = 0; i < MAX_NL_INTERFACES; ++i) {
+            if (!strcmp(name, interfaces_[i].name)) return i;
         }
         return -1;
     }
@@ -55,15 +55,13 @@ struct NLSocket
     // called after NLSocket is constructed.
     [[nodiscard]] netif_info *get_ifinfo(int ifindex)
     {
-        for (auto &i: ifaces_) {
-            if (ifindex == i.index) return &i;
-        }
-        return nullptr;
+        if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return nullptr;
+        return &interfaces_[ifindex];
     }
     [[nodiscard]] netif_info *get_ifinfo(const char *name)
     {
-        for (auto &i: ifaces_) {
-            if (!strcmp(name, i.name)) return &i;
+        for (size_t i = 0; i < MAX_NL_INTERFACES; ++i) {
+            if (!strcmp(name, interfaces_[i].name)) return &interfaces_[i];
         }
         return nullptr;
     }
@@ -75,7 +73,7 @@ private:
     void process_nlmsg(const struct nlmsghdr *nlh);
     void request_links();
     void request_addrs(int ifidx);
-    std::vector<netif_info> ifaces_;
+    netif_info interfaces_[MAX_NL_INTERFACES];
     int query_ifindex_;
     int fd_;
     uint32_t nlseq_;

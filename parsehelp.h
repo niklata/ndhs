@@ -1,6 +1,8 @@
 #ifndef NDHS_PARSEHELP_H_
 #define NDHS_PARSEHELP_H_
 
+#include <stddef.h>
+
 static inline char parsehelp_lc(char c)
 {
     if (c >= 'A' && c <= 'Z') return 'a' + (c - 'A');

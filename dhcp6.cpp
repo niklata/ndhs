@@ -135,12 +135,13 @@ bool D6Listener::init(const char *ifname, uint8_t preference)
     }
     *static_cast<char *>(mempcpy(ifname_, ifname, ifname_src_size)) = 0;
 
-    auto ifinfo = nl_socket.get_ifinfo(ifname_);
-    if (!ifinfo) {
-        log_line("dhcp6: Failed to get interface index for %s\n", ifname_);
+    ifindex_ = nl_socket.get_ifindex(ifname);
+    if (ifindex_ == -1) {
+        log_line("dhcp6: Failed to get interface index for %s\n", ifname);
         return false;
     }
-    ifindex_ = ifinfo->index;
+    auto ifinfo = nl_socket.get_ifinfo(ifindex_);
+    assert(ifinfo);
 
     log_line("dhcp6: DHCPv6 Preference is %u on %s\n", preference_, ifname_);
 

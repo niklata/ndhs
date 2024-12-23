@@ -176,12 +176,13 @@ bool D4Listener::init(const char *ifname)
 
     if (!create_dhcp4_socket()) return false;
 
-    auto ifinfo = nl_socket.get_ifinfo(ifname);
-    if (!ifinfo) {
+    ifindex_ = nl_socket.get_ifindex(ifname);
+    if (ifindex_ == -1) {
         log_line("dhcp4: Failed to get interface index for %s\n", ifname);
         return false;
     }
-    ifindex_ = ifinfo->index;
+    auto ifinfo = nl_socket.get_ifinfo(ifindex_);
+    assert(ifinfo);
 
     if (!ifinfo->has_v4_address) {
         log_line("dhcp4: Interface (%s) has no IP address\n", ifname);

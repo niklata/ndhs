@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include <assert.h>
 #include "dhcp_state.hpp"
+#include <vector>
 extern "C" {
 #include <net/if.h>
 #include "nk/log.h"
@@ -214,9 +215,10 @@ static interface_data *lookup_interface(int ifindex)
 static interface_data *lookup_interface_by_name(const char *interface)
 {
     if (!strlen(interface)) return nullptr;
-    auto ifinfo = nl_socket.get_ifinfo(interface);
-    if (!ifinfo) return nullptr;
-    return lookup_interface(ifinfo->index);
+
+    int ifindex = nl_socket.get_ifindex(interface);
+    if (ifindex == -1) return nullptr;
+    return lookup_interface(ifindex);
 }
 
 static interface_data *lookup_or_create_interface(const char *interface)
@@ -224,9 +226,9 @@ static interface_data *lookup_or_create_interface(const char *interface)
     if (!strlen(interface)) return nullptr;
     auto is = lookup_interface_by_name(interface);
     if (!is) {
-        auto ifinfo = nl_socket.get_ifinfo(interface);
-        if (!ifinfo) return nullptr;
-        interface_state.emplace_back(ifinfo->index);
+        int ifindex = nl_socket.get_ifindex(interface);
+        if (ifindex == -1) return nullptr;
+        interface_state.emplace_back(ifindex);
         is = &interface_state.back();
     }
     return is;
