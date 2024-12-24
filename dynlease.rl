@@ -6,8 +6,6 @@
 #include <stdio.h>
 #include <limits.h>
 #include <inttypes.h>
-#include <string>
-#include <vector>
 #include <assert.h>
 #include <nlsocket.hpp> // for MAX_NL_INTERFACES
 extern "C" {
@@ -33,11 +31,7 @@ extern int64_t get_current_ts();
 
 struct lease_state_v4
 {
-    lease_state_v4(const in6_addr *addr_, const uint8_t *macaddr_, int64_t et)
-        : addr(*addr_), expire_time(et)
-    {
-        memcpy(macaddr, macaddr_, 6);
-    }
+    struct lease_state_v4 *next;
     in6_addr addr;
     uint8_t macaddr[6];
     int64_t expire_time;
@@ -45,37 +39,57 @@ struct lease_state_v4
 
 struct lease_state_v6
 {
-    lease_state_v6(const in6_addr *addr_, const char *duid_, size_t duid_len_, uint32_t iaid_, int64_t et)
-        : addr(*addr_), duid_len(duid_len_), expire_time(et), iaid(iaid_)
-    {
-        memcpy(duid, duid_, duid_len_);
-    }
+    struct lease_state_v6 *next;
     in6_addr addr;
     size_t duid_len;
     int64_t expire_time;
     uint32_t iaid;
-    char duid[MAX_DUID]; // not null terminated, hex string
+    char duid[]; // not null terminated, hex string
 };
 
 // Maps interfaces to lease data.
-// The vectors here are sorted by addr.
-static std::vector<lease_state_v4> dyn_leases_v4[MAX_NL_INTERFACES];
-static std::vector<lease_state_v6> dyn_leases_v6[MAX_NL_INTERFACES];
-
+static lease_state_v4 *dyn_leases_v4[MAX_NL_INTERFACES];
+static lease_state_v6 *dyn_leases_v6[MAX_NL_INTERFACES];
+static lease_state_v4 *ls4_freelist;
+static lease_state_v6 *ls6_freelist;
+static uint32_t n_leases_v6[MAX_NL_INTERFACES];
 
 size_t dynlease6_count(int ifindex)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return 0;
-    return dyn_leases_v6[ifindex].size();
+    return n_leases_v6[ifindex];
 }
 
 void dynlease_gc()
 {
-    for (auto &i: dyn_leases_v4) {
-        std::erase_if(i, [](lease_state_v4 &x){ return x.expire_time < get_current_ts(); });
-    }
-    for (auto &i: dyn_leases_v6) {
-        std::erase_if(i, [](lease_state_v6 &x){ return x.expire_time < get_current_ts(); });
+    auto ts = get_current_ts();
+    for (size_t i = 0; i < MAX_NL_INTERFACES; ++i) {
+        if (dyn_leases_v4[i]) {
+            lease_state_v4 **prev = &dyn_leases_v4[i];
+            for (lease_state_v4 *p = dyn_leases_v4[i]; p;) {
+                if (p->expire_time < ts) {
+                    *prev = p->next;
+                    p->next = ls4_freelist;
+                    ls4_freelist = p->next;
+                    p = p->next;
+                }
+                prev = &p->next, p = p->next;
+            }
+        }
+        if (dyn_leases_v6[i]) {
+            lease_state_v6 **prev = &dyn_leases_v6[i];
+            for (lease_state_v6 *p = dyn_leases_v6[i]; p;) {
+                if (p->expire_time < ts) {
+                    *prev = p->next;
+                    p->next = ls6_freelist;
+                    ls6_freelist = p->next;
+                    p = p->next;
+                    assert(n_leases_v6[i] > 0);
+                    --n_leases_v6[i];
+                }
+                prev = &p->next, p = p->next;
+            }
+        }
     }
 }
 
@@ -84,18 +98,27 @@ bool dynlease4_add(int ifindex, const in6_addr *v4_addr, const uint8_t *macaddr,
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
 
-    for (auto &i: dyn_leases_v4[ifindex]) {
-        if (!memcmp(&i.addr, v4_addr, sizeof i.addr)) {
-            if (!memcmp(&i.macaddr, macaddr, 6)) {
-                i.expire_time = expire_time;
+    for (lease_state_v4 *p = dyn_leases_v4[ifindex]; p; p = p->next) {
+        if (!memcmp(&p->addr, v4_addr, sizeof p->addr)) {
+            if (!memcmp(&p->macaddr, macaddr, 6)) {
+                p->expire_time = expire_time;
                 return true;
             }
             return false;
         }
     }
-    uint8_t tmac[6];
-    memcpy(tmac, macaddr, sizeof tmac);
-    dyn_leases_v4[ifindex].emplace_back(v4_addr, tmac, expire_time);
+    lease_state_v4 *n = ls4_freelist;
+    if (n) {
+        ls4_freelist = n->next;
+    } else {
+        n = static_cast<lease_state_v4 *>(malloc(sizeof(lease_state_v4)));
+        if (!n) abort();
+    }
+    n->next = dyn_leases_v4[ifindex];
+    n->addr = *v4_addr;
+    memcpy(n->macaddr, macaddr, sizeof n->macaddr);
+    n->expire_time = expire_time;
+    dyn_leases_v4[ifindex] = n;
     return true;
 }
 
@@ -109,16 +132,31 @@ bool dynlease6_add(int ifindex, const in6_addr *v6_addr,
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
 
-    for (auto &i: dyn_leases_v6[ifindex]) {
-        if (!memcmp(&i.addr, v6_addr, sizeof i.addr)) {
-            if (!duid_compare(i.duid, i.duid_len, duid, duid_len) && i.iaid == iaid) {
-                i.expire_time = expire_time;
+    for (lease_state_v6 *p = dyn_leases_v6[ifindex]; p; p = p->next) {
+        if (!memcmp(&p->addr, v6_addr, sizeof p->addr)) {
+            if (!duid_compare(p->duid, p->duid_len, duid, duid_len) && p->iaid == iaid) {
+                p->expire_time = expire_time;
                 return true;
             }
             return false;
         }
     }
-    dyn_leases_v6[ifindex].emplace_back(v6_addr, duid, duid_len, iaid, expire_time);
+    lease_state_v6 *n = ls6_freelist;
+    if (n && n->duid_len < duid_len) n = nullptr;
+    if (n) {
+        ls6_freelist = n->next;
+    } else {
+        n = static_cast<lease_state_v6 *>(malloc(sizeof(lease_state_v6) + duid_len));
+        if (!n) abort();
+    }
+    n->next = dyn_leases_v6[ifindex];
+    n->addr = *v6_addr;
+    n->duid_len = duid_len;
+    n->expire_time = expire_time;
+    n->iaid = iaid;
+    memcpy(n->duid, duid, duid_len);
+    dyn_leases_v6[ifindex] = n;
+    ++n_leases_v6[ifindex];
     return true;
 }
 
@@ -127,10 +165,10 @@ in6_addr dynlease4_query_refresh(int ifindex, const uint8_t *macaddr,
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return IN6ADDR_ANY_INIT;
 
-    for (auto &i: dyn_leases_v4[ifindex]) {
-        if (!memcmp(&i.macaddr, macaddr, 6)) {
-            i.expire_time = expire_time;
-            return i.addr;
+    for (lease_state_v4 *p = dyn_leases_v4[ifindex]; p; p = p->next) {
+        if (!memcmp(&p->macaddr, macaddr, 6)) {
+            p->expire_time = expire_time;
+            return p->addr;
         }
     }
     return IN6ADDR_ANY_INIT;
@@ -141,10 +179,10 @@ in6_addr dynlease6_query_refresh(int ifindex, const char *duid, size_t duid_len,
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return IN6ADDR_ANY_INIT;
 
-    for (auto &i: dyn_leases_v6[ifindex]) {
-        if (!duid_compare(i.duid, i.duid_len, duid, duid_len) && i.iaid == iaid) {
-            i.expire_time = expire_time;
-            return i.addr;
+    for (lease_state_v6 *p = dyn_leases_v6[ifindex]; p; p = p->next) {
+        if (!duid_compare(p->duid, p->duid_len, duid, duid_len) && p->iaid == iaid) {
+            p->expire_time = expire_time;
+            return p->addr;
         }
     }
     return IN6ADDR_ANY_INIT;
@@ -154,9 +192,10 @@ bool dynlease4_exists(int ifindex, const in6_addr *v4_addr, const uint8_t *macad
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
 
-    for (auto &i: dyn_leases_v4[ifindex]) {
-        if (!memcmp(&i.addr, v4_addr, sizeof i.addr) && !memcmp(&i.macaddr, macaddr, 6)) {
-            return get_current_ts() < i.expire_time;
+    const auto ts = get_current_ts();
+    for (lease_state_v4 *p = dyn_leases_v4[ifindex]; p; p = p->next) {
+        if (!memcmp(&p->addr, v4_addr, sizeof p->addr) && !memcmp(&p->macaddr, macaddr, 6)) {
+            return ts < p->expire_time;
         }
     }
     return false;
@@ -166,9 +205,12 @@ bool dynlease4_del(int ifindex, const in6_addr *v4_addr, const uint8_t *macaddr)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
 
-    for (auto i = dyn_leases_v4[ifindex].begin(), iend = dyn_leases_v4[ifindex].end(); i != iend; ++i) {
-        if (!memcmp(&i->addr, v4_addr, sizeof i->addr) && !memcmp(&i->macaddr, macaddr, 6)) {
-            dyn_leases_v4[ifindex].erase(i);
+    lease_state_v4 **prev = &dyn_leases_v4[ifindex];
+    for (lease_state_v4 *p = dyn_leases_v4[ifindex]; p; prev = &p->next, p = p->next) {
+        if (!memcmp(&p->addr, v4_addr, sizeof p->addr) && !memcmp(&p->macaddr, macaddr, 6)) {
+            *prev = p->next;
+            p->next = ls4_freelist;
+            ls4_freelist = p->next;
             return true;
         }
     }
@@ -180,10 +222,15 @@ bool dynlease6_del(int ifindex, const in6_addr *v6_addr,
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
 
-    for (auto i = dyn_leases_v6[ifindex].begin(), iend = dyn_leases_v6[ifindex].end(); i != iend; ++i) {
-        if (!memcmp(&i->addr, v6_addr, sizeof i->addr)
-            && !duid_compare(i->duid, i->duid_len, duid, duid_len) && i->iaid == iaid) {
-            dyn_leases_v6[ifindex].erase(i);
+    lease_state_v6 **prev = &dyn_leases_v6[ifindex];
+    for (lease_state_v6 *p = dyn_leases_v6[ifindex]; p; prev = &p->next, p = p->next) {
+        if (!memcmp(&p->addr, v6_addr, sizeof p->addr)
+            && !duid_compare(p->duid, p->duid_len, duid, duid_len) && p->iaid == iaid) {
+            *prev = p->next;
+            p->next = ls6_freelist;
+            ls6_freelist = p->next;
+            assert(n_leases_v6[ifindex] > 0);
+            --n_leases_v6[ifindex];
             return true;
         }
     }
@@ -210,43 +257,43 @@ bool dynlease_serialize(const char *path)
         goto out0;
     }
     for (size_t c = 0; c < MAX_NL_INTERFACES; ++c) {
-        if (dyn_leases_v4[c].size() == 0) continue;
+        if (!dyn_leases_v4[c]) continue;
         const netif_info *nlinfo = nl_socket.get_ifinfo(c);
         if (!nlinfo) continue;
         const char *iface = nlinfo->name;
-        for (const auto &j: dyn_leases_v4[c]) {
+        for (lease_state_v4 *p = dyn_leases_v4[c]; p; p = p->next) {
             // Don't write out dynamic leases that have expired.
-            if (get_current_ts() >= j.expire_time)
+            if (get_current_ts() >= p->expire_time)
                 continue;
             char abuf[48];
-            if (!ipaddr_to_string(abuf, sizeof abuf, &j.addr)) goto out1;
+            if (!ipaddr_to_string(abuf, sizeof abuf, &p->addr)) goto out1;
             if (fprintf(f, "v4 %s %s %.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx %zu\n",
                         iface, abuf,
-                        j.macaddr[0], j.macaddr[1], j.macaddr[2],
-                        j.macaddr[3], j.macaddr[4], j.macaddr[5], j.expire_time) < 0) {
+                        p->macaddr[0], p->macaddr[1], p->macaddr[2],
+                        p->macaddr[3], p->macaddr[4], p->macaddr[5], p->expire_time) < 0) {
                 log_line("%s: fprintf failed: %s\n", __func__, strerror(errno));
                 goto out1;
             }
         }
     }
     for (size_t c = 0; c < MAX_NL_INTERFACES; ++c) {
-        if (dyn_leases_v6[c].size() == 0) continue;
+        if (!dyn_leases_v6[c]) continue;
         const netif_info *nlinfo = nl_socket.get_ifinfo(c);
         if (!nlinfo) continue;
         const char *iface = nlinfo->name;
-        for (const auto &j: dyn_leases_v6[c]) {
+        for (lease_state_v6 *p = dyn_leases_v6[c]; p; p = p->next) {
             // Don't write out dynamic leases that have expired.
-            if (get_current_ts() >= j.expire_time) continue;
+            if (get_current_ts() >= p->expire_time) continue;
             // A valid DUID is required.
-            if (j.duid_len == 0) continue;
+            if (p->duid_len == 0) continue;
 
             char abuf[48];
-            if (!ipaddr_to_string(abuf, sizeof abuf, &j.addr)) goto out1;
+            if (!ipaddr_to_string(abuf, sizeof abuf, &p->addr)) goto out1;
             if (fprintf(f, "v6 %s %s ", iface, abuf) < 0) goto err0;
-            for (size_t k = 0; k < j.duid_len; ++k) {
-                if (fprintf(f, "%.2hhx", j.duid[k]) < 0) goto err0;
+            for (size_t k = 0; k < p->duid_len; ++k) {
+                if (fprintf(f, "%.2hhx", p->duid[k]) < 0) goto err0;
             }
-            if (fprintf(f, " %u %lu\n", j.iaid, j.expire_time) < 0) goto err0;
+            if (fprintf(f, " %u %lu\n", p->iaid, p->expire_time) < 0) goto err0;
             continue;
         err0:
             log_line("%s: fprintf failed: %s\n", __func__, strerror(errno));
@@ -440,8 +487,8 @@ bool dynlease_deserialize(const char *path)
         goto out0;
     }
     for (size_t i = 0; i < MAX_NL_INTERFACES; ++i) {
-        dyn_leases_v4[i].clear();
-        dyn_leases_v6[i].clear();
+        if (dyn_leases_v4[i]) abort();
+        if (dyn_leases_v6[i]) abort();
     }
     while (!feof(f)) {
         if (!fgets(buf, sizeof buf, f)) {
