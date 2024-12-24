@@ -4,17 +4,18 @@
 #define NDHS_DHCP_STATE_HPP_
 
 #include <ipaddr.h>
-#include <nlsocket.hpp>
 
 struct dhcpv6_entry {
-    char duid[128];
+    struct dhcpv6_entry *next;
     in6_addr address;
     size_t duid_len;
     uint32_t lifetime;
     uint32_t iaid;
+    char duid[];
 };
 
 struct dhcpv4_entry {
+    struct dhcpv4_entry *next;
     uint8_t macaddr[6];
     in6_addr address;
     uint32_t lifetime;

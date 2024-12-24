@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include <assert.h>
 #include "dhcp_state.hpp"
-#include <vector>
+#include <nlsocket.hpp>
 extern "C" {
 #include <net/if.h>
 #include "nk/log.h"
@@ -41,16 +41,16 @@ static void str_slist_destroy(struct str_slist **head)
 struct interface_data
 {
     interface_data(int ifindex_)
-        : ifindex(ifindex_), dnsaddrs(0, nullptr), ntpaddrs(0, nullptr),
-          p_dns_search(nullptr),
+        : ifindex(ifindex_), s4addrs(nullptr), s6addrs(nullptr),
+          dnsaddrs(0, nullptr), ntpaddrs(0, nullptr), p_dns_search(nullptr),
           d4_dns_search_blob(nullptr), ra6_dns_search_blob(nullptr),
           d4_dns_search_blob_size(0), ra6_dns_search_blob_size(0),
           dynamic_lifetime(0), preference(0), use_dhcpv4(false),
           use_dhcpv6(false), use_dynamic_v4(false), use_dynamic_v6(false)
     {}
     int ifindex;
-    std::vector<dhcpv6_entry> s6addrs; // static assigned v6 leases
-    std::vector<dhcpv4_entry> s4addrs; // static assigned v4 leases
+    dhcpv4_entry *s4addrs; // static assigned v4 leases
+    dhcpv6_entry *s6addrs; // static assigned v6 leases
     struct addrlist dnsaddrs;
     struct addrlist ntpaddrs;
     in6_addr subnet;
@@ -271,14 +271,15 @@ bool emplace_dhcp6_state(size_t linenum, int ifindex,
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
     auto is = interface_state[ifindex];
     if (is) {
-        dhcpv6_entry t;
-        if (duid_len > sizeof t.duid) suicide("%s: duid_len too long", __func__);
-        memcpy(t.duid, duid, duid_len);
-        t.address = *v6_addr;
-        t.duid_len = duid_len;
-        t.lifetime = default_lifetime;
-        t.iaid = iaid;
-        is->s6addrs.push_back(t);
+        dhcpv6_entry *t = static_cast<dhcpv6_entry *>(malloc(sizeof(dhcpv6_entry) + duid_len));
+        if (!t) abort();
+        memcpy(t->duid, duid, duid_len);
+        t->address = *v6_addr;
+        t->duid_len = duid_len;
+        t->lifetime = default_lifetime;
+        t->iaid = iaid;
+        t->next = is->s6addrs;
+        is->s6addrs = t;
         return true;
     }
     log_line("%s: No interface specified at line %zu\n", __func__, linenum);
@@ -295,11 +296,13 @@ bool emplace_dhcp4_state(size_t linenum, int ifindex, const uint8_t *macaddr,
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
     auto is = interface_state[ifindex];
     if (is) {
-        dhcpv4_entry t;
-        memcpy(t.macaddr, macaddr, sizeof t.macaddr);
-        t.address = *v4_addr;
-        t.lifetime = default_lifetime;
-        is->s4addrs.push_back(t);
+        dhcpv4_entry *t = static_cast<dhcpv4_entry *>(malloc(sizeof(dhcpv4_entry)));
+        if (!t) abort();
+        memcpy(t->macaddr, macaddr, sizeof t->macaddr);
+        t->address = *v4_addr;
+        t->lifetime = default_lifetime;
+        t->next = is->s4addrs;
+        is->s4addrs = t;
         return true;
     }
     log_line("%s: No interface specified at line %zu\n", __func__, linenum);
@@ -431,10 +434,10 @@ const dhcpv6_entry *query_dhcp6_state(int ifindex,
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return nullptr;
     auto is = interface_state[ifindex];
     if (!is) return nullptr;
-    for (auto &i: is->s6addrs) {
-        if (i.duid_len == duid_len && i.iaid == iaid
-            && !memcmp(i.duid, duid, duid_len))
-            return &i;
+    for (dhcpv6_entry *p = is->s6addrs; p; p = p->next) {
+        if (p->duid_len == duid_len && p->iaid == iaid
+            && !memcmp(p->duid, duid, duid_len))
+            return p;
     }
     return nullptr;
 }
@@ -444,8 +447,8 @@ const dhcpv4_entry *query_dhcp4_state(int ifindex, const uint8_t *hwaddr)
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return nullptr;
     auto is = interface_state[ifindex];
     if (!is) return nullptr;
-    for (auto &i: is->s4addrs) {
-        if (!memcmp(i.macaddr, hwaddr, sizeof i.macaddr)) return &i;
+    for (dhcpv4_entry *p = is->s4addrs; p; p = p->next) {
+        if (!memcmp(p->macaddr, hwaddr, sizeof p->macaddr)) return p;
     }
     return nullptr;
 }
@@ -547,8 +550,8 @@ bool query_unused_addr_v6(int ifindex, const in6_addr *addr)
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
     auto is = interface_state[ifindex];
     if (!is) return true;
-    for (const auto &i: is->s6addrs) {
-        if (!memcmp(&i.address, addr, sizeof *addr)) return false;
+    for (dhcpv6_entry *p = is->s6addrs; p; p = p->next) {
+        if (!memcmp(&p->address, addr, sizeof *addr)) return false;
     }
     return true;
 }

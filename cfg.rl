@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 #include <stdio.h>
 #include <inttypes.h>
+#include <errno.h>
 #include "dhcp_state.hpp"
 extern "C" {
 #include "ipaddr.h"

@@ -257,14 +257,7 @@ bool D6Listener::allot_dynamic_ip(const char *client_duid, size_t client_duid_si
 
     in6_addr v6a = dynlease6_query_refresh(ifindex_, client_duid, client_duid_size, iaid, expire_time);
     if (memcmp(&v6a, &in6addr_any, sizeof v6a)) {
-        dhcpv6_entry de;
-        de.duid_len = client_duid_size;
-        if (de.duid_len > sizeof de.duid) abort();
-        memcpy(de.duid, client_duid, de.duid_len);
-        de.address = v6a;
-        de.lifetime = dynamic_lifetime;
-        de.iaid = iaid;
-        if (!emit_IA_addr(ss, &de)) return false;
+        if (!emit_IA_addr(ss, v6a, iaid, dynamic_lifetime)) return false;
         char abuf[48];
         if (!ipaddr_to_string(abuf, sizeof abuf, &v6a)) abort();
         log_line("dhcp6: Assigned existing dynamic IP (%s) on %s\n", abuf, ifname_);
@@ -290,14 +283,7 @@ bool D6Listener::allot_dynamic_ip(const char *client_duid, size_t client_duid_si
         const auto assigned = dynlease6_add(ifindex_, &v6a, client_duid,
                                             client_duid_size, iaid, expire_time);
         if (assigned) {
-            dhcpv6_entry de;
-            de.duid_len = client_duid_size;
-            if (de.duid_len > sizeof de.duid) abort();
-            memcpy(de.duid, client_duid, de.duid_len);
-            de.address = v6a;
-            de.lifetime = dynamic_lifetime;
-            de.iaid = iaid;
-            if (!emit_IA_addr(ss, &de)) return false;
+            if (!emit_IA_addr(ss, v6a, iaid, dynamic_lifetime)) return false;
             use_dynamic = true;
             return true;
         }
@@ -367,24 +353,24 @@ bool D6Listener::write_response_header(const d6msg_state &d6s, sbufs &ss,
 
 // We control what IAs are valid, and we never assign multiple address to a single
 // IA.  Thus there's no reason to care about that case.
-bool D6Listener::emit_IA_addr(sbufs &ss, const dhcpv6_entry *v)
+bool D6Listener::emit_IA_addr(sbufs &ss, in6_addr ipa, uint32_t iaid, uint32_t lifetime)
 {
     dhcp6_opt header;
     header.type(3);
     header.length(d6_ia::size + dhcp6_opt::size + d6_ia_addr::size);
     if (!header.write(ss)) return false;
     d6_ia ia;
-    ia.iaid = v->iaid;
-    ia.t1_seconds = static_cast<uint32_t>(0.5 * v->lifetime);
-    ia.t2_seconds = static_cast<uint32_t>(0.8 * v->lifetime);
+    ia.iaid = iaid;
+    ia.t1_seconds = static_cast<uint32_t>(0.5 * lifetime);
+    ia.t2_seconds = static_cast<uint32_t>(0.8 * lifetime);
     if (!ia.write(ss)) return false;
     header.type(5);
     header.length(d6_ia_addr::size);
     if (!header.write(ss)) return false;
     d6_ia_addr addr;
-    addr.addr = v->address;
-    addr.prefer_lifetime = v->lifetime;
-    addr.valid_lifetime = v->lifetime;
+    addr.addr = ipa;
+    addr.prefer_lifetime = lifetime;
+    addr.valid_lifetime = lifetime;
     if (!addr.write(ss)) return false;
     return true;
 }
@@ -419,7 +405,7 @@ bool D6Listener::attach_address_info(const d6msg_state &d6s, sbufs &ss,
             char abuf[48];
             if (!ipaddr_to_string(abuf, sizeof abuf, &x->address)) abort();
             log_line("dhcp6: Found static address %s on %s\n", abuf, ifname_);
-            if (!emit_IA_addr(ss, x)) return false;
+            if (!emit_IA_addr(ss, x->address, x->iaid, x->lifetime)) return false;
             continue;
         }
         bool use_dynamic;

@@ -191,7 +191,7 @@ private:
     [[nodiscard]] bool allot_dynamic_ip(const char *client_duid, size_t client_duid_size,
                                         sbufs &ss, uint32_t iaid,
                                         d6_statuscode::code failcode, bool &use_dynamic);
-    [[nodiscard]] bool emit_IA_addr(sbufs &ss, const dhcpv6_entry *v);
+    [[nodiscard]] bool emit_IA_addr(sbufs &ss, in6_addr ipa, uint32_t iaid, uint32_t lifetime);
     [[nodiscard]] bool emit_IA_code(sbufs &ss, uint32_t iaid, d6_statuscode::code scode);
     [[nodiscard]] bool attach_address_info(const d6msg_state &d6s, sbufs &ss,
                                            d6_statuscode::code failcode, bool *has_addrs = nullptr);
