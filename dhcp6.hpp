@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 #include <nk/netbits.h>
-#include "dhcp_state.hpp"
+#include "dhcp_state.h"
 #include "radv6.hpp"
 #include "sbufs.h"
 extern "C" {

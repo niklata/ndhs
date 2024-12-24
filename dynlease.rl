@@ -1,5 +1,5 @@
 // -*- c++ -*-
-// Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2016-2024 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <unistd.h>
 #include <time.h>
@@ -7,29 +7,24 @@
 #include <limits.h>
 #include <inttypes.h>
 #include <assert.h>
-#include <nlsocket.hpp> // for MAX_NL_INTERFACES
-extern "C" {
+#include <nlsocket.h> // for MAX_NL_INTERFACES
 #include <ipaddr.h>
 #include <net/if.h>
 #include "nk/log.h"
-}
+#include <dynlease.h>
 
 #define MAX_LINE 2048
 // The RFC allows for 128 raw bytes, which corresponds
 // to a value of 256.
 #define MAX_DUID 256
 
-#ifdef __GNUC__
-#pragma GCC diagnostic ignored "-Wold-style-cast"
-#endif
-
-extern NLSocket nl_socket;
-extern int64_t get_current_ts();
+extern struct NLSocket nl_socket;
+int64_t get_current_ts();
 
 struct lease_state_v4
 {
     struct lease_state_v4 *next;
-    in6_addr addr;
+    struct in6_addr addr;
     uint8_t macaddr[6];
     int64_t expire_time;
 };
@@ -37,7 +32,7 @@ struct lease_state_v4
 struct lease_state_v6
 {
     struct lease_state_v6 *next;
-    in6_addr addr;
+    struct in6_addr addr;
     size_t duid_len;
     int64_t expire_time;
     uint32_t iaid;
@@ -45,10 +40,10 @@ struct lease_state_v6
 };
 
 // Maps interfaces to lease data.
-static lease_state_v4 *dyn_leases_v4[MAX_NL_INTERFACES];
-static lease_state_v6 *dyn_leases_v6[MAX_NL_INTERFACES];
-static lease_state_v4 *ls4_freelist;
-static lease_state_v6 *ls6_freelist;
+static struct lease_state_v4 *dyn_leases_v4[MAX_NL_INTERFACES];
+static struct lease_state_v6 *dyn_leases_v6[MAX_NL_INTERFACES];
+static struct lease_state_v4 *ls4_freelist;
+static struct lease_state_v6 *ls6_freelist;
 static uint32_t n_leases_v6[MAX_NL_INTERFACES];
 
 size_t dynlease6_count(int ifindex)
@@ -57,13 +52,13 @@ size_t dynlease6_count(int ifindex)
     return n_leases_v6[ifindex];
 }
 
-void dynlease_gc()
+void dynlease_gc(void)
 {
-    auto ts = get_current_ts();
+    int64_t ts = get_current_ts();
     for (size_t i = 0; i < MAX_NL_INTERFACES; ++i) {
         if (dyn_leases_v4[i]) {
-            lease_state_v4 **prev = &dyn_leases_v4[i];
-            for (lease_state_v4 *p = dyn_leases_v4[i]; p;) {
+            struct lease_state_v4 **prev = &dyn_leases_v4[i];
+            for (struct lease_state_v4 *p = dyn_leases_v4[i]; p;) {
                 if (p->expire_time < ts) {
                     *prev = p->next;
                     p->next = ls4_freelist;
@@ -74,8 +69,8 @@ void dynlease_gc()
             }
         }
         if (dyn_leases_v6[i]) {
-            lease_state_v6 **prev = &dyn_leases_v6[i];
-            for (lease_state_v6 *p = dyn_leases_v6[i]; p;) {
+            struct lease_state_v6 **prev = &dyn_leases_v6[i];
+            for (struct lease_state_v6 *p = dyn_leases_v6[i]; p;) {
                 if (p->expire_time < ts) {
                     *prev = p->next;
                     p->next = ls6_freelist;
@@ -90,12 +85,12 @@ void dynlease_gc()
     }
 }
 
-bool dynlease4_add(int ifindex, const in6_addr *v4_addr, const uint8_t *macaddr,
+bool dynlease4_add(int ifindex, const struct in6_addr *v4_addr, const uint8_t *macaddr,
                    int64_t expire_time)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
 
-    for (lease_state_v4 *p = dyn_leases_v4[ifindex]; p; p = p->next) {
+    for (struct lease_state_v4 *p = dyn_leases_v4[ifindex]; p; p = p->next) {
         if (!memcmp(&p->addr, v4_addr, sizeof p->addr)) {
             if (!memcmp(&p->macaddr, macaddr, 6)) {
                 p->expire_time = expire_time;
@@ -104,11 +99,11 @@ bool dynlease4_add(int ifindex, const in6_addr *v4_addr, const uint8_t *macaddr,
             return false;
         }
     }
-    lease_state_v4 *n = ls4_freelist;
+    struct lease_state_v4 *n = ls4_freelist;
     if (n) {
         ls4_freelist = n->next;
     } else {
-        n = static_cast<lease_state_v4 *>(malloc(sizeof(lease_state_v4)));
+        n = malloc(sizeof(struct lease_state_v4));
         if (!n) abort();
     }
     n->next = dyn_leases_v4[ifindex];
@@ -124,12 +119,12 @@ static bool duid_compare(const char *a, size_t al, const char *b, size_t bl)
     return al == bl && !memcmp(a, b, al);
 }
 
-bool dynlease6_add(int ifindex, const in6_addr *v6_addr,
+bool dynlease6_add(int ifindex, const struct in6_addr *v6_addr,
                    const char *duid, size_t duid_len, uint32_t iaid, int64_t expire_time)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
 
-    for (lease_state_v6 *p = dyn_leases_v6[ifindex]; p; p = p->next) {
+    for (struct lease_state_v6 *p = dyn_leases_v6[ifindex]; p; p = p->next) {
         if (!memcmp(&p->addr, v6_addr, sizeof p->addr)) {
             if (!duid_compare(p->duid, p->duid_len, duid, duid_len) && p->iaid == iaid) {
                 p->expire_time = expire_time;
@@ -138,12 +133,12 @@ bool dynlease6_add(int ifindex, const in6_addr *v6_addr,
             return false;
         }
     }
-    lease_state_v6 *n = ls6_freelist;
-    if (n && n->duid_len < duid_len) n = nullptr;
+    struct lease_state_v6 *n = ls6_freelist;
+    if (n && n->duid_len < duid_len) n = NULL;
     if (n) {
         ls6_freelist = n->next;
     } else {
-        n = static_cast<lease_state_v6 *>(malloc(sizeof(lease_state_v6) + duid_len));
+        n = malloc(sizeof(struct lease_state_v6) + duid_len);
         if (!n) abort();
     }
     n->next = dyn_leases_v6[ifindex];
@@ -157,40 +152,40 @@ bool dynlease6_add(int ifindex, const in6_addr *v6_addr,
     return true;
 }
 
-in6_addr dynlease4_query_refresh(int ifindex, const uint8_t *macaddr,
-                                 int64_t expire_time)
+struct in6_addr dynlease4_query_refresh(int ifindex, const uint8_t *macaddr,
+                                        int64_t expire_time)
 {
-    if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return IN6ADDR_ANY_INIT;
+    if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return in6addr_any;
 
-    for (lease_state_v4 *p = dyn_leases_v4[ifindex]; p; p = p->next) {
+    for (struct lease_state_v4 *p = dyn_leases_v4[ifindex]; p; p = p->next) {
         if (!memcmp(&p->macaddr, macaddr, 6)) {
             p->expire_time = expire_time;
             return p->addr;
         }
     }
-    return IN6ADDR_ANY_INIT;
+    return in6addr_any;
 }
 
-in6_addr dynlease6_query_refresh(int ifindex, const char *duid, size_t duid_len,
-                                 uint32_t iaid, int64_t expire_time)
+struct in6_addr dynlease6_query_refresh(int ifindex, const char *duid, size_t duid_len,
+                                        uint32_t iaid, int64_t expire_time)
 {
-    if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return IN6ADDR_ANY_INIT;
+    if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return in6addr_any;
 
-    for (lease_state_v6 *p = dyn_leases_v6[ifindex]; p; p = p->next) {
+    for (struct lease_state_v6 *p = dyn_leases_v6[ifindex]; p; p = p->next) {
         if (!duid_compare(p->duid, p->duid_len, duid, duid_len) && p->iaid == iaid) {
             p->expire_time = expire_time;
             return p->addr;
         }
     }
-    return IN6ADDR_ANY_INIT;
+    return in6addr_any;
 }
 
-bool dynlease4_exists(int ifindex, const in6_addr *v4_addr, const uint8_t *macaddr)
+bool dynlease4_exists(int ifindex, const struct in6_addr *v4_addr, const uint8_t *macaddr)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
 
-    const auto ts = get_current_ts();
-    for (lease_state_v4 *p = dyn_leases_v4[ifindex]; p; p = p->next) {
+    int64_t ts = get_current_ts();
+    for (struct lease_state_v4 *p = dyn_leases_v4[ifindex]; p; p = p->next) {
         if (!memcmp(&p->addr, v4_addr, sizeof p->addr) && !memcmp(&p->macaddr, macaddr, 6)) {
             return ts < p->expire_time;
         }
@@ -198,12 +193,12 @@ bool dynlease4_exists(int ifindex, const in6_addr *v4_addr, const uint8_t *macad
     return false;
 }
 
-bool dynlease4_del(int ifindex, const in6_addr *v4_addr, const uint8_t *macaddr)
+bool dynlease4_del(int ifindex, const struct in6_addr *v4_addr, const uint8_t *macaddr)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
 
-    lease_state_v4 **prev = &dyn_leases_v4[ifindex];
-    for (lease_state_v4 *p = dyn_leases_v4[ifindex]; p; prev = &p->next, p = p->next) {
+    struct lease_state_v4 **prev = &dyn_leases_v4[ifindex];
+    for (struct lease_state_v4 *p = dyn_leases_v4[ifindex]; p; prev = &p->next, p = p->next) {
         if (!memcmp(&p->addr, v4_addr, sizeof p->addr) && !memcmp(&p->macaddr, macaddr, 6)) {
             *prev = p->next;
             p->next = ls4_freelist;
@@ -214,13 +209,13 @@ bool dynlease4_del(int ifindex, const in6_addr *v4_addr, const uint8_t *macaddr)
     return false;
 }
 
-bool dynlease6_del(int ifindex, const in6_addr *v6_addr,
+bool dynlease6_del(int ifindex, const struct in6_addr *v6_addr,
                    const char *duid, size_t duid_len, uint32_t iaid)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
 
-    lease_state_v6 **prev = &dyn_leases_v6[ifindex];
-    for (lease_state_v6 *p = dyn_leases_v6[ifindex]; p; prev = &p->next, p = p->next) {
+    struct lease_state_v6 **prev = &dyn_leases_v6[ifindex];
+    for (struct lease_state_v6 *p = dyn_leases_v6[ifindex]; p; prev = &p->next, p = p->next) {
         if (!memcmp(&p->addr, v6_addr, sizeof p->addr)
             && !duid_compare(p->duid, p->duid_len, duid, duid_len) && p->iaid == iaid) {
             *prev = p->next;
@@ -255,10 +250,10 @@ bool dynlease_serialize(const char *path)
     }
     for (size_t c = 0; c < MAX_NL_INTERFACES; ++c) {
         if (!dyn_leases_v4[c]) continue;
-        const netif_info *nlinfo = nl_socket.get_ifinfo(c);
+        const struct netif_info *nlinfo = NLSocket_get_ifinfo(&nl_socket, c);
         if (!nlinfo) continue;
         const char *iface = nlinfo->name;
-        for (lease_state_v4 *p = dyn_leases_v4[c]; p; p = p->next) {
+        for (struct lease_state_v4 *p = dyn_leases_v4[c]; p; p = p->next) {
             // Don't write out dynamic leases that have expired.
             if (get_current_ts() >= p->expire_time)
                 continue;
@@ -275,10 +270,10 @@ bool dynlease_serialize(const char *path)
     }
     for (size_t c = 0; c < MAX_NL_INTERFACES; ++c) {
         if (!dyn_leases_v6[c]) continue;
-        const netif_info *nlinfo = nl_socket.get_ifinfo(c);
+        const struct netif_info *nlinfo = NLSocket_get_ifinfo(&nl_socket, c);
         if (!nlinfo) continue;
         const char *iface = nlinfo->name;
-        for (lease_state_v6 *p = dyn_leases_v6[c]; p; p = p->next) {
+        for (struct lease_state_v6 *p = dyn_leases_v6[c]; p; p = p->next) {
             // Don't write out dynamic leases that have expired.
             if (get_current_ts() >= p->expire_time) continue;
             // A valid DUID is required.
@@ -322,19 +317,6 @@ out0:
 // v6 <interface> <ip> <duid> <iaid> <expire_time>
 
 struct dynlease_parse_state {
-    dynlease_parse_state() : st(nullptr), cs(0), parse_error(false) {}
-    void newline() {
-        memset(duid, 0, sizeof duid);
-        duid_len = 0;
-        memset(macaddr, 0, sizeof macaddr);
-        memset(v4_addr, 0, sizeof v4_addr);
-        memset(v6_addr, 0, sizeof v6_addr);
-        memset(interface, 0, sizeof interface);
-        ifindex = -1;
-        iaid = 0;
-        expire_time = 0;
-        parse_error = false;
-    }
     const char *st;
     int cs;
 
@@ -350,92 +332,100 @@ struct dynlease_parse_state {
     uint8_t macaddr[6];
 };
 
+static void newline(struct dynlease_parse_state *self) {
+    *self = (struct dynlease_parse_state){
+        .st = self->st,
+        .cs = self->cs,
+        .ifindex = -1,
+    };
+}
+
 #include "parsehelp.h"
 
 %%{
     machine dynlease_line_m;
-    access cps.;
+    access cps->;
 
-    action St { cps.st = p; }
+    action St { cps->st = p; }
 
     action InterfaceEn {
-        assign_strbuf(cps.interface, nullptr, sizeof cps.interface, cps.st, p);
-        const netif_info *nlinfo = nl_socket.get_ifinfo(cps.interface);
-        cps.ifindex = nlinfo ? nlinfo->index : -1;
+        assign_strbuf(cps->interface, NULL, sizeof cps->interface, cps->st, p);
+        const struct netif_info *nlinfo = NLSocket_get_ifinfo_by_name(&nl_socket, cps->interface);
+        cps->ifindex = nlinfo ? nlinfo->index : -1;
     }
     action DuidEn {
-        assign_strbuf(cps.duid, &cps.duid_len, sizeof cps.duid, cps.st, p);
-        lc_string_inplace(cps.duid, cps.duid_len);
+        assign_strbuf(cps->duid, &cps->duid_len, sizeof cps->duid, cps->st, p);
+        lc_string_inplace(cps->duid, cps->duid_len);
     }
     action IaidEn {
         char buf[64];
-        ptrdiff_t blen = p - cps.st;
+        ptrdiff_t blen = p - cps->st;
         if (blen < 0 || blen >= (int)sizeof buf) {
-            cps.parse_error = true;
+            cps->parse_error = true;
             fbreak;
         }
-        memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
-        if (sscanf(buf, "%" SCNu32, &cps.iaid) != 1) {
-            cps.parse_error = true;
+        memcpy(buf, cps->st, (size_t)blen); buf[blen] = 0;
+        if (sscanf(buf, "%" SCNu32, &cps->iaid) != 1) {
+            cps->parse_error = true;
             fbreak;
         }
     }
     action MacAddrEn {
         char buf[32];
-        ptrdiff_t blen = p - cps.st;
+        ptrdiff_t blen = p - cps->st;
         if (blen < 0 || blen >= (int)sizeof buf) {
-            cps.parse_error = true;
+            cps->parse_error = true;
             fbreak;
         }
-        *((char *)mempcpy(buf, cps.st, (size_t)blen)) = 0;
+        *((char *)mempcpy(buf, cps->st, (size_t)blen)) = 0;
         if (sscanf(buf, "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx",
-                   &cps.macaddr[0], &cps.macaddr[1], &cps.macaddr[2],
-                   &cps.macaddr[3], &cps.macaddr[4], &cps.macaddr[5]) != 6) {
-            cps.parse_error = true;
+                   &cps->macaddr[0], &cps->macaddr[1], &cps->macaddr[2],
+                   &cps->macaddr[3], &cps->macaddr[4], &cps->macaddr[5]) != 6) {
+            cps->parse_error = true;
             fbreak;
         }
     }
     action V4AddrEn {
         size_t l;
-        assign_strbuf(cps.v4_addr, &l, sizeof cps.v4_addr, cps.st, p);
-        lc_string_inplace(cps.v4_addr, l);
+        assign_strbuf(cps->v4_addr, &l, sizeof cps->v4_addr, cps->st, p);
+        lc_string_inplace(cps->v4_addr, l);
     }
     action V6AddrEn {
         size_t l;
-        assign_strbuf(cps.v6_addr, &l, sizeof cps.v6_addr, cps.st, p);
-        lc_string_inplace(cps.v6_addr, l);
+        assign_strbuf(cps->v6_addr, &l, sizeof cps->v6_addr, cps->st, p);
+        lc_string_inplace(cps->v6_addr, l);
     }
     action ExpireTimeEn {
         char buf[64];
-        ptrdiff_t blen = p - cps.st;
+        ptrdiff_t blen = p - cps->st;
         if (blen < 0 || blen >= (int)sizeof buf) {
-            cps.parse_error = true;
+            cps->parse_error = true;
             fbreak;
         }
-        memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
-        if (sscanf(buf, "%" SCNi64, &cps.expire_time) != 1) {
-            cps.parse_error = true;
+        memcpy(buf, cps->st, (size_t)blen); buf[blen] = 0;
+        if (sscanf(buf, "%" SCNi64, &cps->expire_time) != 1) {
+            cps->parse_error = true;
             fbreak;
         }
     }
 
     action V4EntryEn {
-        in6_addr ipa;
-        if (!ipaddr_from_string(&ipa, cps.v4_addr)) {
-            log_line("Bad IP address at line %zu: %s\n", linenum, cps.v4_addr);
-            cps.parse_error = true;
+        struct in6_addr ipa;
+        if (!ipaddr_from_string(&ipa, cps->v4_addr)) {
+            log_line("Bad IP address at line %zu: %s\n", linenum, cps->v4_addr);
+            cps->parse_error = true;
             fbreak;
         }
-        dynlease4_add(cps.ifindex, &ipa, cps.macaddr, cps.expire_time);
+        dynlease4_add(cps->ifindex, &ipa, cps->macaddr, cps->expire_time);
     }
     action V6EntryEn {
-        in6_addr ipa;
-        if (!ipaddr_from_string(&ipa, cps.v6_addr)) {
-            log_line("Bad IP address at line %zu: %s\n", linenum, cps.v6_addr);
-            cps.parse_error = true;
+        struct in6_addr ipa;
+        if (!ipaddr_from_string(&ipa, cps->v6_addr)) {
+            log_line("Bad IP address at line %zu: %s\n", linenum, cps->v6_addr);
+            cps->parse_error = true;
             fbreak;
         }
-        dynlease6_add(cps.ifindex, &ipa, cps.duid, cps.duid_len, cps.iaid, cps.expire_time);
+        dynlease6_add(cps->ifindex, &ipa, cps->duid, cps->duid_len, cps->iaid, cps->expire_time);
     }
 
     interface = alnum+ >St %InterfaceEn;
@@ -454,8 +444,8 @@ struct dynlease_parse_state {
 
 %% write data;
 
-static int do_parse_dynlease_line(dynlease_parse_state &cps, const char *p, size_t plen,
-                             const size_t linenum)
+static int do_parse_dynlease_line(struct dynlease_parse_state *cps, const char *p, size_t plen,
+                                  const size_t linenum)
 {
     const char *pe = p + plen;
     const char *eof = pe;
@@ -463,10 +453,10 @@ static int do_parse_dynlease_line(dynlease_parse_state &cps, const char *p, size
     %% write init;
     %% write exec;
 
-    if (cps.parse_error) return -1;
-    if (cps.cs >= dynlease_line_m_first_final)
+    if (cps->parse_error) return -1;
+    if (cps->cs >= dynlease_line_m_first_final)
         return 1;
-    if (cps.cs == dynlease_line_m_error)
+    if (cps->cs == dynlease_line_m_error)
         return -1;
     return -2;
 }
@@ -475,7 +465,7 @@ bool dynlease_deserialize(const char *path)
 {
     bool ret = false;
     size_t linenum = 0;
-    dynlease_parse_state ps;
+    struct dynlease_parse_state ps = { .st = NULL, .cs = 0, .parse_error = false };
     char buf[MAX_LINE];
     FILE *f = fopen(path, "r");
     if (!f) {
@@ -495,14 +485,14 @@ bool dynlease_deserialize(const char *path)
             }
             break;
         }
-        auto llen = strlen(buf);
+        size_t llen = strlen(buf);
         if (llen == 0)
             continue;
         if (buf[llen-1] == '\n')
             buf[--llen] = 0;
         ++linenum;
-        ps.newline();
-        const auto r = do_parse_dynlease_line(ps, buf, llen, linenum);
+        newline(&ps);
+        int r = do_parse_dynlease_line(&ps, buf, llen, linenum);
         if (r < 0) {
             if (r == -2)
                 log_line("%s: Incomplete dynlease at line %zu; ignoring\n",

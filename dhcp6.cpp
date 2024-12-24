@@ -1,9 +1,9 @@
 // Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
-#include "nlsocket.hpp"
+#include "nlsocket.h"
 #include "multicast6.hpp"
 #include "dhcp6.hpp"
-#include "dynlease.hpp"
+#include "dynlease.h"
 #include "attach_bpf.h"
 #include "duid.h"
 extern "C" {
@@ -17,7 +17,7 @@ extern struct nk_random_state g_rngstate;
 #define MAX_DYN_ATTEMPTS 100u
 
 extern NLSocket nl_socket;
-extern int64_t get_current_ts();
+extern "C" int64_t get_current_ts();
 
 // Option header.
 struct dhcp6_opt
@@ -135,12 +135,12 @@ bool D6Listener::init(const char *ifname, uint8_t preference)
     }
     *static_cast<char *>(mempcpy(ifname_, ifname, ifname_src_size)) = 0;
 
-    ifindex_ = nl_socket.get_ifindex(ifname);
+    ifindex_ = NLSocket_get_ifindex(&nl_socket, ifname);
     if (ifindex_ == -1) {
         log_line("dhcp6: Failed to get interface index for %s\n", ifname);
         return false;
     }
-    auto ifinfo = nl_socket.get_ifinfo(ifindex_);
+    auto ifinfo = NLSocket_get_ifinfo(&nl_socket, ifindex_);
     assert(ifinfo);
 
     log_line("dhcp6: DHCPv6 Preference is %u on %s\n", preference_, ifname_);

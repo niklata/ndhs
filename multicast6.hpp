@@ -3,7 +3,7 @@
 #ifndef NDHS_MULTICAST6_HPP_
 #define NDHS_MULTICAST6_HPP_
 
-#include "nlsocket.hpp"
+#include "nlsocket.h"
 extern "C" {
 #include <ipaddr.h>
 #include <net/if.h>
@@ -13,7 +13,7 @@ extern "C" {
 extern NLSocket nl_socket;
 [[nodiscard]] static inline bool attach_multicast(int fd, const char *ifname, const sockaddr_in6 &mc6addr)
 {
-    int ifidx = nl_socket.get_ifindex(ifname);
+    int ifidx = NLSocket_get_ifindex(&nl_socket, ifname);
     if (ifidx < 0) {
         log_line("Failed to get interface index for %s\n", ifname);
         return false;

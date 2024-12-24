@@ -1,14 +1,12 @@
-// Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2016-2024 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <assert.h>
-#include "dhcp_state.hpp"
-#include <nlsocket.hpp>
-extern "C" {
+#include "dhcp_state.h"
+#include <nlsocket.h>
 #include <net/if.h>
 #include "nk/log.h"
-}
 
-extern NLSocket nl_socket;
+extern struct NLSocket nl_socket;
 
 struct str_slist
 {
@@ -21,9 +19,9 @@ static void str_slist_append(struct str_slist **head, const char *s, size_t slen
     struct str_slist **e = head;
     while (*e) e = &(*e)->next;
     assert(!*e);
-    *e = static_cast<struct str_slist *>(malloc(sizeof(struct str_slist) + slen + 1));
+    *e = malloc(sizeof(struct str_slist) + slen + 1);
     if (!*e) abort();
-    (*e)->next = nullptr;
+    (*e)->next = NULL;
     *(char *)mempcpy(&((*e)->str), s, slen) = 0;
 }
 
@@ -35,29 +33,21 @@ static void str_slist_destroy(struct str_slist **head)
         free(e);
         e = n;
     }
-    *head = nullptr;
+    *head = NULL;
 }
 
 struct interface_data
 {
-    interface_data(int ifindex_)
-        : ifindex(ifindex_), s4addrs(nullptr), s6addrs(nullptr),
-          dnsaddrs(0, nullptr), ntpaddrs(0, nullptr), p_dns_search(nullptr),
-          d4_dns_search_blob(nullptr), ra6_dns_search_blob(nullptr),
-          d4_dns_search_blob_size(0), ra6_dns_search_blob_size(0),
-          dynamic_lifetime(0), preference(0), use_dhcpv4(false),
-          use_dhcpv6(false), use_dynamic_v4(false), use_dynamic_v6(false)
-    {}
     int ifindex;
-    dhcpv4_entry *s4addrs; // static assigned v4 leases
-    dhcpv6_entry *s6addrs; // static assigned v6 leases
+    struct dhcpv4_entry *s4addrs; // static assigned v4 leases
+    struct dhcpv6_entry *s6addrs; // static assigned v6 leases
     struct addrlist dnsaddrs;
     struct addrlist ntpaddrs;
-    in6_addr subnet;
-    in6_addr broadcast;
-    in6_addr gateway_v4;
-    in6_addr dynamic_range_lo;
-    in6_addr dynamic_range_hi;
+    struct in6_addr subnet;
+    struct in6_addr broadcast;
+    struct in6_addr gateway_v4;
+    struct in6_addr dynamic_range_lo;
+    struct in6_addr dynamic_range_hi;
     struct str_slist *p_dns_search;
     char *d4_dns_search_blob;
     char *ra6_dns_search_blob;
@@ -71,7 +61,7 @@ struct interface_data
     bool use_dynamic_v6:1;
 };
 
-static interface_data *interface_state[MAX_NL_INTERFACES];
+static struct interface_data *interface_state[MAX_NL_INTERFACES];
 
 // Performs DNS label wire encoding cf RFC1035 3.1
 // Returns negative values on error, positive values are the number
@@ -160,8 +150,8 @@ static void create_d4_dns_search_blob(char **out, size_t *outlen,
         blen += (size_t)r;
     }
     assert(blen <= 255);
-    if (*out) { free(*out); *out = nullptr; }
-    *out = static_cast<char *>(malloc(blen));
+    if (*out) { free(*out); *out = NULL; }
+    *out = malloc(blen);
     if (!*out) abort();
     *outlen = blen;
     memcpy(*out, buf, blen);
@@ -187,17 +177,17 @@ static void create_ra6_dns_search_blob(char **out, size_t *outlen,
         blen += (size_t)r;
     }
     assert(blen <= 8 * 254);
-    if (*out) { free(*out); *out = nullptr; }
-    *out = static_cast<char *>(malloc(blen));
+    if (*out) { free(*out); *out = NULL; }
+    *out = malloc(blen);
     if (!*out) abort();
     *outlen = blen;
     memcpy(*out, buf, blen);
 }
 
-void create_blobs()
+void create_blobs(void)
 {
     for (size_t i = 0; i < MAX_NL_INTERFACES; ++i) {
-        interface_data *p = interface_state[i];
+        struct interface_data *p = interface_state[i];
         if (p) {
             create_d4_dns_search_blob(&p->d4_dns_search_blob, &p->d4_dns_search_blob_size, p->p_dns_search);
             create_ra6_dns_search_blob(&p->ra6_dns_search_blob, &p->ra6_dns_search_blob_size, p->p_dns_search);
@@ -206,26 +196,27 @@ void create_blobs()
     }
 }
 
-static interface_data *lookup_interface_by_name(const char *interface)
+static struct interface_data *lookup_interface_by_name(const char *interface)
 {
-    if (!strlen(interface)) return nullptr;
+    if (!strlen(interface)) return NULL;
 
-    int ifindex = nl_socket.get_ifindex(interface);
-    if (ifindex == -1) return nullptr;
-    if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return nullptr;
+    int ifindex = NLSocket_get_ifindex(&nl_socket, interface);
+    if (ifindex == -1) return NULL;
+    if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return NULL;
     return interface_state[ifindex];
 }
 
-static interface_data *lookup_or_create_interface(const char *interface)
+static struct interface_data *lookup_or_create_interface(const char *interface)
 {
-    if (!strlen(interface)) return nullptr;
-    auto is = lookup_interface_by_name(interface);
+    if (!strlen(interface)) return NULL;
+    struct interface_data *is = lookup_interface_by_name(interface);
     if (!is) {
-        int ifindex = nl_socket.get_ifindex(interface);
-        if (ifindex == -1) return nullptr;
+        int ifindex = NLSocket_get_ifindex(&nl_socket, interface);
+        if (ifindex == -1) return NULL;
         assert(!interface_state[ifindex]);
-        interface_state[ifindex] = static_cast<interface_data *>(malloc(sizeof(interface_data)));
+        interface_state[ifindex] = calloc(1, sizeof(struct interface_data));
         if (!interface_state[ifindex]) abort();
+        interface_state[ifindex]->ifindex = ifindex;
         is = interface_state[ifindex];
     }
     return is;
@@ -233,7 +224,7 @@ static interface_data *lookup_or_create_interface(const char *interface)
 
 bool emplace_bind4(size_t linenum, const char *interface)
 {
-    auto is = lookup_or_create_interface(interface);
+    struct interface_data *is = lookup_or_create_interface(interface);
     if (!is) {
         log_line("interface specified at line %zu does not exist\n", linenum);
         return false;
@@ -244,7 +235,7 @@ bool emplace_bind4(size_t linenum, const char *interface)
 
 bool emplace_bind6(size_t linenum, const char *interface)
 {
-    auto is = lookup_or_create_interface(interface);
+    struct interface_data *is = lookup_or_create_interface(interface);
     if (!is) {
         log_line("interface specified at line %zu does not exist\n", linenum);
         return false;
@@ -255,7 +246,7 @@ bool emplace_bind6(size_t linenum, const char *interface)
 
 int emplace_interface(size_t linenum, const char *interface, uint8_t preference)
 {
-    auto is = lookup_interface_by_name(interface);
+    struct interface_data *is = lookup_interface_by_name(interface);
     if (is) {
         is->preference = preference;
         return is->ifindex;
@@ -266,12 +257,12 @@ int emplace_interface(size_t linenum, const char *interface, uint8_t preference)
 
 bool emplace_dhcp6_state(size_t linenum, int ifindex,
                          const char *duid, size_t duid_len,
-                         uint32_t iaid, const in6_addr *v6_addr, uint32_t default_lifetime)
+                         uint32_t iaid, const struct in6_addr *v6_addr, uint32_t default_lifetime)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
-    auto is = interface_state[ifindex];
+    struct interface_data *is = interface_state[ifindex];
     if (is) {
-        dhcpv6_entry *t = static_cast<dhcpv6_entry *>(malloc(sizeof(dhcpv6_entry) + duid_len));
+        struct dhcpv6_entry *t = malloc(sizeof(struct dhcpv6_entry) + duid_len);
         if (!t) abort();
         memcpy(t->duid, duid, duid_len);
         t->address = *v6_addr;
@@ -287,16 +278,16 @@ bool emplace_dhcp6_state(size_t linenum, int ifindex,
 }
 
 bool emplace_dhcp4_state(size_t linenum, int ifindex, const uint8_t *macaddr,
-                         const in6_addr *v4_addr, uint32_t default_lifetime)
+                         const struct in6_addr *v4_addr, uint32_t default_lifetime)
 {
     if (!ipaddr_is_v4(v4_addr)) {
         log_line("Bad IPv4 address at line %zu\n", linenum);
         return false;
     }
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
-    auto is = interface_state[ifindex];
+    struct interface_data *is = interface_state[ifindex];
     if (is) {
-        dhcpv4_entry *t = static_cast<dhcpv4_entry *>(malloc(sizeof(dhcpv4_entry)));
+        struct dhcpv4_entry *t = malloc(sizeof(struct dhcpv4_entry));
         if (!t) abort();
         memcpy(t->macaddr, macaddr, sizeof t->macaddr);
         t->address = *v4_addr;
@@ -309,10 +300,10 @@ bool emplace_dhcp4_state(size_t linenum, int ifindex, const uint8_t *macaddr,
     return false;
 }
 
-bool emplace_dns_servers(size_t linenum, int ifindex, in6_addr *addrs, size_t naddrs)
+bool emplace_dns_servers(size_t linenum, int ifindex, struct in6_addr *addrs, size_t naddrs)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
-    auto is = interface_state[ifindex];
+    struct interface_data *is = interface_state[ifindex];
     if (is) {
         free(is->dnsaddrs.addrs);
         is->dnsaddrs.n = naddrs;
@@ -324,10 +315,10 @@ bool emplace_dns_servers(size_t linenum, int ifindex, in6_addr *addrs, size_t na
     return false;
 }
 
-bool emplace_ntp_servers(size_t linenum, int ifindex, in6_addr *addrs, size_t naddrs)
+bool emplace_ntp_servers(size_t linenum, int ifindex, struct in6_addr *addrs, size_t naddrs)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
-    auto is = interface_state[ifindex];
+    struct interface_data *is = interface_state[ifindex];
     if (is) {
         free(is->ntpaddrs.addrs);
         is->ntpaddrs.n = naddrs;
@@ -339,14 +330,14 @@ bool emplace_ntp_servers(size_t linenum, int ifindex, in6_addr *addrs, size_t na
     return false;
 }
 
-bool emplace_subnet(int ifindex, const in6_addr *addr)
+bool emplace_subnet(int ifindex, const struct in6_addr *addr)
 {
     if (!ipaddr_is_v4(addr)) {
         log_line("%s: Bad IP address for interface #%d\n", __func__, ifindex);
         return false;
     }
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
-    auto is = interface_state[ifindex];
+    struct interface_data *is = interface_state[ifindex];
     if (is) {
         is->subnet = *addr;
         return true;
@@ -354,14 +345,14 @@ bool emplace_subnet(int ifindex, const in6_addr *addr)
     return false;
 }
 
-bool emplace_gateway_v4(size_t linenum, int ifindex, const in6_addr *addr)
+bool emplace_gateway_v4(size_t linenum, int ifindex, const struct in6_addr *addr)
 {
     if (!ipaddr_is_v4(addr)) {
         log_line("%s: Bad IP address for interface #%d\n", __func__, ifindex);
         return false;
     }
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
-    auto is = interface_state[ifindex];
+    struct interface_data *is = interface_state[ifindex];
     if (is) {
         is->gateway_v4 = *addr;
         return true;
@@ -370,10 +361,10 @@ bool emplace_gateway_v4(size_t linenum, int ifindex, const in6_addr *addr)
     return false;
 }
 
-bool emplace_broadcast(int ifindex, const in6_addr *addr)
+bool emplace_broadcast(int ifindex, const struct in6_addr *addr)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
-    auto is = interface_state[ifindex];
+    struct interface_data *is = interface_state[ifindex];
     if (is) {
         is->broadcast = *addr;
         return true;
@@ -382,7 +373,7 @@ bool emplace_broadcast(int ifindex, const in6_addr *addr)
 }
 
 bool emplace_dynamic_range(size_t linenum, int ifindex,
-                           const in6_addr *lo_addr, const in6_addr *hi_addr,
+                           const struct in6_addr *lo_addr, const struct in6_addr *hi_addr,
                            uint32_t dynamic_lifetime)
 {
     if (!ipaddr_is_v4(lo_addr) || !ipaddr_is_v4(hi_addr)) {
@@ -390,7 +381,7 @@ bool emplace_dynamic_range(size_t linenum, int ifindex,
         return false;
     }
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
-    auto is = interface_state[ifindex];
+    struct interface_data *is = interface_state[ifindex];
     if (is) {
         bool inorder = memcmp(lo_addr, hi_addr, sizeof *lo_addr) <= 0;
         is->dynamic_range_lo = inorder? *lo_addr : *hi_addr;
@@ -406,7 +397,7 @@ bool emplace_dynamic_range(size_t linenum, int ifindex,
 bool emplace_dynamic_v6(size_t linenum, int ifindex)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
-    auto is = interface_state[ifindex];
+    struct interface_data *is = interface_state[ifindex];
     if (is) {
         is->use_dynamic_v6 = true;
         return true;
@@ -418,7 +409,7 @@ bool emplace_dynamic_v6(size_t linenum, int ifindex)
 bool emplace_dns_search(size_t linenum, int ifindex, const char *label, size_t label_len)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
-    auto is = interface_state[ifindex];
+    struct interface_data *is = interface_state[ifindex];
     if (is) {
         str_slist_append(&is->p_dns_search, label, label_len);
         return true;
@@ -427,38 +418,38 @@ bool emplace_dns_search(size_t linenum, int ifindex, const char *label, size_t l
     return false;
 }
 
-const dhcpv6_entry *query_dhcp6_state(int ifindex,
-                                      const char *duid, size_t duid_len,
-                                      uint32_t iaid)
+const struct dhcpv6_entry *query_dhcp6_state(int ifindex,
+                                             const char *duid, size_t duid_len,
+                                             uint32_t iaid)
 {
-    if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return nullptr;
-    auto is = interface_state[ifindex];
-    if (!is) return nullptr;
-    for (dhcpv6_entry *p = is->s6addrs; p; p = p->next) {
+    if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return NULL;
+    struct interface_data *is = interface_state[ifindex];
+    if (!is) return NULL;
+    for (struct dhcpv6_entry *p = is->s6addrs; p; p = p->next) {
         if (p->duid_len == duid_len && p->iaid == iaid
             && !memcmp(p->duid, duid, duid_len))
             return p;
     }
-    return nullptr;
+    return NULL;
 }
 
-const dhcpv4_entry *query_dhcp4_state(int ifindex, const uint8_t *hwaddr)
+const struct dhcpv4_entry *query_dhcp4_state(int ifindex, const uint8_t *hwaddr)
 {
-    if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return nullptr;
-    auto is = interface_state[ifindex];
-    if (!is) return nullptr;
-    for (dhcpv4_entry *p = is->s4addrs; p; p = p->next) {
+    if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return NULL;
+    struct interface_data *is = interface_state[ifindex];
+    if (!is) return NULL;
+    for (struct dhcpv4_entry *p = is->s4addrs; p; p = p->next) {
         if (!memcmp(p->macaddr, hwaddr, sizeof p->macaddr)) return p;
     }
-    return nullptr;
+    return NULL;
 }
 
 struct addrlist query_dns_servers(int ifindex)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) {
-    err: return (struct addrlist){ .n = 0, .addrs = nullptr };
+    err: return (struct addrlist){ .n = 0, .addrs = NULL };
     }
-    auto is = interface_state[ifindex];
+    struct interface_data *is = interface_state[ifindex];
     if (!is) goto err;
     return is->dnsaddrs;
 }
@@ -466,9 +457,9 @@ struct addrlist query_dns_servers(int ifindex)
 struct addrlist query_ntp_servers(int ifindex)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) {
-    err: return (struct addrlist){ .n = 0, .addrs = nullptr };
+    err: return (struct addrlist){ .n = 0, .addrs = NULL };
     }
-    auto is = interface_state[ifindex];
+    struct interface_data *is = interface_state[ifindex];
     if (!is) goto err;
     return is->ntpaddrs;
 }
@@ -476,9 +467,9 @@ struct addrlist query_ntp_servers(int ifindex)
 struct blob query_dns4_search_blob(int ifindex)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) {
-    err: return (struct blob){ .n = 0, .s = nullptr };
+    err: return (struct blob){ .n = 0, .s = NULL };
     }
-    auto is = interface_state[ifindex];
+    struct interface_data *is = interface_state[ifindex];
     if (!is) goto err;
     return (struct blob){ .n = is->d4_dns_search_blob_size, .s = is->d4_dns_search_blob };
 }
@@ -486,41 +477,41 @@ struct blob query_dns4_search_blob(int ifindex)
 struct blob query_dns6_search_blob(int ifindex)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) {
-    err: return (struct blob){ .n = 0, .s = nullptr };
+    err: return (struct blob){ .n = 0, .s = NULL };
     }
-    auto is = interface_state[ifindex];
+    struct interface_data *is = interface_state[ifindex];
     if (!is) goto err;
     return (struct blob){ .n = is->ra6_dns_search_blob_size, .s = is->ra6_dns_search_blob };
 }
 
-const in6_addr *query_gateway_v4(int ifindex)
+const struct in6_addr *query_gateway_v4(int ifindex)
 {
-    if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return nullptr;
-    auto is = interface_state[ifindex];
-    if (!is) return nullptr;
+    if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return NULL;
+    struct interface_data *is = interface_state[ifindex];
+    if (!is) return NULL;
     return &is->gateway_v4;
 }
 
-const in6_addr *query_subnet(int ifindex)
+const struct in6_addr *query_subnet(int ifindex)
 {
-    if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return nullptr;
-    auto is = interface_state[ifindex];
-    if (!is) return nullptr;
+    if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return NULL;
+    struct interface_data *is = interface_state[ifindex];
+    if (!is) return NULL;
     return &is->subnet;
 }
 
-const in6_addr *query_broadcast(int ifindex)
+const struct in6_addr *query_broadcast(int ifindex)
 {
-    if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return nullptr;
-    auto is = interface_state[ifindex];
-    if (!is) return nullptr;
+    if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return NULL;
+    struct interface_data *is = interface_state[ifindex];
+    if (!is) return NULL;
     return &is->broadcast;
 }
 
-bool query_dynamic_range(int ifindex, in6_addr *lo, in6_addr *hi)
+bool query_dynamic_range(int ifindex, struct in6_addr *lo, struct in6_addr *hi)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
-    auto is = interface_state[ifindex];
+    struct interface_data *is = interface_state[ifindex];
     if (!is) return false;
     *lo = is->dynamic_range_lo;
     *hi = is->dynamic_range_hi;
@@ -530,7 +521,7 @@ bool query_dynamic_range(int ifindex, in6_addr *lo, in6_addr *hi)
 bool query_use_dynamic_v4(int ifindex, uint32_t *dynamic_lifetime)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
-    auto is = interface_state[ifindex];
+    struct interface_data *is = interface_state[ifindex];
     if (!is) return false;
     *dynamic_lifetime = is->dynamic_lifetime;
     return is->use_dynamic_v4;
@@ -539,24 +530,24 @@ bool query_use_dynamic_v4(int ifindex, uint32_t *dynamic_lifetime)
 bool query_use_dynamic_v6(int ifindex, uint32_t *dynamic_lifetime)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
-    auto is = interface_state[ifindex];
+    struct interface_data *is = interface_state[ifindex];
     if (!is) return false;
     *dynamic_lifetime = is->dynamic_lifetime;
     return is->use_dynamic_v6;
 }
 
-bool query_unused_addr_v6(int ifindex, const in6_addr *addr)
+bool query_unused_addr_v6(int ifindex, const struct in6_addr *addr)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
-    auto is = interface_state[ifindex];
+    struct interface_data *is = interface_state[ifindex];
     if (!is) return true;
-    for (dhcpv6_entry *p = is->s6addrs; p; p = p->next) {
+    for (struct dhcpv6_entry *p = is->s6addrs; p; p = p->next) {
         if (!memcmp(&p->address, addr, sizeof *addr)) return false;
     }
     return true;
 }
 
-size_t bound_interfaces_count()
+size_t bound_interfaces_count(void)
 {
     size_t ret = 0;
     for (size_t i = 0; i < MAX_NL_INTERFACES; ++i) {
@@ -568,9 +559,9 @@ size_t bound_interfaces_count()
 void bound_interfaces_foreach(void (*fn)(const struct netif_info *, bool, bool, uint8_t, void *), void *userptr)
 {
     for (size_t i = 0; i < MAX_NL_INTERFACES; ++i) {
-        interface_data *p = interface_state[i];
+        struct interface_data *p = interface_state[i];
         if (p) {
-            auto ifinfo = nl_socket.get_ifinfo(p->ifindex);
+            struct netif_info *ifinfo = NLSocket_get_ifinfo(&nl_socket, p->ifindex);
             if (!ifinfo) continue;
             fn(ifinfo, p->use_dhcpv4, p->use_dhcpv6, p->preference, userptr);
         }

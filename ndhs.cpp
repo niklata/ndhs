@@ -28,11 +28,11 @@ extern "C" {
 #include "nk/io.h"
 #include "nk/random.h"
 }
-#include "nlsocket.hpp"
+#include "nlsocket.h"
 #include "dhcp6.hpp"
 #include "dhcp4.hpp"
-#include "dhcp_state.hpp"
-#include "dynlease.hpp"
+#include "dhcp_state.h"
+#include "dynlease.h"
 #include "duid.h"
 
 enum class pfd_type
@@ -78,7 +78,7 @@ static void count_bound_listeners(const struct netif_info *, bool use_v4, bool u
 
 static void get_interface_addresses(const struct netif_info *ifinfo, bool, bool, uint8_t, void *)
 {
-    if (!nl_socket.get_interface_addresses(ifinfo->index)) {
+    if (!NLSocket_get_interface_addresses(&nl_socket, ifinfo->index)) {
         // Indicates that the kernel changed the list of interfaces
         // between bound_interfaces_names() and now.
         suicide("netlink: Interface %s does not exist!  Restarting.\n", ifinfo->name);
@@ -141,7 +141,7 @@ static void init_listeners()
     pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
     pt.revents = 0;
 
-    pt.fd = nl_socket.fd();
+    pt.fd = nl_socket.fd_;
     poll_array[0] = pt;
     poll_meta[0] = (struct pfd_meta){ .pfdt = pfd_type::netlink };
 
@@ -151,12 +151,14 @@ static void init_listeners()
     poll_size = pfdc;
 }
 
+extern "C" {
 int64_t get_current_ts()
 {
     struct timespec ts;
     if (clock_gettime(CLOCK_MONOTONIC, &ts))
         suicide("clock_gettime failed\n");
     return ts.tv_sec;
+}
 }
 
 void set_user_runas(const char *username, size_t len)
@@ -272,7 +274,7 @@ static void process_options(int ac, char *av[])
     }
 
     nk_random_init(&g_rngstate);
-    nl_socket.init();
+    NLSocket_init(&nl_socket);
 
     if (!parse_config(configfile))
         suicide("Failed to load configuration file.\n");
@@ -312,7 +314,7 @@ int main(int ac, char *av[])
                 suicide("fd closed unexpectedly\n");
             switch (poll_meta[i].pfdt) {
             case pfd_type::netlink:
-                if (poll_array[i].revents & POLLIN) nl_socket.process_input();
+                if (poll_array[i].revents & POLLIN) NLSocket_process_input(&nl_socket);
                 break;
             case pfd_type::dhcp4:
                 if (poll_array[i].revents & POLLIN) poll_meta[i].ld4->process_input();

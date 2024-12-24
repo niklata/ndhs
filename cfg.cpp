@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <errno.h>
-#include "dhcp_state.hpp"
+#include "dhcp_state.h"
 extern "C" {
 #include "ipaddr.h"
 #include "nk/log.h"

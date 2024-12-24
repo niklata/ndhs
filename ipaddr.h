@@ -15,13 +15,15 @@
 
 #ifdef __cplusplus
 extern "C" {
+#else
+#include <stdbool.h>
 #endif
 
 // These are helpers to access ip addresses stored in in6_addr
 // in6_addr works fine for v4 addresses; they simply map onto the
 // IPv4-mapped range in IPv6.
 
-static inline bool ipaddr_from_string(in6_addr *addr, const char *s)
+static inline bool ipaddr_from_string(struct in6_addr *addr, const char *s)
 {
     if (inet_pton(AF_INET6, s, addr) != 1) {
         // Automagically try to handle IPv4 addresses as IPV6-mapped.
@@ -36,18 +38,18 @@ static inline bool ipaddr_from_string(in6_addr *addr, const char *s)
     return true;
 }
 
-static inline bool ipaddr_is_v4(const in6_addr *addr)
+static inline bool ipaddr_is_v4(const struct in6_addr *addr)
 {
     const char *p = (const char *)addr;
     for (size_t i = 0; i < 10; ++i) if (p[i]) return false;
     return (uint8_t)p[10] == 0xff && (uint8_t)p[11] == 0xff;
 }
 
-static inline bool ipaddr_to_string(char *buf, size_t buflen, const in6_addr *addr)
+static inline bool ipaddr_to_string(char *buf, size_t buflen, const struct in6_addr *addr)
 {
     if (ipaddr_is_v4(addr)) {
         // So that we don't print v4 with the ::ffff: mapped prefix
-        in_addr a4;
+        struct in_addr a4;
         const char *c = (const char *)addr;
         memcpy(&a4, c + 12, 4);
         if (!inet_ntop(AF_INET, &a4, buf, buflen)) return false;
@@ -58,13 +60,13 @@ static inline bool ipaddr_to_string(char *buf, size_t buflen, const in6_addr *ad
 }
 
 // Check whether the address is v4 first via ipaddr_is_v4()
-static inline const char *ipaddr_v4_bytes(const in6_addr *addr)
+static inline const char *ipaddr_v4_bytes(const struct in6_addr *addr)
 {
     return (const char *)addr + 12;
 }
 
 // For v6, simply memcpy()
-static inline void ipaddr_from_v4_bytes(in6_addr *addr, const void *inv)
+static inline void ipaddr_from_v4_bytes(struct in6_addr *addr, const void *inv)
 {
     char *caddr = (char *)addr;
     const char *in = (const char *)inv;
@@ -80,12 +82,12 @@ static inline bool ipaddr_u32_compare_masked(uint32_t a, uint32_t b, unsigned ma
     mask = mask <= 32 ? mask : 32;
     a = htonl(a);
     b = htonl(b);
-    const auto m = mask < 32 ? UINT32_MAX >> mask : 0;
+    uint32_t m = mask < 32 ? UINT32_MAX >> mask : 0;
     return (a | m) == (b | m);
 
 }
 
-static inline bool ipaddr_compare_masked(const in6_addr *a, const in6_addr *b, unsigned mask)
+static inline bool ipaddr_compare_masked(const struct in6_addr *a, const struct in6_addr *b, unsigned mask)
 {
     bool av4 = ipaddr_is_v4(a);
     bool bv4 = ipaddr_is_v4(b);

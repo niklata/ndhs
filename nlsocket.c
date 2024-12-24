@@ -1,143 +1,141 @@
-// Copyright 2014-2020 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2014-2024 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <poll.h>
 #include <arpa/inet.h>
 #include <net/if.h>
-#include "nlsocket.hpp"
-#include "dhcp_state.hpp"
-extern "C" {
+#include "nlsocket.h"
+#include "dhcp_state.h"
 #include "nk/log.h"
 #include "nk/random.h"
 #include "nl.h"
-}
 
 extern struct nk_random_state g_rngstate;
-
-// The NLMSG_* macros include c-style casts.
-#ifdef __GNUC__
-#pragma GCC diagnostic ignored "-Wold-style-cast"
-#endif
 
 struct netif_addrinfo
 {
     char if_name[IFNAMSIZ];
     int if_index;
-    in6_addr address;
-    in6_addr peer_address;
-    in6_addr broadcast_address;
-    in6_addr anycast_address;
+    struct in6_addr address;
+    struct in6_addr peer_address;
+    struct in6_addr broadcast_address;
+    struct in6_addr anycast_address;
     unsigned char addr_type;
     unsigned char prefixlen;
     unsigned char flags;
     unsigned char scope;
 };
 
-void NLSocket::init()
+static void request_links(struct NLSocket *self);
+static void request_addrs(struct NLSocket *self, int ifidx);
+static void process_receive(struct NLSocket *self, const char *buf, size_t bytes_xferred,
+                            unsigned seq, unsigned portid);
+
+void NLSocket_init(struct NLSocket *self)
 {
-    nlseq_ = nk_random_u64(&g_rngstate);
-    got_newlink_ = false;
-    query_ifindex_ = -1;
+    self->nlseq_ = nk_random_u64(&g_rngstate);
+    self->got_newlink_ = false;
+    self->query_ifindex_ = -1;
 
-    fd_ = nl_open(NETLINK_ROUTE, RTMGRP_LINK, 0);
-    if (fd_ < 0) suicide("NLSocket: failed to create netlink socket\n");
+    self->fd_ = nl_open(NETLINK_ROUTE, RTMGRP_LINK, 0);
+    if (self->fd_ < 0) suicide("NLSocket: failed to create netlink socket\n");
 
-    request_links();
+    request_links(self);
 
     struct pollfd pfd;
-    pfd.fd = fd_;
-    pfd.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+    pfd.fd = self->fd_;
+    pfd.events = POLLIN|POLLHUP|POLLERR;
     pfd.revents = 0;
-    for (;(got_newlink_ == false);) {
+    for (;(self->got_newlink_ == false);) {
         if (poll(&pfd, 1, -1) < 0) {
             if (errno == EINTR) continue;
             suicide("poll failed\n");
         }
-        if (pfd.revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+        if (pfd.revents & (POLLHUP|POLLERR)) {
             suicide("nlfd closed unexpectedly\n");
         }
         if (pfd.revents & POLLIN) {
-            process_input();
+            NLSocket_process_input(self);
         }
     }
 }
 
-bool NLSocket::get_interface_addresses(int ifindex)
+bool NLSocket_get_interface_addresses(struct NLSocket *self, int ifindex)
 {
-    query_ifindex_ = ifindex;
-    if (query_ifindex_ < 0) return false;
-    request_addrs(query_ifindex_);
+    self->query_ifindex_ = ifindex;
+    if (self->query_ifindex_ < 0) return false;
+    request_addrs(self, self->query_ifindex_);
 
     struct pollfd pfd;
-    pfd.fd = fd_;
-    pfd.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+    pfd.fd = self->fd_;
+    pfd.events = POLLIN|POLLHUP|POLLERR;
     pfd.revents = 0;
-    while (query_ifindex_ >= 0) {
+    while (self->query_ifindex_ >= 0) {
         if (poll(&pfd, 1, -1) < 0) {
             if (errno == EINTR) continue;
             suicide("poll failed\n");
         }
-        if (pfd.revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+        if (pfd.revents & (POLLHUP|POLLERR)) {
             suicide("nlfd closed unexpectedly\n");
         }
         if (pfd.revents & POLLIN) {
-            process_input();
+            NLSocket_process_input(self);
         }
     }
     return true;
 }
 
-void NLSocket::process_input()
+void NLSocket_process_input(struct NLSocket *self)
 {
     char buf[8192];
     for (;;) {
-        auto buflen = recv(fd_, buf, sizeof buf, MSG_DONTWAIT);
+        ssize_t buflen = recv(self->fd_, buf, sizeof buf, MSG_DONTWAIT);
         if (buflen < 0) {
             int err = errno;
             if (err == EINTR) continue;
             if (err == EAGAIN || err == EWOULDBLOCK) break;
             suicide("nlsocket: recv failed: %s\n", strerror(err));
         }
-        process_receive(buf, static_cast<size_t>(buflen), 0, 0);
+        process_receive(self, buf, (size_t)buflen, 0, 0);
     }
 }
 
-void NLSocket::request_links()
+static void request_links(struct NLSocket *self)
 {
-    auto link_seq = nlseq_++;
-    if (nl_sendgetlinks(fd_, link_seq) < 0)
+    uint32_t link_seq = self->nlseq_++;
+    if (nl_sendgetlinks(self->fd_, link_seq) < 0)
         suicide("nlsocket: failed to get initial rtlink state\n");
 }
 
-void NLSocket::request_addrs(int ifidx)
+static void request_addrs(struct NLSocket *self, int ifidx)
 {
-    auto addr_seq = nlseq_++;
-    if (nl_sendgetaddr(fd_, addr_seq, static_cast<uint32_t>(ifidx)) < 0)
+    uint32_t addr_seq = self->nlseq_++;
+    if (nl_sendgetaddr(self->fd_, addr_seq, (uint32_t)ifidx) < 0)
         suicide("nlsocket: failed to get initial rtaddr state\n");
 }
 
-static void parse_raw_address6(in6_addr *addr, struct rtattr *tb[], size_t type)
+static void parse_raw_address6(struct in6_addr *addr, struct rtattr *tb[], size_t type)
 {
     memcpy(addr, RTA_DATA(tb[type]), sizeof *addr);
 }
-static void parse_raw_address4(in6_addr *addr, struct rtattr *tb[], size_t type)
+static void parse_raw_address4(struct in6_addr *addr, struct rtattr *tb[], size_t type)
 {
     ipaddr_from_v4_bytes(addr, RTA_DATA(tb[type]));
 }
 
-void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
+static void process_rt_addr_msgs(struct NLSocket *self, const struct nlmsghdr *nlh)
 {
-    auto ifa = reinterpret_cast<struct ifaddrmsg *>(NLMSG_DATA(nlh));
+    struct ifaddrmsg *ifa = NLMSG_DATA(nlh);
     struct rtattr *tb[IFA_MAX];
     memset(tb, 0, sizeof tb);
     nl_rtattr_parse(nlh, sizeof *ifa, rtattr_assign, tb);
 
-    netif_addrinfo nia;
+    struct netif_addrinfo nia;
     nia.addr_type = ifa->ifa_family;
     if (nia.addr_type != AF_INET6 && nia.addr_type != AF_INET)
         return;
     nia.prefixlen = ifa->ifa_prefixlen;
     nia.flags = ifa->ifa_flags;
-    nia.if_index = static_cast<int>(ifa->ifa_index);
+    nia.if_index = (int)ifa->ifa_index;
     nia.scope = ifa->ifa_scope;
     if (tb[IFA_ADDRESS]) {
         if (nia.addr_type == AF_INET6)
@@ -152,7 +150,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
             parse_raw_address4(&nia.peer_address, tb, IFA_LOCAL);
     }
     if (tb[IFA_LABEL]) {
-        auto v = reinterpret_cast<const char *>(RTA_DATA(tb[IFA_LABEL]));
+        const char *v = RTA_DATA(tb[IFA_LABEL]);
         size_t src_size = strlen(v);
         if (src_size >= sizeof nia.if_name) {
             log_line("nlsocket: Interface name (%s) too long\n", v);
@@ -175,9 +173,9 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
 
     switch (nlh->nlmsg_type) {
     case RTM_NEWADDR: {
-        if (query_ifindex_ == nia.if_index) query_ifindex_ = -1;
+        if (self->query_ifindex_ == nia.if_index) self->query_ifindex_ = -1;
         if (nia.if_index >= 0 && nia.if_index < MAX_NL_INTERFACES) {
-            netif_info *n = &interfaces_[nia.if_index];
+            struct netif_info *n = &self->interfaces_[nia.if_index];
             if (nia.addr_type == AF_INET || ipaddr_is_v4(&nia.address)) {
                 n->has_v4_address = true;
                 n->v4_address = nia.address;
@@ -188,7 +186,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
                 subnet = htonl(subnet);
                 char sbuf[INET_ADDRSTRLEN+1];
                 if (inet_ntop(AF_INET, &subnet, sbuf, sizeof sbuf)) {
-                    in6_addr taddr;
+                    struct in6_addr taddr;
                     if (!ipaddr_from_string(&taddr, sbuf)) abort();
                     emplace_subnet(nia.if_index, &taddr);
                 }
@@ -209,7 +207,7 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
     }
     case RTM_DELADDR: {
         if (nia.if_index >= 0 && nia.if_index < MAX_NL_INTERFACES) {
-            netif_info *n = &interfaces_[nia.if_index];
+            struct netif_info *n = &self->interfaces_[nia.if_index];
             if (n->has_v4_address && (nia.addr_type == AF_INET || ipaddr_is_v4(&nia.address))) {
                 if (!memcmp(&n->v4_address, &nia.address, sizeof nia.address)) {
                     memset(&n->v4_address, 0, sizeof n->v4_address);
@@ -237,14 +235,14 @@ void NLSocket::process_rt_addr_msgs(const struct nlmsghdr *nlh)
     }
 }
 
-void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
+static void process_rt_link_msgs(struct NLSocket *self, const struct nlmsghdr *nlh)
 {
-    auto ifm = reinterpret_cast<struct ifinfomsg *>(NLMSG_DATA(nlh));
+    struct ifinfomsg *ifm = NLMSG_DATA(nlh);
     struct rtattr *tb[IFLA_MAX];
     memset(tb, 0, sizeof tb);
     nl_rtattr_parse(nlh, sizeof *ifm, rtattr_assign, tb);
 
-    netif_info nii;
+    struct netif_info nii;
     nii.family = ifm->ifi_family;
     nii.device_type = ifm->ifi_type;
     nii.index = ifm->ifi_index;
@@ -252,17 +250,15 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
     nii.change_mask = ifm->ifi_change;
     nii.is_active = ifm->ifi_flags & IFF_UP;
     if (tb[IFLA_ADDRESS]) {
-        auto mac = reinterpret_cast<const uint8_t *>
-            (RTA_DATA(tb[IFLA_ADDRESS]));
+        const uint8_t *mac = RTA_DATA(tb[IFLA_ADDRESS]);
         memcpy(nii.macaddr, mac, sizeof nii.macaddr);
     }
     if (tb[IFLA_BROADCAST]) {
-        auto mac = reinterpret_cast<const uint8_t *>
-            (RTA_DATA(tb[IFLA_ADDRESS]));
+        const uint8_t *mac = RTA_DATA(tb[IFLA_ADDRESS]);
         memcpy(nii.macbc, mac, sizeof nii.macbc);
     }
     if (tb[IFLA_IFNAME]) {
-        auto v = reinterpret_cast<const char *>(RTA_DATA(tb[IFLA_IFNAME]));
+        const char *v = RTA_DATA(tb[IFLA_IFNAME]);
         size_t src_size = strlen(v);
         if (src_size >= sizeof nii.name) {
             log_line("nlsocket: Interface name (%s) in link message is too long\n", v);
@@ -271,9 +267,9 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
         *((char *)mempcpy(nii.name, v, src_size)) = 0;
     }
     if (tb[IFLA_MTU])
-        nii.mtu = *reinterpret_cast<uint32_t *>(RTA_DATA(tb[IFLA_MTU]));
+        nii.mtu = *(uint32_t *)(RTA_DATA(tb[IFLA_MTU]));
     if (tb[IFLA_LINK])
-        nii.link_type = *reinterpret_cast<int32_t *>(RTA_DATA(tb[IFLA_LINK]));
+        nii.link_type = *(int32_t *)(RTA_DATA(tb[IFLA_LINK]));
 
     switch (nlh->nlmsg_type) {
     case RTM_NEWLINK: {
@@ -282,10 +278,10 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
             break;
         }
         bool update = false;
-        if (!strcmp(interfaces_[ifm->ifi_index].name, nii.name)) {
+        if (!strcmp(self->interfaces_[ifm->ifi_index].name, nii.name)) {
             // We don't alter name or index, and addresses are not
             // sent in this message, so don't alter those.
-            netif_info *n = &interfaces_[ifm->ifi_index];
+            struct netif_info *n = &self->interfaces_[ifm->ifi_index];
             n->family = nii.family;
             n->device_type = nii.device_type;
             n->flags = nii.flags;
@@ -297,7 +293,7 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
             n->is_active = nii.is_active;
             update = true;
         }
-        if (!update) memcpy(&interfaces_[ifm->ifi_index], &nii, sizeof interfaces_[0]);
+        if (!update) memcpy(&self->interfaces_[ifm->ifi_index], &nii, sizeof self->interfaces_[0]);
         log_line("nlsocket: Adding link info: %s\n", nii.name);
         break;
     }
@@ -306,7 +302,7 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
             log_line("nlsocket: Attempt to delete interface with out-of-range index (%d)\n", ifm->ifi_index);
             break;
         }
-        memset(&interfaces_[ifm->ifi_index], 0, sizeof interfaces_[0]);
+        memset(&self->interfaces_[ifm->ifi_index], 0, sizeof self->interfaces_[0]);
         break;
     }
     default:
@@ -315,16 +311,16 @@ void NLSocket::process_rt_link_msgs(const struct nlmsghdr *nlh)
     }
 }
 
-void NLSocket::process_nlmsg(const struct nlmsghdr *nlh)
+static void process_nlmsg(struct NLSocket *self, const struct nlmsghdr *nlh)
 {
     switch(nlh->nlmsg_type) {
         case RTM_NEWLINK:
         case RTM_DELLINK:
-            process_rt_link_msgs(nlh);
+            process_rt_link_msgs(self, nlh);
             break;
         case RTM_NEWADDR:
         case RTM_DELADDR:
-            process_rt_addr_msgs(nlh);
+            process_rt_addr_msgs(self, nlh);
             break;
         default:
             log_line("nlsocket: Unhandled RTNETLINK msg type: %u\n", nlh->nlmsg_type);
@@ -332,10 +328,10 @@ void NLSocket::process_nlmsg(const struct nlmsghdr *nlh)
     }
 }
 
-void NLSocket::process_receive(const char *buf, size_t bytes_xferred,
-                               unsigned seq, unsigned portid)
+static void process_receive(struct NLSocket *self, const char *buf, size_t bytes_xferred,
+                            unsigned seq, unsigned portid)
 {
-    auto nlh = reinterpret_cast<const struct nlmsghdr *>(buf);
+    const struct nlmsghdr *nlh = (const struct nlmsghdr *)buf;
     for (;NLMSG_OK(nlh, bytes_xferred); nlh = NLMSG_NEXT(nlh, bytes_xferred)) {
         // Should be 0 for messages from the kernel.
         if (nlh->nlmsg_pid && portid && nlh->nlmsg_pid != portid)
@@ -344,13 +340,13 @@ void NLSocket::process_receive(const char *buf, size_t bytes_xferred,
             continue;
 
         if (nlh->nlmsg_type >= NLMSG_MIN_TYPE) {
-            process_nlmsg(nlh);
+            process_nlmsg(self, nlh);
         } else {
             switch (nlh->nlmsg_type) {
             case NLMSG_ERROR: {
                 log_line("nlsocket: Received a NLMSG_ERROR: %s\n",
                          strerror(nlmsg_get_error(nlh)));
-                auto nle = reinterpret_cast<struct nlmsgerr *>(NLMSG_DATA(nlh));
+                struct nlmsgerr *nle = NLMSG_DATA(nlh);
                 log_line("error=%u len=%u type=%u flags=%u seq=%u pid=%u\n",
                          nle->error, nle->msg.nlmsg_len, nle->msg.nlmsg_type,
                          nle->msg.nlmsg_flags, nle->msg.nlmsg_seq,
@@ -359,7 +355,7 @@ void NLSocket::process_receive(const char *buf, size_t bytes_xferred,
             }
             case NLMSG_OVERRUN: log_line("nlsocket: Received a NLMSG_OVERRUN.\n");
             case NLMSG_NOOP: break;
-            case NLMSG_DONE: got_newlink_ = true; break;
+            case NLMSG_DONE: self->got_newlink_ = true; break;
             default: break;
             }
         }

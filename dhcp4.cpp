@@ -5,9 +5,9 @@
 #include <net/if.h>
 #include <pwd.h>
 #include "dhcp4.hpp"
-#include "dhcp_state.hpp"
-#include "nlsocket.hpp"
-#include "dynlease.hpp"
+#include "dhcp_state.h"
+#include "nlsocket.h"
+#include "dynlease.h"
 #include "sbufs.h"
 #include "nk/netbits.h"
 extern "C" {
@@ -105,7 +105,7 @@ void ClientStates::stateKill(uint8_t *hwaddr)
 } // detail
 
 extern NLSocket nl_socket;
-extern int64_t get_current_ts();
+extern "C" int64_t get_current_ts();
 
 // Must be called after ifname_ is set and only should be called once.
 bool D4Listener::create_dhcp4_socket()
@@ -176,12 +176,12 @@ bool D4Listener::init(const char *ifname)
 
     if (!create_dhcp4_socket()) return false;
 
-    ifindex_ = nl_socket.get_ifindex(ifname);
+    ifindex_ = NLSocket_get_ifindex(&nl_socket, ifname);
     if (ifindex_ == -1) {
         log_line("dhcp4: Failed to get interface index for %s\n", ifname);
         return false;
     }
-    auto ifinfo = nl_socket.get_ifinfo(ifindex_);
+    auto ifinfo = NLSocket_get_ifinfo(&nl_socket, ifindex_);
     assert(ifinfo);
 
     if (!ifinfo->has_v4_address) {

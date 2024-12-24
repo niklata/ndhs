@@ -9,7 +9,7 @@
 
 #include <nk/netbits.h>
 #include "radv6.hpp"
-#include "nlsocket.hpp"
+#include "nlsocket.h"
 #include "dhcp6.hpp"
 #include "multicast6.hpp"
 #include "attach_bpf.h"
@@ -405,7 +405,7 @@ bool RA6Listener::send_advert()
     uint32_t pktl(sizeof icmp_hdr + sizeof ra6adv_hdr + sizeof ra6_slla
                   + sizeof ra6_mtu);
 
-    auto ifinfo = nl_socket.get_ifinfo(ifname_);
+    auto ifinfo = NLSocket_get_ifinfo_by_name(&nl_socket, ifname_);
     if (!ifinfo) {
         log_line("ra6: Failed to get interface index for %s\n", ifname_);
         return false;
