@@ -335,7 +335,7 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     }
     const auto expire_time = get_current_ts() + dynamic_lifetime;
 
-    auto v4a = dynlease4_query_refresh(ifname_, hwaddr, expire_time);
+    auto v4a = dynlease4_query_refresh(ifindex_, hwaddr, expire_time);
     if (memcmp(&v4a, &in6addr_any, 16)) {
         if (!ipaddr_is_v4(&v4a)) {
             log_line("dhcp4: allot_dynamic_ip - bad address\n");
@@ -364,8 +364,8 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     // If no success, then all IPs are taken, so return false.
     for (uint32_t i = al + rqs; i <= ah; ++i) {
         auto iaddr = u32_ipaddr(htonl(i));
-        const auto matched = do_assign ? dynlease4_add(ifname_, &iaddr, hwaddr, expire_time)
-                                       : dynlease4_exists(ifname_, &iaddr, hwaddr);
+        const auto matched = do_assign ? dynlease4_add(ifindex_, &iaddr, hwaddr, expire_time)
+                                       : dynlease4_exists(ifindex_, &iaddr, hwaddr);
         if (matched) {
             reply.yiaddr = htonl(i);
             add_u32_option(&reply, DCODE_LEASET, htonl(dynamic_lifetime));
@@ -374,8 +374,8 @@ bool D4Listener::allot_dynamic_ip(dhcpmsg &reply, const uint8_t *hwaddr, bool do
     }
     for (uint32_t i = al; i < al + rqs; ++i) {
         auto iaddr = u32_ipaddr(htonl(i));
-        const auto matched = do_assign ? dynlease4_add(ifname_, &iaddr, hwaddr, expire_time)
-                                       : dynlease4_exists(ifname_, &iaddr, hwaddr);
+        const auto matched = do_assign ? dynlease4_add(ifindex_, &iaddr, hwaddr, expire_time)
+                                       : dynlease4_exists(ifindex_, &iaddr, hwaddr);
         if (matched) {
             reply.yiaddr = htonl(i);
             add_u32_option(&reply, DCODE_LEASET, htonl(dynamic_lifetime));
@@ -479,14 +479,14 @@ void D4Listener::reply_inform()
 
 void D4Listener::do_release() {
     auto ciaddr = u32_ipaddr(dhcpmsg_.ciaddr);
-    auto valid = dynlease4_exists(ifname_, &ciaddr, dhcpmsg_.chaddr);
+    auto valid = dynlease4_exists(ifindex_, &ciaddr, dhcpmsg_.chaddr);
     if (!valid) {
         char buf[32] = "invalid ip";
         ip4_to_string(buf, sizeof buf, dhcpmsg_.ciaddr);
         log_line("dhcp4: do_release: ignoring spoofed release request for %s.\n", buf);
         return;
     }
-    dynlease4_del(ifname_, &ciaddr, dhcpmsg_.chaddr);
+    dynlease4_del(ifindex_, &ciaddr, dhcpmsg_.chaddr);
 }
 
 uint8_t D4Listener::validate_dhcp(size_t len) const

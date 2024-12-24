@@ -255,7 +255,7 @@ bool D6Listener::allot_dynamic_ip(const char *client_duid, size_t client_duid_si
 
     const auto expire_time = get_current_ts() + dynamic_lifetime;
 
-    in6_addr v6a = dynlease6_query_refresh(ifname_, client_duid, client_duid_size, iaid, expire_time);
+    in6_addr v6a = dynlease6_query_refresh(ifindex_, client_duid, client_duid_size, iaid, expire_time);
     if (memcmp(&v6a, &in6addr_any, sizeof v6a)) {
         dhcpv6_entry de;
         de.duid_len = client_duid_size;
@@ -272,7 +272,7 @@ bool D6Listener::allot_dynamic_ip(const char *client_duid, size_t client_duid_si
         return true;
     }
     // This check guards against OOM via DoS.
-    if (dynlease6_count(ifname_) >= MAX_DYN_LEASES) {
+    if (dynlease6_count(ifindex_) >= MAX_DYN_LEASES) {
         log_line("dhcp6: Maximum number of dynamic leases (%u) reached on %s\n",
                  MAX_DYN_LEASES, ifname_);
         if (!emit_IA_code(ss, iaid, failcode)) return false;
@@ -287,7 +287,7 @@ bool D6Listener::allot_dynamic_ip(const char *client_duid, size_t client_duid_si
     for (unsigned attempt = 0; attempt < MAX_DYN_ATTEMPTS; ++attempt) {
         v6a = v6_addr_random(&local_ip_prefix_, prefixlen_);
         if (!query_unused_addr_v6(ifindex_, &v6a)) continue;
-        const auto assigned = dynlease6_add(ifname_, &v6a, client_duid,
+        const auto assigned = dynlease6_add(ifindex_, &v6a, client_duid,
                                             client_duid_size, iaid, expire_time);
         if (assigned) {
             dhcpv6_entry de;
@@ -521,7 +521,7 @@ bool D6Listener::mark_addr_unused(const d6msg_state &d6s, sbufs &ss)
             if (x && !memcmp(&d6s.ias[i].ia_na_addrs[j].addr, &x->address, 16)) {
                 log_line("dhcp6: found static lease on %s\n", ifname_);
                 freed_ia_addr = true;
-            } else if (dynlease6_del(ifname_, &d6s.ias[i].ia_na_addrs[j].addr, d6s.client_duid_str,
+            } else if (dynlease6_del(ifindex_, &d6s.ias[i].ia_na_addrs[j].addr, d6s.client_duid_str,
                                      d6s.client_duid_str_size, d6s.ias[i].iaid)) {
                 log_line("dhcp6: found dynamic lease on %s\n", ifname_);
                 freed_ia_addr = true;

@@ -5,29 +5,24 @@
 
 #include <ipaddr.h>
 
-size_t dynlease4_count(const char *interface);
-size_t dynlease6_count(const char *interface);
+size_t dynlease6_count(int ifindex);
 void dynlease_gc();
-bool dynlease4_add(const char *interface, const in6_addr *addr,
+bool dynlease4_add(int ifindex, const in6_addr *addr,
                    const uint8_t *macaddr, int64_t expire_time);
-bool dynlease6_add(const char *interface, const in6_addr *addr,
+bool dynlease6_add(int ifindex, const in6_addr *addr,
                    const char *duid, size_t duid_len,
                    uint32_t iaid, int64_t expire_time);
-in6_addr dynlease4_query_refresh(const char *interface, const uint8_t *macaddr,
+in6_addr dynlease4_query_refresh(int ifindex, const uint8_t *macaddr,
                                  int64_t expire_time);
-in6_addr dynlease6_query_refresh(const char *interface,
+in6_addr dynlease6_query_refresh(int ifindex,
                                  const char *duid, size_t duid_len,
                                  uint32_t iaid, int64_t expire_time);
-bool dynlease4_exists(const char *interface, const in6_addr *addr,
+bool dynlease4_exists(int ifindex, const in6_addr *addr,
                       const uint8_t *macaddr);
-bool dynlease6_exists(const char *interface, const in6_addr *addr,
-                      const char *duid, size_t duid_len, uint32_t iaid);
-bool dynlease4_del(const char *interface, const in6_addr *addr,
+bool dynlease4_del(int ifindex, const in6_addr *addr,
                    const uint8_t *macaddr);
-bool dynlease6_del(const char *interface, const in6_addr *addr,
+bool dynlease6_del(int ifindex, const in6_addr *addr,
                    const char *duid, size_t duid_len, uint32_t iaid);
-
-bool dynlease_unused_addr(const char *interface, const in6_addr *addr);
 
 bool dynlease_serialize(const char *path);
 bool dynlease_deserialize(const char *path);

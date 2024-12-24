@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <assert.h>
+#include <nlsocket.hpp> // for MAX_NL_INTERFACES
 extern "C" {
 #include <ipaddr.h>
 #include <net/if.h>
@@ -28,6 +29,7 @@ extern "C" {
 #pragma GCC diagnostic ignored "-Wold-style-cast"
 #endif
 
+extern NLSocket nl_socket;
 extern int64_t get_current_ts();
 
 struct lease_state_v4
@@ -56,89 +58,34 @@ struct lease_state_v6
 	char duid[MAX_DUID]; // not null terminated, hex string
 };
 
-// The vectors here are sorted by addr.
-struct dynlease_map_v4
-{
-	char ifname[IFNAMSIZ];
-	std::vector<lease_state_v4> state;
-};
-struct dynlease_map_v6
-{
-	char ifname[IFNAMSIZ];
-	std::vector<lease_state_v6> state;
-};
-
 // Maps interfaces to lease data.
-static std::vector<dynlease_map_v4> dyn_leases_v4;
-static std::vector<dynlease_map_v6> dyn_leases_v6;
+// The vectors here are sorted by addr.
+static std::vector<lease_state_v4> dyn_leases_v4[MAX_NL_INTERFACES];
+static std::vector<lease_state_v6> dyn_leases_v6[MAX_NL_INTERFACES];
 
-static std::vector<lease_state_v4> *lease_state4_by_name(const char *interface)
-{
-	for (auto &i: dyn_leases_v4) {
-		if (!strcmp(i.ifname, interface)) {
-			return &i.state;
-		}
-	}
-	return nullptr;
-}
 
-static std::vector<lease_state_v6> *lease_state6_by_name(const char *interface)
+size_t dynlease6_count(int ifindex)
 {
-	for (auto &i: dyn_leases_v6) {
-		if (!strcmp(i.ifname, interface)) {
-			return &i.state;
-		}
-	}
-	return nullptr;
-}
-
-static auto create_new_dynlease4_state(const char *interface)
-{
-	dyn_leases_v4.emplace_back();
-	dynlease_map_v4 *n = &dyn_leases_v4.back();
-	memccpy(&n->ifname, interface, 0, sizeof n->ifname);
-	return &n->state;
-}
-
-static auto create_new_dynlease6_state(const char *interface)
-{
-	dyn_leases_v6.emplace_back();
-	dynlease_map_v6 *n = &dyn_leases_v6.back();
-	memccpy(&n->ifname, interface, 0, sizeof n->ifname);
-	return &n->state;
-}
-
-size_t dynlease4_count(const char *interface)
-{
-	auto is = lease_state4_by_name(interface);
-	if (!is) return 0;
-		return is->size();
-}
-
-size_t dynlease6_count(const char *interface)
-{
-	auto is = lease_state6_by_name(interface);
-	if (!is) return 0;
-		return is->size();
+	if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return 0;
+		return dyn_leases_v6[ifindex].size();
 }
 
 void dynlease_gc()
 {
 	for (auto &i: dyn_leases_v4) {
-		std::erase_if(i.state, [](lease_state_v4 &x){ return x.expire_time < get_current_ts(); });
+		std::erase_if(i, [](lease_state_v4 &x){ return x.expire_time < get_current_ts(); });
 	}
 	for (auto &i: dyn_leases_v6) {
-		std::erase_if(i.state, [](lease_state_v6 &x){ return x.expire_time < get_current_ts(); });
+		std::erase_if(i, [](lease_state_v6 &x){ return x.expire_time < get_current_ts(); });
 	}
 }
 
-bool dynlease4_add(const char *interface, const in6_addr *v4_addr, const uint8_t *macaddr,
+bool dynlease4_add(int ifindex, const in6_addr *v4_addr, const uint8_t *macaddr,
 int64_t expire_time)
 {
-	auto is = lease_state4_by_name(interface);
-	if (!is) is = create_new_dynlease4_state(interface);
+	if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
 		
-	for (auto &i: *is) {
+	for (auto &i: dyn_leases_v4[ifindex]) {
 		if (!memcmp(&i.addr, v4_addr, sizeof i.addr)) {
 			if (!memcmp(&i.macaddr, macaddr, 6)) {
 				i.expire_time = expire_time;
@@ -149,7 +96,7 @@ int64_t expire_time)
 	}
 	uint8_t tmac[6];
 	memcpy(tmac, macaddr, sizeof tmac);
-	is->emplace_back(v4_addr, tmac, expire_time);
+	dyn_leases_v4[ifindex].emplace_back(v4_addr, tmac, expire_time);
 	return true;
 }
 
@@ -158,13 +105,12 @@ static bool duid_compare(const char *a, size_t al, const char *b, size_t bl)
 	return al == bl && !memcmp(a, b, al);
 }
 
-bool dynlease6_add(const char *interface, const in6_addr *v6_addr,
+bool dynlease6_add(int ifindex, const in6_addr *v6_addr,
 const char *duid, size_t duid_len, uint32_t iaid, int64_t expire_time)
 {
-	auto is = lease_state6_by_name(interface);
-	if (!is) is = create_new_dynlease6_state(interface);
+	if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
 		
-	for (auto &i: *is) {
+	for (auto &i: dyn_leases_v6[ifindex]) {
 		if (!memcmp(&i.addr, v6_addr, sizeof i.addr)) {
 			if (!duid_compare(i.duid, i.duid_len, duid, duid_len) && i.iaid == iaid) {
 				i.expire_time = expire_time;
@@ -173,46 +119,43 @@ const char *duid, size_t duid_len, uint32_t iaid, int64_t expire_time)
 			return false;
 		}
 	}
-	is->emplace_back(v6_addr, duid, duid_len, iaid, expire_time);
+	dyn_leases_v6[ifindex].emplace_back(v6_addr, duid, duid_len, iaid, expire_time);
 	return true;
 }
 
-in6_addr dynlease4_query_refresh(const char *interface, const uint8_t *macaddr,
+in6_addr dynlease4_query_refresh(int ifindex, const uint8_t *macaddr,
 int64_t expire_time)
 {
-	auto is = lease_state4_by_name(interface);
-	if (!is) return {};
-	
-	for (auto &i: *is) {
+	if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return IN6ADDR_ANY_INIT;
+		
+	for (auto &i: dyn_leases_v4[ifindex]) {
 		if (!memcmp(&i.macaddr, macaddr, 6)) {
 			i.expire_time = expire_time;
 			return i.addr;
 		}
 	}
-	return {};
+	return IN6ADDR_ANY_INIT;
 }
 
-in6_addr dynlease6_query_refresh(const char *interface, const char *duid, size_t duid_len,
+in6_addr dynlease6_query_refresh(int ifindex, const char *duid, size_t duid_len,
 uint32_t iaid, int64_t expire_time)
 {
-	auto is = lease_state6_by_name(interface);
-	if (!is) return {};
-	
-	for (auto &i: *is) {
+	if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return IN6ADDR_ANY_INIT;
+		
+	for (auto &i: dyn_leases_v6[ifindex]) {
 		if (!duid_compare(i.duid, i.duid_len, duid, duid_len) && i.iaid == iaid) {
 			i.expire_time = expire_time;
 			return i.addr;
 		}
 	}
-	return {};
+	return IN6ADDR_ANY_INIT;
 }
 
-bool dynlease4_exists(const char *interface, const in6_addr *v4_addr, const uint8_t *macaddr)
+bool dynlease4_exists(int ifindex, const in6_addr *v4_addr, const uint8_t *macaddr)
 {
-	auto is = lease_state4_by_name(interface);
-	if (!is) return false;
+	if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
 		
-	for (auto &i: *is) {
+	for (auto &i: dyn_leases_v4[ifindex]) {
 		if (!memcmp(&i.addr, v4_addr, sizeof i.addr) && !memcmp(&i.macaddr, macaddr, 6)) {
 			return get_current_ts() < i.expire_time;
 		}
@@ -220,61 +163,32 @@ bool dynlease4_exists(const char *interface, const in6_addr *v4_addr, const uint
 	return false;
 }
 
-bool dynlease6_exists(const char *interface, const in6_addr *v6_addr,
-const char *duid, size_t duid_len, uint32_t iaid)
+bool dynlease4_del(int ifindex, const in6_addr *v4_addr, const uint8_t *macaddr)
 {
-	auto is = lease_state6_by_name(interface);
-	if (!is) return false;
+	if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
 		
-	for (auto &i: *is) {
-		if (!memcmp(&i.addr, v6_addr, sizeof i.addr)
-			&& !duid_compare(i.duid, i.duid_len, duid, duid_len) && i.iaid == iaid) {
-			return get_current_ts() < i.expire_time;
-		}
-	}
-	return false;
-}
-
-bool dynlease4_del(const char *interface, const in6_addr *v4_addr, const uint8_t *macaddr)
-{
-	auto is = lease_state4_by_name(interface);
-	if (!is) return false;
-		
-	for (auto i = is->begin(), iend = is->end(); i != iend; ++i) {
+	for (auto i = dyn_leases_v4[ifindex].begin(), iend = dyn_leases_v4[ifindex].end(); i != iend; ++i) {
 		if (!memcmp(&i->addr, v4_addr, sizeof i->addr) && !memcmp(&i->macaddr, macaddr, 6)) {
-			is->erase(i);
+			dyn_leases_v4[ifindex].erase(i);
 			return true;
 		}
 	}
 	return false;
 }
 
-bool dynlease6_del(const char *interface, const in6_addr *v6_addr,
+bool dynlease6_del(int ifindex, const in6_addr *v6_addr,
 const char *duid, size_t duid_len, uint32_t iaid)
 {
-	auto is = lease_state6_by_name(interface);
-	if (!is) return false;
+	if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return false;
 		
-	for (auto i = is->begin(), iend = is->end(); i != iend; ++i) {
+	for (auto i = dyn_leases_v6[ifindex].begin(), iend = dyn_leases_v6[ifindex].end(); i != iend; ++i) {
 		if (!memcmp(&i->addr, v6_addr, sizeof i->addr)
 			&& !duid_compare(i->duid, i->duid_len, duid, duid_len) && i->iaid == iaid) {
-			is->erase(i);
+			dyn_leases_v6[ifindex].erase(i);
 			return true;
 		}
 	}
 	return false;
-}
-
-bool dynlease_unused_addr(const char *interface, const in6_addr *addr)
-{
-	auto is = lease_state6_by_name(interface);
-	if (!is) return true;
-		
-	for (auto i = is->begin(), iend = is->end(); i != iend; ++i) {
-		if (!memcmp(&i->addr, addr, sizeof i->addr))
-			return false;
-	}
-	return true;
 }
 
 // v4 <interface> <ip> <macaddr> <expire_time>
@@ -296,10 +210,12 @@ bool dynlease_serialize(const char *path)
 		__func__, path);
 		goto out0;
 	}
-	for (const auto &i: dyn_leases_v4) {
-		const auto iface = i.ifname;
-		const auto &ls = i.state;
-		for (const auto &j: ls) {
+	for (size_t c = 0; c < MAX_NL_INTERFACES; ++c) {
+		if (dyn_leases_v4[c].size() == 0) continue;
+			const netif_info *nlinfo = nl_socket.get_ifinfo(c);
+		if (!nlinfo) continue;
+			const char *iface = nlinfo->name;
+		for (const auto &j: dyn_leases_v4[c]) {
 			// Don't write out dynamic leases that have expired.
 			if (get_current_ts() >= j.expire_time)
 				continue;
@@ -314,10 +230,12 @@ bool dynlease_serialize(const char *path)
 			}
 		}
 	}
-	for (const auto &i: dyn_leases_v6) {
-		const auto iface = i.ifname;
-		const auto &ls = i.state;
-		for (const auto &j: ls) {
+	for (size_t c = 0; c < MAX_NL_INTERFACES; ++c) {
+		if (dyn_leases_v6[c].size() == 0) continue;
+			const netif_info *nlinfo = nl_socket.get_ifinfo(c);
+		if (!nlinfo) continue;
+			const char *iface = nlinfo->name;
+		for (const auto &j: dyn_leases_v6[c]) {
 			// Don't write out dynamic leases that have expired.
 			if (get_current_ts() >= j.expire_time) continue;
 				// A valid DUID is required.
@@ -369,6 +287,7 @@ struct dynlease_parse_state {
 		memset(v4_addr, 0, sizeof v4_addr);
 		memset(v6_addr, 0, sizeof v6_addr);
 		memset(interface, 0, sizeof interface);
+		ifindex = -1;
 		iaid = 0;
 		expire_time = 0;
 		parse_error = false;
@@ -378,6 +297,7 @@ struct dynlease_parse_state {
 	
 	int64_t expire_time;
 	size_t duid_len;
+	int ifindex;
 	uint32_t iaid;
 	bool parse_error;
 	char duid[MAX_DUID];
@@ -390,11 +310,11 @@ struct dynlease_parse_state {
 #include "parsehelp.h"
 
 
-#line 487 "dynlease.rl"
+#line 409 "dynlease.rl"
 
 
 
-#line 395 "dynlease.cpp"
+#line 315 "dynlease.cpp"
 static const int dynlease_line_m_start = 1;
 static const int dynlease_line_m_first_final = 41;
 static const int dynlease_line_m_error = 0;
@@ -402,7 +322,7 @@ static const int dynlease_line_m_error = 0;
 static const int dynlease_line_m_en_main = 1;
 
 
-#line 489 "dynlease.rl"
+#line 411 "dynlease.rl"
 
 
 static int do_parse_dynlease_line(dynlease_parse_state &cps, const char *p, size_t plen,
@@ -412,15 +332,15 @@ const size_t linenum)
 	const char *eof = pe;
 	
 
-#line 410 "dynlease.cpp"
+#line 330 "dynlease.cpp"
 	{
 		cps.cs = (int)dynlease_line_m_start;
 	}
 	
-#line 497 "dynlease.rl"
+#line 419 "dynlease.rl"
 
 
-#line 415 "dynlease.cpp"
+#line 335 "dynlease.cpp"
 {
 		switch ( cps.cs ) {
 			case 1:
@@ -612,10 +532,10 @@ const size_t linenum)
 		}
 		_ctr6:
 			{
-#line 395 "dynlease.rl"
+#line 315 "dynlease.rl"
 			cps.st = p; }
 		
-#line 609 "dynlease.cpp"
+#line 529 "dynlease.cpp"
 
 		goto _st5;
 		_st5:
@@ -650,12 +570,14 @@ const size_t linenum)
 		}
 		_ctr8:
 			{
-#line 397 "dynlease.rl"
+#line 317 "dynlease.rl"
 			
 			assign_strbuf(cps.interface, nullptr, sizeof cps.interface, cps.st, p);
+			const netif_info *nlinfo = nl_socket.get_ifinfo(cps.interface);
+			cps.ifindex = nlinfo ? nlinfo->index : -1;
 		}
 		
-#line 648 "dynlease.cpp"
+#line 570 "dynlease.cpp"
 
 		goto _st6;
 		_st6:
@@ -687,10 +609,10 @@ const size_t linenum)
 		}
 		_ctr10:
 			{
-#line 395 "dynlease.rl"
+#line 315 "dynlease.rl"
 			cps.st = p; }
 		
-#line 682 "dynlease.cpp"
+#line 604 "dynlease.cpp"
 
 		goto _st7;
 		_st7:
@@ -722,14 +644,14 @@ const size_t linenum)
 		}
 		_ctr12:
 			{
-#line 432 "dynlease.rl"
+#line 354 "dynlease.rl"
 			
 			size_t l;
 			assign_strbuf(cps.v4_addr, &l, sizeof cps.v4_addr, cps.st, p);
 			lc_string_inplace(cps.v4_addr, l);
 		}
 		
-#line 720 "dynlease.cpp"
+#line 642 "dynlease.cpp"
 
 		goto _st8;
 		_st8:
@@ -764,10 +686,10 @@ const size_t linenum)
 		}
 		_ctr14:
 			{
-#line 395 "dynlease.rl"
+#line 315 "dynlease.rl"
 			cps.st = p; }
 		
-#line 757 "dynlease.cpp"
+#line 679 "dynlease.cpp"
 
 		goto _st9;
 		_st9:
@@ -1118,7 +1040,7 @@ const size_t linenum)
 		}
 		_ctr32:
 			{
-#line 417 "dynlease.rl"
+#line 339 "dynlease.rl"
 			
 			char buf[32];
 			ptrdiff_t blen = p - cps.st;
@@ -1135,7 +1057,7 @@ const size_t linenum)
 			}
 		}
 		
-#line 1124 "dynlease.cpp"
+#line 1046 "dynlease.cpp"
 
 		goto _st26;
 		_st26:
@@ -1162,15 +1084,15 @@ const size_t linenum)
 		}
 		_ctr34:
 			{
-#line 395 "dynlease.rl"
+#line 315 "dynlease.rl"
 			cps.st = p; }
 		
-#line 1153 "dynlease.cpp"
+#line 1075 "dynlease.cpp"
 
 		goto _st41;
 		_ctr57:
 			{
-#line 442 "dynlease.rl"
+#line 364 "dynlease.rl"
 			
 			char buf[64];
 			ptrdiff_t blen = p - cps.st;
@@ -1185,10 +1107,10 @@ const size_t linenum)
 			}
 		}
 		
-#line 1172 "dynlease.cpp"
+#line 1094 "dynlease.cpp"
 
 			{
-#line 456 "dynlease.rl"
+#line 378 "dynlease.rl"
 			
 			in6_addr ipa;
 			if (!ipaddr_from_string(&ipa, cps.v4_addr)) {
@@ -1196,10 +1118,10 @@ const size_t linenum)
 				cps.parse_error = true;
 				{p+= 1; cps.cs = 41; goto _out;}
 			}
-			dynlease4_add(cps.interface, &ipa, cps.macaddr, cps.expire_time);
+			dynlease4_add(cps.ifindex, &ipa, cps.macaddr, cps.expire_time);
 		}
 		
-#line 1185 "dynlease.cpp"
+#line 1107 "dynlease.cpp"
 
 		goto _st41;
 		_st41:
@@ -1226,7 +1148,7 @@ const size_t linenum)
 		}
 		_ctr58:
 			{
-#line 442 "dynlease.rl"
+#line 364 "dynlease.rl"
 			
 			char buf[64];
 			ptrdiff_t blen = p - cps.st;
@@ -1241,12 +1163,12 @@ const size_t linenum)
 			}
 		}
 		
-#line 1226 "dynlease.cpp"
+#line 1148 "dynlease.cpp"
 
 		goto _st42;
 		_ctr60:
 			{
-#line 456 "dynlease.rl"
+#line 378 "dynlease.rl"
 			
 			in6_addr ipa;
 			if (!ipaddr_from_string(&ipa, cps.v4_addr)) {
@@ -1254,10 +1176,10 @@ const size_t linenum)
 				cps.parse_error = true;
 				{p+= 1; cps.cs = 42; goto _out;}
 			}
-			dynlease4_add(cps.interface, &ipa, cps.macaddr, cps.expire_time);
+			dynlease4_add(cps.ifindex, &ipa, cps.macaddr, cps.expire_time);
 		}
 		
-#line 1241 "dynlease.cpp"
+#line 1163 "dynlease.cpp"
 
 		goto _st42;
 		_st42:
@@ -1328,10 +1250,10 @@ const size_t linenum)
 		}
 		_ctr36:
 			{
-#line 395 "dynlease.rl"
+#line 315 "dynlease.rl"
 			cps.st = p; }
 		
-#line 1314 "dynlease.cpp"
+#line 1236 "dynlease.cpp"
 
 		goto _st29;
 		_st29:
@@ -1366,12 +1288,14 @@ const size_t linenum)
 		}
 		_ctr38:
 			{
-#line 397 "dynlease.rl"
+#line 317 "dynlease.rl"
 			
 			assign_strbuf(cps.interface, nullptr, sizeof cps.interface, cps.st, p);
+			const netif_info *nlinfo = nl_socket.get_ifinfo(cps.interface);
+			cps.ifindex = nlinfo ? nlinfo->index : -1;
 		}
 		
-#line 1353 "dynlease.cpp"
+#line 1277 "dynlease.cpp"
 
 		goto _st30;
 		_st30:
@@ -1406,10 +1330,10 @@ const size_t linenum)
 		}
 		_ctr40:
 			{
-#line 395 "dynlease.rl"
+#line 315 "dynlease.rl"
 			cps.st = p; }
 		
-#line 1390 "dynlease.cpp"
+#line 1314 "dynlease.cpp"
 
 		goto _st31;
 		_st31:
@@ -1444,14 +1368,14 @@ const size_t linenum)
 		}
 		_ctr42:
 			{
-#line 437 "dynlease.rl"
+#line 359 "dynlease.rl"
 			
 			size_t l;
 			assign_strbuf(cps.v6_addr, &l, sizeof cps.v6_addr, cps.st, p);
 			lc_string_inplace(cps.v6_addr, l);
 		}
 		
-#line 1431 "dynlease.cpp"
+#line 1355 "dynlease.cpp"
 
 		goto _st32;
 		_st32:
@@ -1486,10 +1410,10 @@ const size_t linenum)
 		}
 		_ctr44:
 			{
-#line 395 "dynlease.rl"
+#line 315 "dynlease.rl"
 			cps.st = p; }
 		
-#line 1468 "dynlease.cpp"
+#line 1392 "dynlease.cpp"
 
 		goto _st33;
 		_st33:
@@ -1524,13 +1448,13 @@ const size_t linenum)
 		}
 		_ctr46:
 			{
-#line 400 "dynlease.rl"
+#line 322 "dynlease.rl"
 			
 			assign_strbuf(cps.duid, &cps.duid_len, sizeof cps.duid, cps.st, p);
 			lc_string_inplace(cps.duid, cps.duid_len);
 		}
 		
-#line 1508 "dynlease.cpp"
+#line 1432 "dynlease.cpp"
 
 		goto _st34;
 		_st34:
@@ -1557,10 +1481,10 @@ const size_t linenum)
 		}
 		_ctr49:
 			{
-#line 395 "dynlease.rl"
+#line 315 "dynlease.rl"
 			cps.st = p; }
 		
-#line 1537 "dynlease.cpp"
+#line 1461 "dynlease.cpp"
 
 		goto _st35;
 		_st35:
@@ -1587,7 +1511,7 @@ const size_t linenum)
 		}
 		_ctr51:
 			{
-#line 404 "dynlease.rl"
+#line 326 "dynlease.rl"
 			
 			char buf[64];
 			ptrdiff_t blen = p - cps.st;
@@ -1602,7 +1526,7 @@ const size_t linenum)
 			}
 		}
 		
-#line 1578 "dynlease.cpp"
+#line 1502 "dynlease.cpp"
 
 		goto _st36;
 		_st36:
@@ -1629,15 +1553,15 @@ const size_t linenum)
 		}
 		_ctr53:
 			{
-#line 395 "dynlease.rl"
+#line 315 "dynlease.rl"
 			cps.st = p; }
 		
-#line 1607 "dynlease.cpp"
+#line 1531 "dynlease.cpp"
 
 		goto _st43;
 		_ctr62:
 			{
-#line 442 "dynlease.rl"
+#line 364 "dynlease.rl"
 			
 			char buf[64];
 			ptrdiff_t blen = p - cps.st;
@@ -1652,10 +1576,10 @@ const size_t linenum)
 			}
 		}
 		
-#line 1626 "dynlease.cpp"
+#line 1550 "dynlease.cpp"
 
 			{
-#line 465 "dynlease.rl"
+#line 387 "dynlease.rl"
 			
 			in6_addr ipa;
 			if (!ipaddr_from_string(&ipa, cps.v6_addr)) {
@@ -1663,10 +1587,10 @@ const size_t linenum)
 				cps.parse_error = true;
 				{p+= 1; cps.cs = 43; goto _out;}
 			}
-			dynlease6_add(cps.interface, &ipa, cps.duid, cps.duid_len, cps.iaid, cps.expire_time);
+			dynlease6_add(cps.ifindex, &ipa, cps.duid, cps.duid_len, cps.iaid, cps.expire_time);
 		}
 		
-#line 1639 "dynlease.cpp"
+#line 1563 "dynlease.cpp"
 
 		goto _st43;
 		_st43:
@@ -1693,7 +1617,7 @@ const size_t linenum)
 		}
 		_ctr63:
 			{
-#line 442 "dynlease.rl"
+#line 364 "dynlease.rl"
 			
 			char buf[64];
 			ptrdiff_t blen = p - cps.st;
@@ -1708,12 +1632,12 @@ const size_t linenum)
 			}
 		}
 		
-#line 1680 "dynlease.cpp"
+#line 1604 "dynlease.cpp"
 
 		goto _st44;
 		_ctr65:
 			{
-#line 465 "dynlease.rl"
+#line 387 "dynlease.rl"
 			
 			in6_addr ipa;
 			if (!ipaddr_from_string(&ipa, cps.v6_addr)) {
@@ -1721,10 +1645,10 @@ const size_t linenum)
 				cps.parse_error = true;
 				{p+= 1; cps.cs = 44; goto _out;}
 			}
-			dynlease6_add(cps.interface, &ipa, cps.duid, cps.duid_len, cps.iaid, cps.expire_time);
+			dynlease6_add(cps.ifindex, &ipa, cps.duid, cps.duid_len, cps.iaid, cps.expire_time);
 		}
 		
-#line 1695 "dynlease.cpp"
+#line 1619 "dynlease.cpp"
 
 		goto _st44;
 		_st44:
@@ -1909,7 +1833,7 @@ const size_t linenum)
 		_out: {}
 	}
 	
-#line 498 "dynlease.rl"
+#line 420 "dynlease.rl"
 
 	
 	if (cps.parse_error) return -1;
@@ -1932,8 +1856,10 @@ bool dynlease_deserialize(const char *path)
 		__func__, path);
 		goto out0;
 	}
-	dyn_leases_v4.clear();
-	dyn_leases_v6.clear();
+	for (size_t i = 0; i < MAX_NL_INTERFACES; ++i) {
+		dyn_leases_v4[i].clear();
+		dyn_leases_v6[i].clear();
+	}
 	while (!feof(f)) {
 		if (!fgets(buf, sizeof buf, f)) {
 			if (!feof(f)) {
