@@ -15,12 +15,9 @@ extern "C" {
 }
 
 #define MAX_LINE 2048
-// The RFC allows for 128 raw bytes, which would correspond
-// to a value of 256, but I believe this is a mistake, as it
-// is simply unnecessary to have a 1024-bit value to guard
-// against collisions even with random strings.  256-bit
-// security is enough to avoid birthday attacks.
-#define MAX_DUID 64
+// The RFC allows for 128 raw bytes, which corresponds
+// to a value of 256.
+#define MAX_DUID 256
 
 #ifdef __GNUC__
 #pragma GCC diagnostic ignored "-Wold-style-cast"
