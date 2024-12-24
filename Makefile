@@ -1,5 +1,5 @@
-NDHS_C_SRCS = $(sort attach_bpf.c nl.c dhcp_state.c duid.c dynlease.c nlsocket.c options.c nk/hwrng.c nk/random.c nk/io.c nk/privs.c)
-NDHS_CXX_SRCS = $(sort cfg.cpp dhcp4.cpp dhcp6.cpp ndhs.cpp radv6.cpp cfg.cpp)
+NDHS_C_SRCS = $(sort attach_bpf.c cfg.c dhcp_state.c duid.c dynlease.c nl.c nlsocket.c options.c nk/hwrng.c nk/random.c nk/io.c nk/privs.c)
+NDHS_CXX_SRCS = $(sort dhcp4.cpp dhcp6.cpp ndhs.cpp radv6.cpp)
 NDHS_OBJS = $(NDHS_C_SRCS:.c=.o) $(NDHS_CXX_SRCS:.cpp=.o)
 NDHS_DEP = $(NDHS_C_SRCS:.c=.d) $(NDHS_CXX_SRCS:.cpp=.d)
 INCL = -I.
@@ -21,15 +21,15 @@ clean:
 	rm -f $(NDHS_OBJS) $(NDHS_DEP) ndhs
 
 cleanragel:
-	rm -f dynlease.c cfg.cpp
+	rm -f dynlease.c cfg.c
 
 dynlease.c: dynlease.rl
 	ragel -G2 -o dynlease.c dynlease.rl
 
-cfg.cpp: cfg.rl
-	ragel -T0 -o cfg.cpp cfg.rl
+cfg.c: cfg.rl
+	ragel -T0 -o cfg.c cfg.rl
 
-ragel: dynlease.c cfg.cpp
+ragel: dynlease.c cfg.c
 
 .PHONY: all clean cleanragel
 

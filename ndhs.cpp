@@ -68,7 +68,7 @@ static struct pollfd *poll_array;
 static struct pfd_meta *poll_meta;
 static size_t poll_size = 1;
 
-extern bool parse_config(const char *path);
+extern "C" bool parse_config(const char *path);
 
 static void count_bound_listeners(const struct netif_info *, bool use_v4, bool use_v6, uint8_t, void *)
 {
@@ -152,13 +152,13 @@ static void init_listeners()
 }
 
 extern "C" {
+
 int64_t get_current_ts()
 {
     struct timespec ts;
     if (clock_gettime(CLOCK_MONOTONIC, &ts))
         suicide("clock_gettime failed\n");
     return ts.tv_sec;
-}
 }
 
 void set_user_runas(const char *username, size_t len)
@@ -178,6 +178,8 @@ void set_chroot_path(const char *path, size_t len)
 void set_s6_notify_fd(int fd)
 {
     s6_notify_fd = fd;
+}
+
 }
 
 static volatile sig_atomic_t l_signal_exit;

@@ -1,38 +1,21 @@
 // -*- c++ -*-
-// Copyright 2016-2020 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2016-2024 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <stdio.h>
 #include <inttypes.h>
 #include <errno.h>
 #include "dhcp_state.h"
-extern "C" {
-#include "ipaddr.h"
+#include <ipaddr.h>
 #include "nk/log.h"
 #include <net/if.h>
-}
+
 extern void set_user_runas(const char *username, size_t len);
 extern void set_chroot_path(const char *path, size_t len);
 extern void set_s6_notify_fd(int fd);
 
 #define MAX_LINE 2048
 
-#ifdef __GNUC__
-#pragma GCC diagnostic ignored "-Wold-style-cast"
-#endif
-
 struct cfg_parse_state {
-    cfg_parse_state() : st(nullptr), cs(0), nipaddrs(0), ifindex(-1), default_lifetime(7200),
-                        default_preference(0), parse_error(false) {}
-    void newline() {
-        // Do NOT clear ifindex here; it is stateful between lines!
-        memset(duid, 0, sizeof duid);
-        memset(ipaddrs, 0, sizeof ipaddrs);
-        memset(macaddr, 0, sizeof macaddr);
-        duid_len = 0;
-        nipaddrs = 0;
-        iaid = 0;
-        parse_error = false;
-    }
     const char *st;
     int cs;
 
@@ -48,11 +31,24 @@ struct cfg_parse_state {
     bool parse_error;
 };
 
-#define MARKED_STRING() cps.st, (p > cps.st ? static_cast<size_t>(p - cps.st) : 0)
+static void newline(struct cfg_parse_state *ps) {
+    // Do NOT clear ifindex here; it is stateful between lines!
+    memset(ps->duid, 0, sizeof ps->duid);
+    memset(ps->ipaddrs, 0, sizeof ps->ipaddrs);
+    memset(ps->macaddr, 0, sizeof ps->macaddr);
+    ps->duid_len = 0;
+    ps->nipaddrs = 0;
+    ps->iaid = 0;
+    ps->parse_error = false;
+}
+
+bool parse_config(const char *path);
+
+#define MARKED_STRING() cps->st, (p > cps->st ? (size_t)(p - cps->st) : 0)
 
 #include "parsehelp.h"
 
-bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
+static bool string_to_ipaddr(struct in6_addr *r, const char *s, size_t linenum)
 {
     if (!ipaddr_from_string(r, s)) {
         log_line("ip address on line %zu is invalid\n", linenum);
@@ -63,68 +59,68 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
 
 %%{
     machine cfg_line_m;
-    access cps.;
+    access cps->;
 
-    action St { cps.st = p; }
+    action St { cps->st = p; }
 
     action DuidEn {
-        assign_strbuf(cps.duid, &cps.duid_len, sizeof cps.duid, cps.st, p);
-        lc_string_inplace(cps.duid, cps.duid_len);
+        assign_strbuf(cps->duid, &cps->duid_len, sizeof cps->duid, cps->st, p);
+        lc_string_inplace(cps->duid, cps->duid_len);
     }
     action IaidEn {
         char buf[64];
-        ptrdiff_t blen = p - cps.st;
+        ptrdiff_t blen = p - cps->st;
         if (blen < 0 || blen >= (int)sizeof buf) {
-            cps.parse_error = true;
+            cps->parse_error = true;
             fbreak;
         }
-        memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
-        if (sscanf(buf, "%" SCNu32, &cps.iaid) != 1) {
-            cps.parse_error = true;
+        memcpy(buf, cps->st, (size_t)blen); buf[blen] = 0;
+        if (sscanf(buf, "%" SCNu32, &cps->iaid) != 1) {
+            cps->parse_error = true;
             fbreak;
         }
     }
     action MacAddrEn {
         char buf[32];
-        ptrdiff_t blen = p - cps.st;
+        ptrdiff_t blen = p - cps->st;
         if (blen < 0 || blen >= (int)sizeof buf) {
-            cps.parse_error = true;
+            cps->parse_error = true;
             fbreak;
         }
-        *(char *)mempcpy(buf, cps.st, (size_t)blen) = 0;
+        *(char *)mempcpy(buf, cps->st, (size_t)blen) = 0;
         if (sscanf(buf, "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx",
-                   &cps.macaddr[0], &cps.macaddr[1], &cps.macaddr[2],
-                   &cps.macaddr[3], &cps.macaddr[4], &cps.macaddr[5]) != 6) {
-            cps.parse_error = true;
+                   &cps->macaddr[0], &cps->macaddr[1], &cps->macaddr[2],
+                   &cps->macaddr[3], &cps->macaddr[4], &cps->macaddr[5]) != 6) {
+            cps->parse_error = true;
             fbreak;
         }
     }
     action IPAddrEn {
         size_t l;
-        assign_strbuf(cps.ipaddrs[cps.nipaddrs], &l, sizeof cps.ipaddrs[cps.nipaddrs], cps.st, p);
-        lc_string_inplace(cps.ipaddrs[cps.nipaddrs++], l);
+        assign_strbuf(cps->ipaddrs[cps->nipaddrs], &l, sizeof cps->ipaddrs[cps->nipaddrs], cps->st, p);
+        lc_string_inplace(cps->ipaddrs[cps->nipaddrs++], l);
     }
     action Bind4En {
         char buf[IFNAMSIZ];
-        ptrdiff_t blen = p - cps.st;
+        ptrdiff_t blen = p - cps->st;
         if (blen < 0 || blen >= IFNAMSIZ) {
             log_line("interface name on line %zu is too long (>= %d)\n", linenum, IFNAMSIZ);
-            cps.parse_error = true;
+            cps->parse_error = true;
             fbreak;
         }
-        memcpy(buf, cps.st, (size_t)blen);
+        memcpy(buf, cps->st, (size_t)blen);
         buf[blen] = 0;
         emplace_bind4(linenum, buf);
     }
     action Bind6En {
         char buf[IFNAMSIZ];
-        ptrdiff_t blen = p - cps.st;
+        ptrdiff_t blen = p - cps->st;
         if (blen < 0 || blen >= IFNAMSIZ) {
             log_line("interface name on line %zu is too long (>= %d)\n", linenum, IFNAMSIZ);
-            cps.parse_error = true;
+            cps->parse_error = true;
             fbreak;
         }
-        memcpy(buf, cps.st, (size_t)blen);
+        memcpy(buf, cps->st, (size_t)blen);
         buf[blen] = 0;
         emplace_bind6(linenum, buf);
     }
@@ -132,131 +128,131 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
     action ChrootEn { set_chroot_path(MARKED_STRING()); }
     action S6NotifyEn {
         char buf[64];
-        ptrdiff_t blen = p - cps.st;
+        ptrdiff_t blen = p - cps->st;
         if (blen < 0 || blen >= (int)sizeof buf) {
-            cps.parse_error = true;
+            cps->parse_error = true;
             fbreak;
         }
-        memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
+        memcpy(buf, cps->st, (size_t)blen); buf[blen] = 0;
         int fd;
         if (sscanf(buf, "%d", &fd) != 1) {
-            cps.parse_error = true;
+            cps->parse_error = true;
             fbreak;
         }
         set_s6_notify_fd(fd);
     }
     action DefLifeEn {
         char buf[64];
-        ptrdiff_t blen = p - cps.st;
+        ptrdiff_t blen = p - cps->st;
         if (blen < 0 || blen >= (int)sizeof buf) {
-            cps.parse_error = true;
+            cps->parse_error = true;
             fbreak;
         }
-        memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
-        if (sscanf(buf, "%" SCNu32, &cps.default_lifetime) != 1) {
-            cps.parse_error = true;
+        memcpy(buf, cps->st, (size_t)blen); buf[blen] = 0;
+        if (sscanf(buf, "%" SCNu32, &cps->default_lifetime) != 1) {
+            cps->parse_error = true;
             fbreak;
         }
     }
     action DefPrefEn {
         char buf[64];
-        ptrdiff_t blen = p - cps.st;
+        ptrdiff_t blen = p - cps->st;
         if (blen < 0 || blen >= (int)sizeof buf) {
-            cps.parse_error = true;
+            cps->parse_error = true;
             fbreak;
         }
-        memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
-        if (sscanf(buf, "%" SCNu8, &cps.default_preference) != 1) {
+        memcpy(buf, cps->st, (size_t)blen); buf[blen] = 0;
+        if (sscanf(buf, "%" SCNu8, &cps->default_preference) != 1) {
             log_line("default_preference on line %zu out of range [0,255]\n", linenum);
-            cps.parse_error = true;
+            cps->parse_error = true;
             fbreak;
         }
     }
     action InterfaceEn {
         char interface[IFNAMSIZ];
-        ptrdiff_t blen = p - cps.st;
+        ptrdiff_t blen = p - cps->st;
         if (blen < 0 || blen >= (int)sizeof interface) {
             log_line("interface name on line %zu is too long (>= %d)\n", linenum, IFNAMSIZ);
-            cps.parse_error = true;
+            cps->parse_error = true;
             fbreak;
         }
-        memcpy(interface, cps.st, (size_t)blen);
+        memcpy(interface, cps->st, (size_t)blen);
         interface[blen] = 0;
-        cps.ifindex = emplace_interface(linenum, interface, cps.default_preference);
+        cps->ifindex = emplace_interface(linenum, interface, cps->default_preference);
     }
     action DnsServerEn {
-        struct in6_addr *addrs = static_cast<in6_addr *>(calloc(cps->nipaddrs, sizeof(struct in6_addr)));
+        struct in6_addr *addrs = calloc(cps->nipaddrs, sizeof(struct in6_addr));
         if (!addrs) abort();
-        for (size_t i = 0; i < cps.nipaddrs; ++i) {
-            if (!string_to_ipaddr(&addrs[i], cps.ipaddrs[i], strlen(cps.ipaddrs[i]))) {
-                log_line("invalid ip address (%s) at line %zu", cps.ipaddrs[i], linenum);
-                cps.parse_error = true;
+        for (size_t i = 0; i < cps->nipaddrs; ++i) {
+            if (!string_to_ipaddr(&addrs[i], cps->ipaddrs[i], strlen(cps->ipaddrs[i]))) {
+                log_line("invalid ip address (%s) at line %zu", cps->ipaddrs[i], linenum);
+                cps->parse_error = true;
                 fbreak;
             }
         }
-        emplace_dns_servers(linenum, cps.ifindex, addrs, cps.nipaddrs);
+        emplace_dns_servers(linenum, cps->ifindex, addrs, cps->nipaddrs);
     }
     action DnsSearchEn {
-        emplace_dns_search(linenum, cps.ifindex, MARKED_STRING());
+        emplace_dns_search(linenum, cps->ifindex, MARKED_STRING());
     }
     action NtpServerEn {
-        struct in6_addr *addrs = static_cast<in6_addr *>(calloc(cps->nipaddrs, sizeof(struct in6_addr)));
+        struct in6_addr *addrs = calloc(cps->nipaddrs, sizeof(struct in6_addr));
         if (!addrs) abort();
-        for (size_t i = 0; i < cps.nipaddrs; ++i) {
-            if (!string_to_ipaddr(&addrs[i], cps.ipaddrs[i], strlen(cps.ipaddrs[i]))) {
-                log_line("invalid ip address (%s) at line %zu", cps.ipaddrs[i], linenum);
-                cps.parse_error = true;
+        for (size_t i = 0; i < cps->nipaddrs; ++i) {
+            if (!string_to_ipaddr(&addrs[i], cps->ipaddrs[i], strlen(cps->ipaddrs[i]))) {
+                log_line("invalid ip address (%s) at line %zu", cps->ipaddrs[i], linenum);
+                cps->parse_error = true;
                 fbreak;
             }
         }
-        emplace_ntp_servers(linenum, cps.ifindex, addrs, cps.nipaddrs);
+        emplace_ntp_servers(linenum, cps->ifindex, addrs, cps->nipaddrs);
     }
     action GatewayEn {
-        in6_addr t;
-        if (!string_to_ipaddr(&t, cps.ipaddrs[0], linenum)) {
-            cps.parse_error = true;
+        struct in6_addr t;
+        if (!string_to_ipaddr(&t, cps->ipaddrs[0], linenum)) {
+            cps->parse_error = true;
             fbreak;
         }
-        emplace_gateway_v4(linenum, cps.ifindex, &t);
+        emplace_gateway_v4(linenum, cps->ifindex, &t);
     }
     action DynRangeEn {
-        if (cps.nipaddrs != 2) {
-            fprintf(stderr, "XXX: dynrange nipaddrs != 2 (%zu)\n", cps.nipaddrs);
-            cps.parse_error = true;
+        if (cps->nipaddrs != 2) {
+            fprintf(stderr, "XXX: dynrange nipaddrs != 2 (%zu)\n", cps->nipaddrs);
+            cps->parse_error = true;
             fbreak;
         }
-        in6_addr tlo;
-        if (!string_to_ipaddr(&tlo, cps.ipaddrs[0], linenum)) {
-            cps.parse_error = true;
+        struct in6_addr tlo;
+        if (!string_to_ipaddr(&tlo, cps->ipaddrs[0], linenum)) {
+            cps->parse_error = true;
             fbreak;
         }
-        in6_addr thi;
-        if (!string_to_ipaddr(&thi, cps.ipaddrs[1], linenum)) {
-            cps.parse_error = true;
+        struct in6_addr thi;
+        if (!string_to_ipaddr(&thi, cps->ipaddrs[1], linenum)) {
+            cps->parse_error = true;
             fbreak;
         }
-        emplace_dynamic_range(linenum, cps.ifindex, &tlo, &thi, cps.default_lifetime);
+        emplace_dynamic_range(linenum, cps->ifindex, &tlo, &thi, cps->default_lifetime);
     }
     action DynamicV6En {
-        emplace_dynamic_v6(linenum, cps.ifindex);
+        emplace_dynamic_v6(linenum, cps->ifindex);
     }
     action V4EntryEn {
-        in6_addr t;
-        if (!string_to_ipaddr(&t, cps.ipaddrs[0], linenum)) {
-            cps.parse_error = true;
+        struct in6_addr t;
+        if (!string_to_ipaddr(&t, cps->ipaddrs[0], linenum)) {
+            cps->parse_error = true;
             fbreak;
         }
-        emplace_dhcp4_state(linenum, cps.ifindex, cps.macaddr, &t, cps.default_lifetime);
+        emplace_dhcp4_state(linenum, cps->ifindex, cps->macaddr, &t, cps->default_lifetime);
     }
     action V6EntryEn {
-        in6_addr t;
-        if (!string_to_ipaddr(&t, cps.ipaddrs[0], linenum)) {
-            cps.parse_error = true;
+        struct in6_addr t;
+        if (!string_to_ipaddr(&t, cps->ipaddrs[0], linenum)) {
+            cps->parse_error = true;
             fbreak;
         }
-        emplace_dhcp6_state(linenum, cps.ifindex,
-                            cps.duid, cps.duid_len,
-                            cps.iaid, &t, cps.default_lifetime);
+        emplace_dhcp6_state(linenum, cps->ifindex,
+                            cps->duid, cps->duid_len,
+                            cps->iaid, &t, cps->default_lifetime);
     }
 
     duid = xdigit+ >St %DuidEn;
@@ -291,7 +287,7 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
 
 %% write data;
 
-static int do_parse_cfg_line(cfg_parse_state &cps, const char *p, size_t plen,
+static int do_parse_cfg_line(struct cfg_parse_state *cps, const char *p, size_t plen,
                              const size_t linenum)
 {
     const char *pe = p + plen;
@@ -300,10 +296,10 @@ static int do_parse_cfg_line(cfg_parse_state &cps, const char *p, size_t plen,
     %% write init;
     %% write exec;
 
-    if (cps.parse_error) return -1;
-    if (cps.cs >= cfg_line_m_first_final)
+    if (cps->parse_error) return -1;
+    if (cps->cs >= cfg_line_m_first_final)
         return 1;
-    if (cps.cs == cfg_line_m_error)
+    if (cps->cs == cfg_line_m_error)
         return -1;
     return -2;
 }
@@ -312,7 +308,7 @@ bool parse_config(const char *path)
 {
     bool ret = false;
     size_t linenum = 0;
-    cfg_parse_state ps;
+    struct cfg_parse_state ps = { .ifindex = -1, .default_lifetime = 7200 };
     char buf[MAX_LINE];
     FILE *f = fopen(path, "r");
     if (!f) {
@@ -328,14 +324,14 @@ bool parse_config(const char *path)
             }
             break;
         }
-        auto llen = strlen(buf);
+        size_t llen = strlen(buf);
         if (llen == 0)
             continue;
         if (buf[llen-1] == '\n')
             buf[--llen] = 0;
         ++linenum;
-        ps.newline();
-        const auto r = do_parse_cfg_line(ps, buf, llen, linenum);
+        newline(&ps);
+        int r = do_parse_cfg_line(&ps, buf, llen, linenum);
         if (r < 0) {
             if (r == -2)
                 log_line("%s: Incomplete configuration at line %zu; ignoring\n",

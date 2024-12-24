@@ -1,39 +1,22 @@
 #line 1 "cfg.rl"
 // -*- c++ -*-
-// Copyright 2016-2020 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2016-2024 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <stdio.h>
 #include <inttypes.h>
 #include <errno.h>
 #include "dhcp_state.h"
-extern "C" {
-#include "ipaddr.h"
+#include <ipaddr.h>
 #include "nk/log.h"
 #include <net/if.h>
-}
+
 extern void set_user_runas(const char *username, size_t len);
 extern void set_chroot_path(const char *path, size_t len);
 extern void set_s6_notify_fd(int fd);
 
 #define MAX_LINE 2048
 
-#ifdef __GNUC__
-#pragma GCC diagnostic ignored "-Wold-style-cast"
-#endif
-
 struct cfg_parse_state {
-	cfg_parse_state() : st(nullptr), cs(0), nipaddrs(0), ifindex(-1), default_lifetime(7200),
-	default_preference(0), parse_error(false) {}
-	void newline() {
-		// Do NOT clear ifindex here; it is stateful between lines!
-		memset(duid, 0, sizeof duid);
-		memset(ipaddrs, 0, sizeof ipaddrs);
-		memset(macaddr, 0, sizeof macaddr);
-		duid_len = 0;
-		nipaddrs = 0;
-		iaid = 0;
-		parse_error = false;
-	}
 	const char *st;
 	int cs;
 	
@@ -49,11 +32,24 @@ struct cfg_parse_state {
 	bool parse_error;
 };
 
-#define MARKED_STRING() cps.st, (p > cps.st ? static_cast<size_t>(p - cps.st) : 0)
+static void newline(struct cfg_parse_state *ps) {
+	// Do NOT clear ifindex here; it is stateful between lines!
+	memset(ps->duid, 0, sizeof ps->duid);
+	memset(ps->ipaddrs, 0, sizeof ps->ipaddrs);
+	memset(ps->macaddr, 0, sizeof ps->macaddr);
+	ps->duid_len = 0;
+	ps->nipaddrs = 0;
+	ps->iaid = 0;
+	ps->parse_error = false;
+}
+
+bool parse_config(const char *path);
+
+#define MARKED_STRING() cps->st, (p > cps->st ? (size_t)(p - cps->st) : 0)
 
 #include "parsehelp.h"
 
-bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
+static bool string_to_ipaddr(struct in6_addr *r, const char *s, size_t linenum)
 {
 	if (!ipaddr_from_string(r, s)) {
 		log_line("ip address on line %zu is invalid\n", linenum);
@@ -63,11 +59,11 @@ bool string_to_ipaddr(in6_addr *r, const char *s, size_t linenum)
 }
 
 
-#line 292 "cfg.rl"
+#line 288 "cfg.rl"
 
 
 
-#line 68 "cfg.cpp"
+#line 64 "cfg.c"
 static const signed char _cfg_line_m_actions[] = {
 	0, 1, 0, 1, 1, 1, 2, 1,
 	3, 1, 4, 1, 5, 1, 6, 1,
@@ -492,25 +488,25 @@ static const int cfg_line_m_error = 0;
 static const int cfg_line_m_en_main = 154;
 
 
-#line 294 "cfg.rl"
+#line 290 "cfg.rl"
 
 
-static int do_parse_cfg_line(cfg_parse_state &cps, const char *p, size_t plen,
+static int do_parse_cfg_line(struct cfg_parse_state *cps, const char *p, size_t plen,
 const size_t linenum)
 {
 	const char *pe = p + plen;
 	const char *eof = pe;
 	
 
-#line 500 "cfg.cpp"
+#line 496 "cfg.c"
 	{
-		cps.cs = (int)cfg_line_m_start;
+		cps->cs = (int)cfg_line_m_start;
 	}
 	
-#line 302 "cfg.rl"
+#line 298 "cfg.rl"
 
 
-#line 505 "cfg.cpp"
+#line 501 "cfg.c"
 	{
 		int _klen;
 		unsigned int _trans = 0;
@@ -521,15 +517,15 @@ const size_t linenum)
 		if ( p == pe && p != eof )
 			goto _out;
 		if ( p == eof ) {
-			if ( _cfg_line_m_eof_trans[cps.cs] > 0 ) {
-				_trans = (unsigned int)_cfg_line_m_eof_trans[cps.cs] - 1;
+			if ( _cfg_line_m_eof_trans[cps->cs] > 0 ) {
+				_trans = (unsigned int)_cfg_line_m_eof_trans[cps->cs] - 1;
 			}
 		}
 		else {
-			_keys = ( _cfg_line_m_trans_keys + (_cfg_line_m_key_offsets[cps.cs]));
-			_trans = (unsigned int)_cfg_line_m_index_offsets[cps.cs];
+			_keys = ( _cfg_line_m_trans_keys + (_cfg_line_m_key_offsets[cps->cs]));
+			_trans = (unsigned int)_cfg_line_m_index_offsets[cps->cs];
 			
-			_klen = (int)_cfg_line_m_single_lengths[cps.cs];
+			_klen = (int)_cfg_line_m_single_lengths[cps->cs];
 			if ( _klen > 0 ) {
 				const char *_lower = _keys;
 				const char *_upper = _keys + _klen - 1;
@@ -553,7 +549,7 @@ const size_t linenum)
 				}
 			}
 			
-			_klen = (int)_cfg_line_m_range_lengths[cps.cs];
+			_klen = (int)_cfg_line_m_range_lengths[cps->cs];
 			if ( _klen > 0 ) {
 				const char *_lower = _keys;
 				const char *_upper = _keys + (_klen<<1) - 2;
@@ -578,7 +574,7 @@ const size_t linenum)
 			
 			_match: {}
 		}
-		cps.cs = (int)_cfg_line_m_cond_targs[_trans];
+		cps->cs = (int)_cfg_line_m_cond_targs[_trans];
 		
 		if ( _cfg_line_m_cond_actions[_trans] != 0 ) {
 			
@@ -590,363 +586,363 @@ const size_t linenum)
 				{
 					case 0:  {
 							{
-#line 68 "cfg.rl"
-							cps.st = p; }
+#line 64 "cfg.rl"
+							cps->st = p; }
 						
-#line 587 "cfg.cpp"
+#line 583 "cfg.c"
 
 						break; 
 					}
 					case 1:  {
 							{
-#line 70 "cfg.rl"
+#line 66 "cfg.rl"
 							
-							assign_strbuf(cps.duid, &cps.duid_len, sizeof cps.duid, cps.st, p);
-							lc_string_inplace(cps.duid, cps.duid_len);
+							assign_strbuf(cps->duid, &cps->duid_len, sizeof cps->duid, cps->st, p);
+							lc_string_inplace(cps->duid, cps->duid_len);
 						}
 						
-#line 598 "cfg.cpp"
+#line 594 "cfg.c"
 
 						break; 
 					}
 					case 2:  {
 							{
-#line 74 "cfg.rl"
+#line 70 "cfg.rl"
 							
 							char buf[64];
-							ptrdiff_t blen = p - cps.st;
+							ptrdiff_t blen = p - cps->st;
 							if (blen < 0 || blen >= (int)sizeof buf) {
-								cps.parse_error = true;
+								cps->parse_error = true;
 								{p += 1; goto _out; }
 							}
-							memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
-							if (sscanf(buf, "%" SCNu32, &cps.iaid) != 1) {
-								cps.parse_error = true;
+							memcpy(buf, cps->st, (size_t)blen); buf[blen] = 0;
+							if (sscanf(buf, "%" SCNu32, &cps->iaid) != 1) {
+								cps->parse_error = true;
 								{p += 1; goto _out; }
 							}
 						}
 						
-#line 618 "cfg.cpp"
+#line 614 "cfg.c"
 
 						break; 
 					}
 					case 3:  {
 							{
-#line 87 "cfg.rl"
+#line 83 "cfg.rl"
 							
 							char buf[32];
-							ptrdiff_t blen = p - cps.st;
+							ptrdiff_t blen = p - cps->st;
 							if (blen < 0 || blen >= (int)sizeof buf) {
-								cps.parse_error = true;
+								cps->parse_error = true;
 								{p += 1; goto _out; }
 							}
-							*(char *)mempcpy(buf, cps.st, (size_t)blen) = 0;
+							*(char *)mempcpy(buf, cps->st, (size_t)blen) = 0;
 							if (sscanf(buf, "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx",
-							&cps.macaddr[0], &cps.macaddr[1], &cps.macaddr[2],
-							&cps.macaddr[3], &cps.macaddr[4], &cps.macaddr[5]) != 6) {
-								cps.parse_error = true;
+							&cps->macaddr[0], &cps->macaddr[1], &cps->macaddr[2],
+							&cps->macaddr[3], &cps->macaddr[4], &cps->macaddr[5]) != 6) {
+								cps->parse_error = true;
 								{p += 1; goto _out; }
 							}
 						}
 						
-#line 640 "cfg.cpp"
+#line 636 "cfg.c"
 
 						break; 
 					}
 					case 4:  {
 							{
-#line 102 "cfg.rl"
+#line 98 "cfg.rl"
 							
 							size_t l;
-							assign_strbuf(cps.ipaddrs[cps.nipaddrs], &l, sizeof cps.ipaddrs[cps.nipaddrs], cps.st, p);
-							lc_string_inplace(cps.ipaddrs[cps.nipaddrs++], l);
+							assign_strbuf(cps->ipaddrs[cps->nipaddrs], &l, sizeof cps->ipaddrs[cps->nipaddrs], cps->st, p);
+							lc_string_inplace(cps->ipaddrs[cps->nipaddrs++], l);
 						}
 						
-#line 652 "cfg.cpp"
+#line 648 "cfg.c"
 
 						break; 
 					}
 					case 5:  {
 							{
-#line 107 "cfg.rl"
+#line 103 "cfg.rl"
 							
 							char buf[IFNAMSIZ];
-							ptrdiff_t blen = p - cps.st;
+							ptrdiff_t blen = p - cps->st;
 							if (blen < 0 || blen >= IFNAMSIZ) {
 								log_line("interface name on line %zu is too long (>= %d)\n", linenum, IFNAMSIZ);
-								cps.parse_error = true;
+								cps->parse_error = true;
 								{p += 1; goto _out; }
 							}
-							memcpy(buf, cps.st, (size_t)blen);
+							memcpy(buf, cps->st, (size_t)blen);
 							buf[blen] = 0;
 							emplace_bind4(linenum, buf);
 						}
 						
-#line 671 "cfg.cpp"
+#line 667 "cfg.c"
 
 						break; 
 					}
 					case 6:  {
 							{
-#line 119 "cfg.rl"
+#line 115 "cfg.rl"
 							
 							char buf[IFNAMSIZ];
-							ptrdiff_t blen = p - cps.st;
+							ptrdiff_t blen = p - cps->st;
 							if (blen < 0 || blen >= IFNAMSIZ) {
 								log_line("interface name on line %zu is too long (>= %d)\n", linenum, IFNAMSIZ);
-								cps.parse_error = true;
+								cps->parse_error = true;
 								{p += 1; goto _out; }
 							}
-							memcpy(buf, cps.st, (size_t)blen);
+							memcpy(buf, cps->st, (size_t)blen);
 							buf[blen] = 0;
 							emplace_bind6(linenum, buf);
 						}
 						
-#line 690 "cfg.cpp"
+#line 686 "cfg.c"
 
 						break; 
 					}
 					case 7:  {
 							{
-#line 131 "cfg.rl"
+#line 127 "cfg.rl"
 							set_user_runas(MARKED_STRING()); }
 						
-#line 698 "cfg.cpp"
+#line 694 "cfg.c"
 
 						break; 
 					}
 					case 8:  {
 							{
-#line 132 "cfg.rl"
+#line 128 "cfg.rl"
 							set_chroot_path(MARKED_STRING()); }
 						
-#line 706 "cfg.cpp"
+#line 702 "cfg.c"
 
 						break; 
 					}
 					case 9:  {
 							{
-#line 133 "cfg.rl"
+#line 129 "cfg.rl"
 							
 							char buf[64];
-							ptrdiff_t blen = p - cps.st;
+							ptrdiff_t blen = p - cps->st;
 							if (blen < 0 || blen >= (int)sizeof buf) {
-								cps.parse_error = true;
+								cps->parse_error = true;
 								{p += 1; goto _out; }
 							}
-							memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
+							memcpy(buf, cps->st, (size_t)blen); buf[blen] = 0;
 							int fd;
 							if (sscanf(buf, "%d", &fd) != 1) {
-								cps.parse_error = true;
+								cps->parse_error = true;
 								{p += 1; goto _out; }
 							}
 							set_s6_notify_fd(fd);
 						}
 						
-#line 728 "cfg.cpp"
+#line 724 "cfg.c"
 
 						break; 
 					}
 					case 10:  {
 							{
-#line 148 "cfg.rl"
+#line 144 "cfg.rl"
 							
 							char buf[64];
-							ptrdiff_t blen = p - cps.st;
+							ptrdiff_t blen = p - cps->st;
 							if (blen < 0 || blen >= (int)sizeof buf) {
-								cps.parse_error = true;
+								cps->parse_error = true;
 								{p += 1; goto _out; }
 							}
-							memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
-							if (sscanf(buf, "%" SCNu32, &cps.default_lifetime) != 1) {
-								cps.parse_error = true;
+							memcpy(buf, cps->st, (size_t)blen); buf[blen] = 0;
+							if (sscanf(buf, "%" SCNu32, &cps->default_lifetime) != 1) {
+								cps->parse_error = true;
 								{p += 1; goto _out; }
 							}
 						}
 						
-#line 748 "cfg.cpp"
+#line 744 "cfg.c"
 
 						break; 
 					}
 					case 11:  {
 							{
-#line 161 "cfg.rl"
+#line 157 "cfg.rl"
 							
 							char buf[64];
-							ptrdiff_t blen = p - cps.st;
+							ptrdiff_t blen = p - cps->st;
 							if (blen < 0 || blen >= (int)sizeof buf) {
-								cps.parse_error = true;
+								cps->parse_error = true;
 								{p += 1; goto _out; }
 							}
-							memcpy(buf, cps.st, (size_t)blen); buf[blen] = 0;
-							if (sscanf(buf, "%" SCNu8, &cps.default_preference) != 1) {
+							memcpy(buf, cps->st, (size_t)blen); buf[blen] = 0;
+							if (sscanf(buf, "%" SCNu8, &cps->default_preference) != 1) {
 								log_line("default_preference on line %zu out of range [0,255]\n", linenum);
-								cps.parse_error = true;
+								cps->parse_error = true;
 								{p += 1; goto _out; }
 							}
 						}
 						
-#line 769 "cfg.cpp"
+#line 765 "cfg.c"
 
 						break; 
 					}
 					case 12:  {
 							{
-#line 175 "cfg.rl"
+#line 171 "cfg.rl"
 							
 							char interface[IFNAMSIZ];
-							ptrdiff_t blen = p - cps.st;
+							ptrdiff_t blen = p - cps->st;
 							if (blen < 0 || blen >= (int)sizeof interface) {
 								log_line("interface name on line %zu is too long (>= %d)\n", linenum, IFNAMSIZ);
-								cps.parse_error = true;
+								cps->parse_error = true;
 								{p += 1; goto _out; }
 							}
-							memcpy(interface, cps.st, (size_t)blen);
+							memcpy(interface, cps->st, (size_t)blen);
 							interface[blen] = 0;
-							cps.ifindex = emplace_interface(linenum, interface, cps.default_preference);
+							cps->ifindex = emplace_interface(linenum, interface, cps->default_preference);
 						}
 						
-#line 788 "cfg.cpp"
+#line 784 "cfg.c"
 
 						break; 
 					}
 					case 13:  {
 							{
-#line 187 "cfg.rl"
+#line 183 "cfg.rl"
 							
-							size_t n = sizeof(in6_addr) * cps.nipaddrs;
-							in6_addr *addrs = static_cast<in6_addr *>(malloc(n));
+							size_t n = sizeof(struct in6_addr) * cps->nipaddrs;
+							struct in6_addr *addrs = malloc(n);
 							if (!addrs) abort();
-							for (size_t i = 0; i < cps.nipaddrs; ++i) {
-								if (!string_to_ipaddr(&addrs[i], cps.ipaddrs[i], strlen(cps.ipaddrs[i]))) {
-									log_line("invalid ip address (%s) at line %zu", cps.ipaddrs[i], linenum);
-									cps.parse_error = true;
+							for (size_t i = 0; i < cps->nipaddrs; ++i) {
+								if (!string_to_ipaddr(&addrs[i], cps->ipaddrs[i], strlen(cps->ipaddrs[i]))) {
+									log_line("invalid ip address (%s) at line %zu", cps->ipaddrs[i], linenum);
+									cps->parse_error = true;
 									{p += 1; goto _out; }
 								}
 							}
-							emplace_dns_servers(linenum, cps.ifindex, addrs, cps.nipaddrs);
+							emplace_dns_servers(linenum, cps->ifindex, addrs, cps->nipaddrs);
 						}
 						
-#line 808 "cfg.cpp"
+#line 804 "cfg.c"
 
 						break; 
 					}
 					case 14:  {
 							{
-#line 200 "cfg.rl"
+#line 196 "cfg.rl"
 							
-							emplace_dns_search(linenum, cps.ifindex, MARKED_STRING());
+							emplace_dns_search(linenum, cps->ifindex, MARKED_STRING());
 						}
 						
-#line 818 "cfg.cpp"
+#line 814 "cfg.c"
 
 						break; 
 					}
 					case 15:  {
 							{
-#line 203 "cfg.rl"
+#line 199 "cfg.rl"
 							
-							size_t n = sizeof(in6_addr) * cps.nipaddrs;
-							in6_addr *addrs = static_cast<in6_addr *>(malloc(n));
+							size_t n = sizeof(struct in6_addr) * cps->nipaddrs;
+							struct in6_addr *addrs = malloc(n);
 							if (!addrs) abort();
-							for (size_t i = 0; i < cps.nipaddrs; ++i) {
-								if (!string_to_ipaddr(&addrs[i], cps.ipaddrs[i], strlen(cps.ipaddrs[i]))) {
-									log_line("invalid ip address (%s) at line %zu", cps.ipaddrs[i], linenum);
-									cps.parse_error = true;
+							for (size_t i = 0; i < cps->nipaddrs; ++i) {
+								if (!string_to_ipaddr(&addrs[i], cps->ipaddrs[i], strlen(cps->ipaddrs[i]))) {
+									log_line("invalid ip address (%s) at line %zu", cps->ipaddrs[i], linenum);
+									cps->parse_error = true;
 									{p += 1; goto _out; }
 								}
 							}
-							emplace_ntp_servers(linenum, cps.ifindex, addrs, cps.nipaddrs);
+							emplace_ntp_servers(linenum, cps->ifindex, addrs, cps->nipaddrs);
 						}
 						
-#line 838 "cfg.cpp"
+#line 834 "cfg.c"
 
 						break; 
 					}
 					case 16:  {
 							{
-#line 216 "cfg.rl"
+#line 212 "cfg.rl"
 							
-							in6_addr t;
-							if (!string_to_ipaddr(&t, cps.ipaddrs[0], linenum)) {
-								cps.parse_error = true;
+							struct in6_addr t;
+							if (!string_to_ipaddr(&t, cps->ipaddrs[0], linenum)) {
+								cps->parse_error = true;
 								{p += 1; goto _out; }
 							}
-							emplace_gateway_v4(linenum, cps.ifindex, &t);
+							emplace_gateway_v4(linenum, cps->ifindex, &t);
 						}
 						
-#line 853 "cfg.cpp"
+#line 849 "cfg.c"
 
 						break; 
 					}
 					case 17:  {
 							{
-#line 224 "cfg.rl"
+#line 220 "cfg.rl"
 							
-							if (cps.nipaddrs != 2) {
-								fprintf(stderr, "XXX: dynrange nipaddrs != 2 (%zu)\n", cps.nipaddrs);
-								cps.parse_error = true;
+							if (cps->nipaddrs != 2) {
+								fprintf(stderr, "XXX: dynrange nipaddrs != 2 (%zu)\n", cps->nipaddrs);
+								cps->parse_error = true;
 								{p += 1; goto _out; }
 							}
-							in6_addr tlo;
-							if (!string_to_ipaddr(&tlo, cps.ipaddrs[0], linenum)) {
-								cps.parse_error = true;
+							struct in6_addr tlo;
+							if (!string_to_ipaddr(&tlo, cps->ipaddrs[0], linenum)) {
+								cps->parse_error = true;
 								{p += 1; goto _out; }
 							}
-							in6_addr thi;
-							if (!string_to_ipaddr(&thi, cps.ipaddrs[1], linenum)) {
-								cps.parse_error = true;
+							struct in6_addr thi;
+							if (!string_to_ipaddr(&thi, cps->ipaddrs[1], linenum)) {
+								cps->parse_error = true;
 								{p += 1; goto _out; }
 							}
-							emplace_dynamic_range(linenum, cps.ifindex, &tlo, &thi, cps.default_lifetime);
+							emplace_dynamic_range(linenum, cps->ifindex, &tlo, &thi, cps->default_lifetime);
 						}
 						
-#line 878 "cfg.cpp"
+#line 874 "cfg.c"
 
 						break; 
 					}
 					case 18:  {
 							{
-#line 242 "cfg.rl"
+#line 238 "cfg.rl"
 							
-							emplace_dynamic_v6(linenum, cps.ifindex);
+							emplace_dynamic_v6(linenum, cps->ifindex);
 						}
 						
-#line 888 "cfg.cpp"
+#line 884 "cfg.c"
 
 						break; 
 					}
 					case 19:  {
 							{
-#line 245 "cfg.rl"
+#line 241 "cfg.rl"
 							
-							in6_addr t;
-							if (!string_to_ipaddr(&t, cps.ipaddrs[0], linenum)) {
-								cps.parse_error = true;
+							struct in6_addr t;
+							if (!string_to_ipaddr(&t, cps->ipaddrs[0], linenum)) {
+								cps->parse_error = true;
 								{p += 1; goto _out; }
 							}
-							emplace_dhcp4_state(linenum, cps.ifindex, cps.macaddr, &t, cps.default_lifetime);
+							emplace_dhcp4_state(linenum, cps->ifindex, cps->macaddr, &t, cps->default_lifetime);
 						}
 						
-#line 903 "cfg.cpp"
+#line 899 "cfg.c"
 
 						break; 
 					}
 					case 20:  {
 							{
-#line 253 "cfg.rl"
+#line 249 "cfg.rl"
 							
-							in6_addr t;
-							if (!string_to_ipaddr(&t, cps.ipaddrs[0], linenum)) {
-								cps.parse_error = true;
+							struct in6_addr t;
+							if (!string_to_ipaddr(&t, cps->ipaddrs[0], linenum)) {
+								cps->parse_error = true;
 								{p += 1; goto _out; }
 							}
-							emplace_dhcp6_state(linenum, cps.ifindex,
-							cps.duid, cps.duid_len,
-							cps.iaid, &t, cps.default_lifetime);
+							emplace_dhcp6_state(linenum, cps->ifindex,
+							cps->duid, cps->duid_len,
+							cps->iaid, &t, cps->default_lifetime);
 						}
 						
-#line 920 "cfg.cpp"
+#line 916 "cfg.c"
 
 						break; 
 					}
@@ -958,11 +954,11 @@ const size_t linenum)
 		}
 		
 		if ( p == eof ) {
-			if ( cps.cs >= 154 )
+			if ( cps->cs >= 154 )
 				goto _out;
 		}
 		else {
-			if ( cps.cs != 0 ) {
+			if ( cps->cs != 0 ) {
 				p += 1;
 				goto _resume;
 			}
@@ -970,13 +966,13 @@ const size_t linenum)
 		_out: {}
 	}
 	
-#line 303 "cfg.rl"
+#line 299 "cfg.rl"
 
 	
-	if (cps.parse_error) return -1;
-		if (cps.cs >= cfg_line_m_first_final)
+	if (cps->parse_error) return -1;
+		if (cps->cs >= cfg_line_m_first_final)
 		return 1;
-	if (cps.cs == cfg_line_m_error)
+	if (cps->cs == cfg_line_m_error)
 		return -1;
 	return -2;
 }
@@ -985,7 +981,7 @@ bool parse_config(const char *path)
 {
 	bool ret = false;
 	size_t linenum = 0;
-	cfg_parse_state ps;
+	struct cfg_parse_state ps = { .ifindex = -1, .default_lifetime = 7200 };
 	char buf[MAX_LINE];
 	FILE *f = fopen(path, "r");
 	if (!f) {
@@ -1001,14 +997,14 @@ bool parse_config(const char *path)
 			}
 			break;
 		}
-		auto llen = strlen(buf);
+		size_t llen = strlen(buf);
 		if (llen == 0)
 			continue;
 		if (buf[llen-1] == '\n')
 			buf[--llen] = 0;
 		++linenum;
-		ps.newline();
-		const auto r = do_parse_cfg_line(ps, buf, llen, linenum);
+		newline(&ps);
+		int r = do_parse_cfg_line(&ps, buf, llen, linenum);
 		if (r < 0) {
 			if (r == -2)
 				log_line("%s: Incomplete configuration at line %zu; ignoring\n",
