@@ -10,37 +10,19 @@ extern "C" {
 #include <net/if.h>
 }
 
-// Number of entries for one of the two tables.  Exists per interface.
+// Number of entries.  Exists per interface.
 #define D4_CLIENT_STATE_TABLESIZE 256
 #define D4_XID_LIFE_SECS 60
 
-namespace detail {
-
 // Timestamps are cheap on modern hardware, so we can do
 // things precisely.  We optimize for cache locality.
-struct ClientStates
+struct D4State
 {
-    ClientStates();
-    ClientStates(const ClientStates &) = delete;
-    ClientStates &operator=(const ClientStates &) = delete;
-
-    bool stateAdd(uint32_t xid, uint8_t *hwaddr, uint8_t state);
-    uint8_t stateGet(uint32_t xid, uint8_t *hwaddr);
-    void stateKill(uint8_t *hwaddr);
-private:
-    struct StateItem
-    {
-        struct timespec ts_; // Set once at creation
-        uint64_t hwaddr_;
-        uint32_t xid_;
-        uint32_t state_;
-    };
-    struct StateItem *find(uint64_t h);
-
-    struct StateItem map_[D4_CLIENT_STATE_TABLESIZE];
+    struct timespec ts_; // Set once at creation
+    uint64_t hwaddr_;
+    uint32_t xid_;
+    uint32_t state_;
 };
-
-}
 
 class D4Listener
 {
@@ -76,7 +58,7 @@ private:
     char ifname_[IFNAMSIZ];
     int ifindex_;
     in6_addr local_ip_;
-    detail::ClientStates state_;
+    struct D4State map_[D4_CLIENT_STATE_TABLESIZE];
 };
 
 #endif

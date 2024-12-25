@@ -19,6 +19,7 @@ extern "C" {
 }
 
 extern struct nk_random_state g_rngstate;
+extern NLSocket nl_socket;
 
 // hwaddr must be exactly 6 bytes
 static uint64_t hwaddr_to_int64(uint8_t *hwaddr)
@@ -31,55 +32,48 @@ static uint64_t hwaddr_to_int64(uint8_t *hwaddr)
            ((uint64_t)hwaddr[5] << 40);
 }
 
-namespace detail {
-
-ClientStates::ClientStates()
-{
-    memset(map_, 0, sizeof map_);
-}
-
-struct ClientStates::StateItem *ClientStates::find(uint64_t h)
+static struct D4State *find(struct D4State *self, uint64_t h)
 {
     for (size_t i = 0; i < D4_CLIENT_STATE_TABLESIZE; ++i) {
-        if (map_[i].hwaddr_ == h) {
+        if (self[i].hwaddr_ == h) {
             struct timespec now;
             clock_gettime(CLOCK_BOOTTIME, &now);
-            if (now.tv_sec > map_[i].ts_.tv_sec + D4_XID_LIFE_SECS) {
-                memset(&map_[i], 0, sizeof map_[i]);
+            if (now.tv_sec > self[i].ts_.tv_sec + D4_XID_LIFE_SECS) {
+                memset(&self[i], 0, sizeof self[i]);
                 break;
             }
-            return &map_[i];
+            return &self[i];
         }
     }
     return nullptr;
 }
 
-bool ClientStates::stateAdd(uint32_t xid, uint8_t *hwaddr, uint8_t state)
+static bool D4State_add(struct D4State *self, uint32_t xid, uint8_t *hwaddr, uint8_t state)
 {
     if (!state) return false;
     uint64_t key = hwaddr_to_int64(hwaddr);
     struct timespec now;
     clock_gettime(CLOCK_BOOTTIME, &now);
-    struct StateItem *m = nullptr, *e = nullptr;
-    struct StateItem zi;
+    struct D4State *m = nullptr, *e = nullptr;
+    struct D4State zi;
     memset(&zi, 0, sizeof zi);
     for (size_t i = 0; i < D4_CLIENT_STATE_TABLESIZE; ++i) {
-        if (map_[i].ts_.tv_sec && now.tv_sec > map_[i].ts_.tv_sec + D4_XID_LIFE_SECS) {
+        if (self[i].ts_.tv_sec && now.tv_sec > self[i].ts_.tv_sec + D4_XID_LIFE_SECS) {
             // Expire entries as we see them.
-            memset(&map_[i], 0, sizeof map_[i]);
+            memset(&self[i], 0, sizeof self[i]);
         } else {
-            if (map_[i].hwaddr_ == key) {
-                m = &map_[i];
+            if (self[i].hwaddr_ == key) {
+                m = &self[i];
                 break;
             }
         }
-        if (!e && !memcmp(&map_[i], &zi, sizeof zi)) e = &map_[i];
+        if (!e && !memcmp(&self[i], &zi, sizeof zi)) e = &self[i];
     }
     if (!m) {
         if (!e) return false; // Out of space.
         m = e;
     }
-    *m = (struct StateItem){
+    *m = (struct D4State){
         .ts_ = now,
         .hwaddr_ = key,
         .xid_ = xid,
@@ -88,24 +82,20 @@ bool ClientStates::stateAdd(uint32_t xid, uint8_t *hwaddr, uint8_t state)
     return true;
 }
 
-uint8_t ClientStates::stateGet(uint32_t xid, uint8_t *hwaddr)
+static uint8_t D4State_get(struct D4State *self, uint32_t xid, uint8_t *hwaddr)
 {
     uint64_t key = hwaddr_to_int64(hwaddr);
-    struct StateItem *m = find(key);
+    struct D4State *m = find(self, key);
     if (!m || m->xid_ != xid) return DHCPNULL;
     return m->state_;
 }
 
-void ClientStates::stateKill(uint8_t *hwaddr)
+static void D4State_kill(struct D4State *self, uint8_t *hwaddr)
 {
     uint64_t key = hwaddr_to_int64(hwaddr);
-    struct StateItem *m = find(key);
+    struct D4State *m = find(self, key);
     if (m) memset(m, 0, sizeof *m);
 }
-
-} // detail
-
-extern NLSocket nl_socket;
 
 // Must be called after ifname_ is set and only should be called once.
 bool D4Listener::create_dhcp4_socket()
@@ -167,6 +157,8 @@ err0:
 // Only intended to be called once per listener.
 bool D4Listener::init(const char *ifname)
 {
+    memset(map_, 0, sizeof map_);
+
     size_t ifname_src_size = strlen(ifname);
     if (ifname_src_size >= sizeof ifname_) {
         log_line("D4Listener: Interface name (%s) too long\n", ifname);
@@ -446,7 +438,7 @@ void D4Listener::reply_request()
     if (create_reply(reply, dhcpmsg_.chaddr, true)) {
         send_reply(reply);
     }
-    state_.stateKill(dhcpmsg_.chaddr);
+    D4State_kill(map_, dhcpmsg_.chaddr);
 }
 
 void D4Listener::reply_inform()
@@ -507,13 +499,13 @@ void D4Listener::process_receive(const char *buf, size_t buflen)
     if (!msgtype)
         return;
 
-    auto cs = state_.stateGet(dhcpmsg_.xid, dhcpmsg_.chaddr);
+    auto cs = D4State_get(map_, dhcpmsg_.xid, dhcpmsg_.chaddr);
     if (cs == DHCPNULL) {
         switch (msgtype) {
         case DHCPREQUEST:
         case DHCPDISCOVER:
             cs = msgtype;
-            if (!state_.stateAdd(dhcpmsg_.xid, dhcpmsg_.chaddr, cs))
+            if (!D4State_add(map_, dhcpmsg_.xid, dhcpmsg_.chaddr, cs))
                 return; // Possible DoS; silently drop.
             break;
         case DHCPINFORM:
