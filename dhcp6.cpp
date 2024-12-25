@@ -19,32 +19,32 @@ extern struct nk_random_state g_rngstate;
 
 extern NLSocket nl_socket;
 
-// Option header.
-struct dhcp6_opt
-{
-    uint16_t type() const { return decode16be(data_); }
-    uint16_t length() const { return decode16be(data_ + 2); }
-    void type(uint16_t v) { encode16be(v, data_); }
-    void length(uint16_t v) { encode16be(v, data_ + 2); }
-    static const size_t size = 4;
+#define DHCP6_OPT_SIZE 4
 
-    bool read(sbufs &rbuf)
-    {
-        if (sbufs_brem(&rbuf) < size) return false;
-        memcpy(&data_, rbuf.si, sizeof data_);
-        rbuf.si += size;
-        return true;
-    }
-    bool write(sbufs &sbuf) const
-    {
-        if (sbufs_brem(&sbuf) < size) return false;
-        memcpy(sbuf.si, &data_, sizeof data_);
-        sbuf.si += size;
-        return true;
-    }
-private:
-    uint8_t data_[4] = {};
-};
+// Option header.
+struct dhcp6_opt { uint8_t data_[4]; };
+static uint16_t dhcp6_opt_type(const struct dhcp6_opt *self) { return decode16be(self->data_); }
+static uint16_t dhcp6_opt_length(const struct dhcp6_opt *self) { return decode16be(self->data_ + 2); }
+static struct dhcp6_opt dhcp6_opt_create(uint16_t type, uint16_t length) {
+    struct dhcp6_opt ret;
+    encode16be(type, ret.data_);
+    encode16be(length, ret.data_ + 2);
+    return ret;
+}
+static bool dhcp6_opt_read(struct dhcp6_opt *self, sbufs *rbuf)
+{
+    if (sbufs_brem(rbuf) < sizeof self->data_) return false;
+    memcpy(&self->data_, rbuf->si, sizeof self->data_);
+    rbuf->si += sizeof self->data_;
+    return true;
+}
+static bool dhcp6_opt_write(const struct dhcp6_opt *self, sbufs *sbuf)
+{
+    if (sbufs_brem(sbuf) < sizeof self->data_) return false;
+    memcpy(sbuf->si, self->data_, sizeof self->data_);
+    sbuf->si += sizeof self->data_;
+    return true;
+}
 
 // Server Identifier Option
 struct dhcp6_opt_serverid
@@ -55,12 +55,10 @@ struct dhcp6_opt_serverid
 
     bool write(sbufs &sbuf) const
     {
-        const auto size = dhcp6_opt::size + duid_len_;
+        const auto size = DHCP6_OPT_SIZE + duid_len_;
         if (sbufs_brem(&sbuf) < size) return false;
-        dhcp6_opt header;
-        header.type(2);
-        header.length(duid_len_);
-        if (!header.write(sbuf)) return false;
+        dhcp6_opt header = dhcp6_opt_create(2, duid_len_);
+        if (!dhcp6_opt_write(&header, &sbuf)) return false;
         memcpy(sbuf.si, duid_string_, duid_len_);
         sbuf.si += duid_len_;
         return true;
@@ -299,12 +297,10 @@ bool D6Listener::allot_dynamic_ip(const char *client_duid, size_t client_duid_si
 
 bool D6Listener::attach_status_code(sbufs &ss, d6_statuscode::code scode)
 {
-    static char ok_str[] = "OK";
-    static char nak_str[] = "NO";
-    dhcp6_opt header;
-    header.type(13);
-    header.length(OPT_STATUSCODE_SIZE);
-    if (!header.write(ss)) return false;
+    static const char ok_str[] = "OK";
+    static const char nak_str[] = "NO";
+    dhcp6_opt header = dhcp6_opt_create(13, OPT_STATUSCODE_SIZE);
+    if (!dhcp6_opt_write(&header, &ss)) return false;
     d6_statuscode sc(scode);
     if (!sc.write(ss)) return false;
     if (scode == d6_statuscode::code::success) {
@@ -331,20 +327,16 @@ bool D6Listener::write_response_header(const d6msg_state &d6s, sbufs &ss,
     dhcp6_opt_serverid send_serverid(g_server_duid, sizeof g_server_duid);
     if (!send_serverid.write(ss)) return false;
 
-    dhcp6_opt send_clientid;
     if (d6s.client_duid_blob_size == 0 ||
         (ptrdiff_t)d6s.client_duid_blob_size > ss.se - ss.si) return false;
-    send_clientid.type(1);
-    send_clientid.length(d6s.client_duid_blob_size);
-    if (!send_clientid.write(ss)) return false;
+    dhcp6_opt send_clientid = dhcp6_opt_create(1, d6s.client_duid_blob_size);
+    if (!dhcp6_opt_write(&send_clientid, &ss)) return false;
     memcpy(ss.si, d6s.client_duid_blob, d6s.client_duid_blob_size);
     ss.si += d6s.client_duid_blob_size;
 
     if (preference_ > 0) {
-        dhcp6_opt send_pref;
-        send_pref.type(7);
-        send_pref.length(1);
-        if (!send_pref.write(ss)) return false;
+        dhcp6_opt send_pref = dhcp6_opt_create(7, 1);
+        if (!dhcp6_opt_write(&send_pref, &ss)) return false;
         if (ss.si == ss.se) return false;
         *ss.si++ = static_cast<char>(preference_);
     }
@@ -355,18 +347,15 @@ bool D6Listener::write_response_header(const d6msg_state &d6s, sbufs &ss,
 // IA.  Thus there's no reason to care about that case.
 bool D6Listener::emit_IA_addr(sbufs &ss, in6_addr ipa, uint32_t iaid, uint32_t lifetime)
 {
-    dhcp6_opt header;
-    header.type(3);
-    header.length(d6_ia::size + dhcp6_opt::size + d6_ia_addr::size);
-    if (!header.write(ss)) return false;
+    dhcp6_opt header = dhcp6_opt_create(3, d6_ia::size + DHCP6_OPT_SIZE + d6_ia_addr::size);
+    if (!dhcp6_opt_write(&header, &ss)) return false;
     d6_ia ia;
     ia.iaid = iaid;
     ia.t1_seconds = static_cast<uint32_t>(0.5 * lifetime);
     ia.t2_seconds = static_cast<uint32_t>(0.8 * lifetime);
     if (!ia.write(ss)) return false;
-    header.type(5);
-    header.length(d6_ia_addr::size);
-    if (!header.write(ss)) return false;
+    header = dhcp6_opt_create(5, d6_ia_addr::size);
+    if (!dhcp6_opt_write(&header, &ss)) return false;
     d6_ia_addr addr;
     addr.addr = ipa;
     addr.prefer_lifetime = lifetime;
@@ -377,10 +366,8 @@ bool D6Listener::emit_IA_addr(sbufs &ss, in6_addr ipa, uint32_t iaid, uint32_t l
 
 bool D6Listener::emit_IA_code(sbufs &ss, uint32_t iaid, d6_statuscode::code scode)
 {
-    dhcp6_opt header;
-    header.type(3);
-    header.length(d6_ia::size + dhcp6_opt::size + OPT_STATUSCODE_SIZE);
-    if (!header.write(ss)) return false;
+    dhcp6_opt header = dhcp6_opt_create(3, d6_ia::size + DHCP6_OPT_SIZE + OPT_STATUSCODE_SIZE);
+    if (!dhcp6_opt_write(&header, &ss)) return false;
     d6_ia ia;
     ia.iaid = iaid;
     ia.t1_seconds = 0;
@@ -429,19 +416,15 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
     if (d6s.optreq_dns && dns_servers.n) {
         size_t siz = dns_servers.n * 16;
         if (ss.se - ss.si < (ptrdiff_t)(siz + 4)) return false;
-        dhcp6_opt send_dns;
-        send_dns.type(23);
-        send_dns.length(siz);
-        if (!send_dns.write(ss)) abort();
+        dhcp6_opt send_dns = dhcp6_opt_create(23, siz);
+        if (!dhcp6_opt_write(&send_dns, &ss)) abort();
         memcpy(ss.si, dns_servers.addrs, siz);
         ss.si += siz;
     }
     struct blob d6b = query_dns6_search_blob(ifindex_);
     if (d6s.optreq_dns_search && (d6b.s && d6b.n)) {
-        dhcp6_opt send_dns_search;
-        send_dns_search.type(24);
-        send_dns_search.length(d6b.n);
-        if (!send_dns_search.write(ss)) return false;
+        dhcp6_opt send_dns_search = dhcp6_opt_create(24, d6b.n);
+        if (!dhcp6_opt_write(&send_dns_search, &ss)) return false;
         if (ss.se - ss.si < (ptrdiff_t)d6b.n) return false;
         memcpy(ss.si, d6b.s, d6b.n);
         ss.si += d6b.n;
@@ -450,15 +433,11 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
     if (d6s.optreq_ntp && ntp_servers.n) {
         size_t siz = ntp_servers.n * 20;
         if (ss.se - ss.si < (ptrdiff_t)(siz + 4)) return false;
-        dhcp6_opt send_ntp;
-        send_ntp.type(56);
-        send_ntp.length(siz);
-        if (!send_ntp.write(ss)) abort();
+        dhcp6_opt send_ntp = dhcp6_opt_create(56, siz);
+        if (!dhcp6_opt_write(&send_ntp, &ss)) abort();
         for (size_t i = 0; i < ntp_servers.n; ++i) {
-            dhcp6_opt n6_svr;
-            n6_svr.type(1);
-            n6_svr.length(16);
-            if (!n6_svr.write(ss)) abort();
+            dhcp6_opt n6_svr = dhcp6_opt_create(1, 16);
+            if (!dhcp6_opt_write(&n6_svr, &ss)) abort();
             memcpy(ss.si, &ntp_servers.addrs[i], 16);
             ss.si += 16;
         }
@@ -466,10 +445,8 @@ bool D6Listener::attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss)
     if (d6s.optreq_sntp) {
         size_t siz = ntp_servers.n * 16;
         if (ss.se - ss.si < (ptrdiff_t)(siz + 4)) return false;
-        dhcp6_opt send_sntp;
-        send_sntp.type(31);
-        send_sntp.length(siz);
-        if (!send_sntp.write(ss)) abort();
+        dhcp6_opt send_sntp = dhcp6_opt_create(31, siz);
+        if (!dhcp6_opt_write(&send_sntp, &ss)) abort();
         memcpy(ss.si, ntp_servers.addrs, siz);
         ss.si += siz;
     }
@@ -595,12 +572,12 @@ void D6Listener::process_receive(char *buf, size_t buflen,
 
     while (sbufs_brem(&rs) >= 4) {
          dhcp6_opt opt;
-         if (!opt.read(rs)) return;
-         OPTIONS_CONSUME(opt.size);
+         if (!dhcp6_opt_read(&opt, &rs)) return;
+         OPTIONS_CONSUME(DHCP6_OPT_SIZE);
+         auto l = dhcp6_opt_length(&opt);
+         auto ot = dhcp6_opt_type(&opt);
          log_line("dhcp6: Option '%s' length=%d on %s\n",
-                  dhcp6_opt_to_string(opt.type()), opt.length(), ifname_);
-         auto l = opt.length();
-         auto ot = opt.type();
+                  dhcp6_opt_to_string(ot), l, ifname_);
 
          if (l > sbufs_brem(&rs)) {
              log_line("dhcp6: Option is too long on %s\n", ifname_);
@@ -803,10 +780,8 @@ void D6Listener::process_receive(char *buf, size_t buflen,
          if (!attach_dns_ntp_info(d6s, ss)) return;
 
          if (valid && d6s.use_rapid_commit) {
-             dhcp6_opt rapid_commit;
-             rapid_commit.type(14);
-             rapid_commit.length(0);
-             if (!rapid_commit.write(ss)) return;
+             dhcp6_opt rapid_commit = dhcp6_opt_create(14, 0);
+             if (!dhcp6_opt_write(&rapid_commit, &ss)) return;
          }
          break;
      }
