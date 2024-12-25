@@ -588,7 +588,6 @@ bool D6Listener::handle_release_msg(const d6msg_state &d6s, sbufs &ss)
 {
     if (!write_response_header(d6s, ss, dhcp6_msgtype::reply)) return false;
     if (!mark_addr_unused(d6s, ss)) return false;
-    if (!attach_dns_ntp_info(d6s, ss)) return false;
     return true;
 }
 
@@ -596,7 +595,6 @@ bool D6Listener::handle_decline_msg(const d6msg_state &d6s, sbufs &ss)
 {
     if (!write_response_header(d6s, ss, dhcp6_msgtype::reply)) return false;
     if (!mark_addr_unused(d6s, ss)) return false;
-    if (!attach_dns_ntp_info(d6s, ss)) return false;
     return true;
 }
 
