@@ -15,6 +15,7 @@ extern "C" {
 #include "nk/io.h"
 #include "nk/random.h"
 #include "options.h"
+#include "get_current_ts.h"
 }
 
 extern struct nk_random_state g_rngstate;
@@ -105,7 +106,6 @@ void ClientStates::stateKill(uint8_t *hwaddr)
 } // detail
 
 extern NLSocket nl_socket;
-extern "C" int64_t get_current_ts();
 
 // Must be called after ifname_ is set and only should be called once.
 bool D4Listener::create_dhcp4_socket()

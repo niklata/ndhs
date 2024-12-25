@@ -9,6 +9,7 @@
 extern "C" {
 #include "nk/io.h"
 #include "nk/random.h"
+#include "get_current_ts.h"
 }
 
 extern struct nk_random_state g_rngstate;
@@ -17,7 +18,6 @@ extern struct nk_random_state g_rngstate;
 #define MAX_DYN_ATTEMPTS 100u
 
 extern NLSocket nl_socket;
-extern "C" int64_t get_current_ts();
 
 // Option header.
 struct dhcp6_opt

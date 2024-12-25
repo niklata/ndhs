@@ -12,6 +12,7 @@
 #include <net/if.h>
 #include "nk/log.h"
 #include <dynlease.h>
+#include <get_current_ts.h>
 
 #define MAX_LINE 2048
 // The RFC allows for 128 raw bytes, which corresponds
@@ -19,7 +20,6 @@
 #define MAX_DUID 256
 
 extern struct NLSocket nl_socket;
-int64_t get_current_ts();
 
 struct lease_state_v4
 {
@@ -248,6 +248,7 @@ bool dynlease_serialize(const char *path)
                  __func__, path);
         goto out0;
     }
+    int64_t ts = get_current_ts();
     for (size_t c = 0; c < MAX_NL_INTERFACES; ++c) {
         if (!dyn_leases_v4[c]) continue;
         const struct netif_info *nlinfo = NLSocket_get_ifinfo(&nl_socket, c);
@@ -255,7 +256,7 @@ bool dynlease_serialize(const char *path)
         const char *iface = nlinfo->name;
         for (struct lease_state_v4 *p = dyn_leases_v4[c]; p; p = p->next) {
             // Don't write out dynamic leases that have expired.
-            if (get_current_ts() >= p->expire_time)
+            if (ts >= p->expire_time)
                 continue;
             char abuf[48];
             if (!ipaddr_to_string(abuf, sizeof abuf, &p->addr)) goto out1;
@@ -275,7 +276,7 @@ bool dynlease_serialize(const char *path)
         const char *iface = nlinfo->name;
         for (struct lease_state_v6 *p = dyn_leases_v6[c]; p; p = p->next) {
             // Don't write out dynamic leases that have expired.
-            if (get_current_ts() >= p->expire_time) continue;
+            if (ts >= p->expire_time) continue;
             // A valid DUID is required.
             if (p->duid_len == 0) continue;
 

@@ -153,14 +153,6 @@ static void init_listeners()
 
 extern "C" {
 
-int64_t get_current_ts()
-{
-    struct timespec ts;
-    if (clock_gettime(CLOCK_MONOTONIC, &ts))
-        suicide("clock_gettime failed\n");
-    return ts.tv_sec;
-}
-
 void set_user_runas(const char *username, size_t len)
 {
     char buf[256];

@@ -13,6 +13,7 @@
 #include <net/if.h>
 #include "nk/log.h"
 #include <dynlease.h>
+#include <get_current_ts.h>
 
 #define MAX_LINE 2048
 // The RFC allows for 128 raw bytes, which corresponds
@@ -20,7 +21,6 @@
 #define MAX_DUID 256
 
 extern struct NLSocket nl_socket;
-int64_t get_current_ts();
 
 struct lease_state_v4
 {
@@ -249,6 +249,7 @@ bool dynlease_serialize(const char *path)
 		__func__, path);
 		goto out0;
 	}
+	int64_t ts = get_current_ts();
 	for (size_t c = 0; c < MAX_NL_INTERFACES; ++c) {
 		if (!dyn_leases_v4[c]) continue;
 			const struct netif_info *nlinfo = NLSocket_get_ifinfo(&nl_socket, c);
@@ -256,7 +257,7 @@ bool dynlease_serialize(const char *path)
 			const char *iface = nlinfo->name;
 		for (struct lease_state_v4 *p = dyn_leases_v4[c]; p; p = p->next) {
 			// Don't write out dynamic leases that have expired.
-			if (get_current_ts() >= p->expire_time)
+			if (ts >= p->expire_time)
 				continue;
 			char abuf[48];
 			if (!ipaddr_to_string(abuf, sizeof abuf, &p->addr)) goto out1;
@@ -276,7 +277,7 @@ bool dynlease_serialize(const char *path)
 			const char *iface = nlinfo->name;
 		for (struct lease_state_v6 *p = dyn_leases_v6[c]; p; p = p->next) {
 			// Don't write out dynamic leases that have expired.
-			if (get_current_ts() >= p->expire_time) continue;
+			if (ts >= p->expire_time) continue;
 				// A valid DUID is required.
 			if (p->duid_len == 0) continue;
 				
@@ -344,11 +345,11 @@ static void newline(struct dynlease_parse_state *self) {
 #include "parsehelp.h"
 
 
-#line 443 "dynlease.rl"
+#line 444 "dynlease.rl"
 
 
 
-#line 349 "dynlease.c"
+#line 350 "dynlease.c"
 static const int dynlease_line_m_start = 1;
 static const int dynlease_line_m_first_final = 41;
 static const int dynlease_line_m_error = 0;
@@ -356,7 +357,7 @@ static const int dynlease_line_m_error = 0;
 static const int dynlease_line_m_en_main = 1;
 
 
-#line 445 "dynlease.rl"
+#line 446 "dynlease.rl"
 
 
 static int do_parse_dynlease_line(struct dynlease_parse_state *cps, const char *p, size_t plen,
@@ -366,15 +367,15 @@ const size_t linenum)
 	const char *eof = pe;
 	
 
-#line 364 "dynlease.c"
+#line 365 "dynlease.c"
 	{
 		cps->cs = (int)dynlease_line_m_start;
 	}
 	
-#line 453 "dynlease.rl"
+#line 454 "dynlease.rl"
 
 
-#line 369 "dynlease.c"
+#line 370 "dynlease.c"
 {
 		switch ( cps->cs ) {
 			case 1:
@@ -566,10 +567,10 @@ const size_t linenum)
 		}
 		_ctr6:
 			{
-#line 349 "dynlease.rl"
+#line 350 "dynlease.rl"
 			cps->st = p; }
 		
-#line 563 "dynlease.c"
+#line 564 "dynlease.c"
 
 		goto _st5;
 		_st5:
@@ -604,14 +605,14 @@ const size_t linenum)
 		}
 		_ctr8:
 			{
-#line 351 "dynlease.rl"
+#line 352 "dynlease.rl"
 			
 			assign_strbuf(cps->interface, NULL, sizeof cps->interface, cps->st, p);
 			const struct netif_info *nlinfo = NLSocket_get_ifinfo_by_name(&nl_socket, cps->interface);
 			cps->ifindex = nlinfo ? nlinfo->index : -1;
 		}
 		
-#line 604 "dynlease.c"
+#line 605 "dynlease.c"
 
 		goto _st6;
 		_st6:
@@ -643,10 +644,10 @@ const size_t linenum)
 		}
 		_ctr10:
 			{
-#line 349 "dynlease.rl"
+#line 350 "dynlease.rl"
 			cps->st = p; }
 		
-#line 638 "dynlease.c"
+#line 639 "dynlease.c"
 
 		goto _st7;
 		_st7:
@@ -678,14 +679,14 @@ const size_t linenum)
 		}
 		_ctr12:
 			{
-#line 388 "dynlease.rl"
+#line 389 "dynlease.rl"
 			
 			size_t l;
 			assign_strbuf(cps->v4_addr, &l, sizeof cps->v4_addr, cps->st, p);
 			lc_string_inplace(cps->v4_addr, l);
 		}
 		
-#line 676 "dynlease.c"
+#line 677 "dynlease.c"
 
 		goto _st8;
 		_st8:
@@ -720,10 +721,10 @@ const size_t linenum)
 		}
 		_ctr14:
 			{
-#line 349 "dynlease.rl"
+#line 350 "dynlease.rl"
 			cps->st = p; }
 		
-#line 713 "dynlease.c"
+#line 714 "dynlease.c"
 
 		goto _st9;
 		_st9:
@@ -1074,7 +1075,7 @@ const size_t linenum)
 		}
 		_ctr32:
 			{
-#line 373 "dynlease.rl"
+#line 374 "dynlease.rl"
 			
 			char buf[32];
 			ptrdiff_t blen = p - cps->st;
@@ -1091,7 +1092,7 @@ const size_t linenum)
 			}
 		}
 		
-#line 1080 "dynlease.c"
+#line 1081 "dynlease.c"
 
 		goto _st26;
 		_st26:
@@ -1118,15 +1119,15 @@ const size_t linenum)
 		}
 		_ctr34:
 			{
-#line 349 "dynlease.rl"
+#line 350 "dynlease.rl"
 			cps->st = p; }
 		
-#line 1109 "dynlease.c"
+#line 1110 "dynlease.c"
 
 		goto _st41;
 		_ctr57:
 			{
-#line 398 "dynlease.rl"
+#line 399 "dynlease.rl"
 			
 			char buf[64];
 			ptrdiff_t blen = p - cps->st;
@@ -1141,10 +1142,10 @@ const size_t linenum)
 			}
 		}
 		
-#line 1128 "dynlease.c"
+#line 1129 "dynlease.c"
 
 			{
-#line 412 "dynlease.rl"
+#line 413 "dynlease.rl"
 			
 			struct in6_addr ipa;
 			if (!ipaddr_from_string(&ipa, cps->v4_addr)) {
@@ -1155,7 +1156,7 @@ const size_t linenum)
 			dynlease4_add(cps->ifindex, &ipa, cps->macaddr, cps->expire_time);
 		}
 		
-#line 1141 "dynlease.c"
+#line 1142 "dynlease.c"
 
 		goto _st41;
 		_st41:
@@ -1182,7 +1183,7 @@ const size_t linenum)
 		}
 		_ctr58:
 			{
-#line 398 "dynlease.rl"
+#line 399 "dynlease.rl"
 			
 			char buf[64];
 			ptrdiff_t blen = p - cps->st;
@@ -1197,12 +1198,12 @@ const size_t linenum)
 			}
 		}
 		
-#line 1182 "dynlease.c"
+#line 1183 "dynlease.c"
 
 		goto _st42;
 		_ctr60:
 			{
-#line 412 "dynlease.rl"
+#line 413 "dynlease.rl"
 			
 			struct in6_addr ipa;
 			if (!ipaddr_from_string(&ipa, cps->v4_addr)) {
@@ -1213,7 +1214,7 @@ const size_t linenum)
 			dynlease4_add(cps->ifindex, &ipa, cps->macaddr, cps->expire_time);
 		}
 		
-#line 1197 "dynlease.c"
+#line 1198 "dynlease.c"
 
 		goto _st42;
 		_st42:
@@ -1284,10 +1285,10 @@ const size_t linenum)
 		}
 		_ctr36:
 			{
-#line 349 "dynlease.rl"
+#line 350 "dynlease.rl"
 			cps->st = p; }
 		
-#line 1270 "dynlease.c"
+#line 1271 "dynlease.c"
 
 		goto _st29;
 		_st29:
@@ -1322,14 +1323,14 @@ const size_t linenum)
 		}
 		_ctr38:
 			{
-#line 351 "dynlease.rl"
+#line 352 "dynlease.rl"
 			
 			assign_strbuf(cps->interface, NULL, sizeof cps->interface, cps->st, p);
 			const struct netif_info *nlinfo = NLSocket_get_ifinfo_by_name(&nl_socket, cps->interface);
 			cps->ifindex = nlinfo ? nlinfo->index : -1;
 		}
 		
-#line 1311 "dynlease.c"
+#line 1312 "dynlease.c"
 
 		goto _st30;
 		_st30:
@@ -1364,10 +1365,10 @@ const size_t linenum)
 		}
 		_ctr40:
 			{
-#line 349 "dynlease.rl"
+#line 350 "dynlease.rl"
 			cps->st = p; }
 		
-#line 1348 "dynlease.c"
+#line 1349 "dynlease.c"
 
 		goto _st31;
 		_st31:
@@ -1402,14 +1403,14 @@ const size_t linenum)
 		}
 		_ctr42:
 			{
-#line 393 "dynlease.rl"
+#line 394 "dynlease.rl"
 			
 			size_t l;
 			assign_strbuf(cps->v6_addr, &l, sizeof cps->v6_addr, cps->st, p);
 			lc_string_inplace(cps->v6_addr, l);
 		}
 		
-#line 1389 "dynlease.c"
+#line 1390 "dynlease.c"
 
 		goto _st32;
 		_st32:
@@ -1444,10 +1445,10 @@ const size_t linenum)
 		}
 		_ctr44:
 			{
-#line 349 "dynlease.rl"
+#line 350 "dynlease.rl"
 			cps->st = p; }
 		
-#line 1426 "dynlease.c"
+#line 1427 "dynlease.c"
 
 		goto _st33;
 		_st33:
@@ -1482,13 +1483,13 @@ const size_t linenum)
 		}
 		_ctr46:
 			{
-#line 356 "dynlease.rl"
+#line 357 "dynlease.rl"
 			
 			assign_strbuf(cps->duid, &cps->duid_len, sizeof cps->duid, cps->st, p);
 			lc_string_inplace(cps->duid, cps->duid_len);
 		}
 		
-#line 1466 "dynlease.c"
+#line 1467 "dynlease.c"
 
 		goto _st34;
 		_st34:
@@ -1515,10 +1516,10 @@ const size_t linenum)
 		}
 		_ctr49:
 			{
-#line 349 "dynlease.rl"
+#line 350 "dynlease.rl"
 			cps->st = p; }
 		
-#line 1495 "dynlease.c"
+#line 1496 "dynlease.c"
 
 		goto _st35;
 		_st35:
@@ -1545,7 +1546,7 @@ const size_t linenum)
 		}
 		_ctr51:
 			{
-#line 360 "dynlease.rl"
+#line 361 "dynlease.rl"
 			
 			char buf[64];
 			ptrdiff_t blen = p - cps->st;
@@ -1560,7 +1561,7 @@ const size_t linenum)
 			}
 		}
 		
-#line 1536 "dynlease.c"
+#line 1537 "dynlease.c"
 
 		goto _st36;
 		_st36:
@@ -1587,15 +1588,15 @@ const size_t linenum)
 		}
 		_ctr53:
 			{
-#line 349 "dynlease.rl"
+#line 350 "dynlease.rl"
 			cps->st = p; }
 		
-#line 1565 "dynlease.c"
+#line 1566 "dynlease.c"
 
 		goto _st43;
 		_ctr62:
 			{
-#line 398 "dynlease.rl"
+#line 399 "dynlease.rl"
 			
 			char buf[64];
 			ptrdiff_t blen = p - cps->st;
@@ -1610,10 +1611,10 @@ const size_t linenum)
 			}
 		}
 		
-#line 1584 "dynlease.c"
+#line 1585 "dynlease.c"
 
 			{
-#line 421 "dynlease.rl"
+#line 422 "dynlease.rl"
 			
 			struct in6_addr ipa;
 			if (!ipaddr_from_string(&ipa, cps->v6_addr)) {
@@ -1624,7 +1625,7 @@ const size_t linenum)
 			dynlease6_add(cps->ifindex, &ipa, cps->duid, cps->duid_len, cps->iaid, cps->expire_time);
 		}
 		
-#line 1597 "dynlease.c"
+#line 1598 "dynlease.c"
 
 		goto _st43;
 		_st43:
@@ -1651,7 +1652,7 @@ const size_t linenum)
 		}
 		_ctr63:
 			{
-#line 398 "dynlease.rl"
+#line 399 "dynlease.rl"
 			
 			char buf[64];
 			ptrdiff_t blen = p - cps->st;
@@ -1666,12 +1667,12 @@ const size_t linenum)
 			}
 		}
 		
-#line 1638 "dynlease.c"
+#line 1639 "dynlease.c"
 
 		goto _st44;
 		_ctr65:
 			{
-#line 421 "dynlease.rl"
+#line 422 "dynlease.rl"
 			
 			struct in6_addr ipa;
 			if (!ipaddr_from_string(&ipa, cps->v6_addr)) {
@@ -1682,7 +1683,7 @@ const size_t linenum)
 			dynlease6_add(cps->ifindex, &ipa, cps->duid, cps->duid_len, cps->iaid, cps->expire_time);
 		}
 		
-#line 1653 "dynlease.c"
+#line 1654 "dynlease.c"
 
 		goto _st44;
 		_st44:
@@ -1867,7 +1868,7 @@ const size_t linenum)
 		_out: {}
 	}
 	
-#line 454 "dynlease.rl"
+#line 455 "dynlease.rl"
 
 	
 	if (cps->parse_error) return -1;
