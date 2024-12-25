@@ -198,16 +198,8 @@ private:
     [[nodiscard]] bool attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss);
     [[nodiscard]] bool attach_status_code(sbufs &ss, d6_statuscode::code scode);
     [[nodiscard]] bool write_response_header(const d6msg_state &d6s, sbufs &ss, dhcp6_msgtype mtype);
-    [[nodiscard]] bool handle_solicit_msg(const d6msg_state &d6s, sbufs &ss);
-    [[nodiscard]] bool handle_request_msg(const d6msg_state &d6s, sbufs &ss);
     [[nodiscard]] bool confirm_match(const d6msg_state &d6s, bool &confirmed);
     [[nodiscard]] bool mark_addr_unused(const d6msg_state &d6s, sbufs &ss);
-    [[nodiscard]] bool handle_confirm_msg(const d6msg_state &d6s, sbufs &ss);
-    [[nodiscard]] bool handle_renew_msg(const d6msg_state &d6s, sbufs &ss);
-    [[nodiscard]] bool handle_rebind_msg(const d6msg_state &d6s, sbufs &ss);
-    [[nodiscard]] bool handle_information_msg(const d6msg_state &d6s, sbufs &ss);
-    [[nodiscard]] bool handle_release_msg(const d6msg_state &d6s, sbufs &ss);
-    [[nodiscard]] bool handle_decline_msg(const d6msg_state &d6s, sbufs &ss);
     bool serverid_incorrect(const d6msg_state &d6s) const;
     void attach_bpf(int fd);
     void process_receive(char *buf, size_t buflen,

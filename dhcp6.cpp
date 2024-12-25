@@ -521,83 +521,6 @@ bool D6Listener::mark_addr_unused(const d6msg_state &d6s, sbufs &ss)
     return true;
 }
 
-bool D6Listener::handle_solicit_msg(const d6msg_state &d6s, sbufs &ss)
-{
-    if (!write_response_header(d6s, ss,
-        !d6s.use_rapid_commit ? dhcp6_msgtype::advertise
-                              : dhcp6_msgtype::reply)) return false;
-
-    // RFC7550 says servers MUST NOT return top-level Status Code noaddrsavail.
-    bool valid;
-    if (!attach_address_info(d6s, ss, d6_statuscode::code::noaddrsavail, &valid)) return false;
-    if (!attach_dns_ntp_info(d6s, ss)) return false;
-
-    if (valid && d6s.use_rapid_commit) {
-        dhcp6_opt rapid_commit;
-        rapid_commit.type(14);
-        rapid_commit.length(0);
-        if (!rapid_commit.write(ss)) return false;
-    }
-    return true;
-}
-
-bool D6Listener::handle_request_msg(const d6msg_state &d6s, sbufs &ss)
-{
-    if (!write_response_header(d6s, ss, dhcp6_msgtype::reply)) return false;
-    if (!attach_address_info(d6s, ss, d6_statuscode::code::noaddrsavail)) return false;
-    if (!attach_dns_ntp_info(d6s, ss)) return false;
-    return true;
-}
-
-bool D6Listener::handle_confirm_msg(const d6msg_state &d6s, sbufs &ss)
-{
-    if (!write_response_header(d6s, ss, dhcp6_msgtype::reply)) return false;
-    bool confirmed;
-    if (!confirm_match(d6s, confirmed)) return false;
-    if (!attach_status_code(ss, confirmed
-        ? d6_statuscode::code::success : d6_statuscode::code::notonlink)) return false;
-    if (!attach_dns_ntp_info(d6s, ss)) return false;
-    return true;
-}
-
-bool D6Listener::handle_renew_msg(const d6msg_state &d6s, sbufs &ss)
-{
-    if (!write_response_header(d6s, ss, dhcp6_msgtype::reply)) return false;
-    if (!attach_address_info(d6s, ss, d6_statuscode::code::nobinding)) return false;
-    if (!attach_dns_ntp_info(d6s, ss)) return false;
-    return true;
-}
-
-bool D6Listener::handle_rebind_msg(const d6msg_state &d6s, sbufs &ss)
-{
-    if (!write_response_header(d6s, ss, dhcp6_msgtype::reply)) return false;
-    if (!attach_address_info(d6s, ss, d6_statuscode::code::nobinding)) return false;
-    if (!attach_dns_ntp_info(d6s, ss)) return false;
-    return true;
-}
-
-bool D6Listener::handle_information_msg(const d6msg_state &d6s, sbufs &ss)
-{
-    if (!write_response_header(d6s, ss, dhcp6_msgtype::reply)) return false;
-    if (!attach_dns_ntp_info(d6s, ss)) return false;
-    log_line("dhcp6: Sending Information Message in response on %s\n", ifname_);
-    return true;
-}
-
-bool D6Listener::handle_release_msg(const d6msg_state &d6s, sbufs &ss)
-{
-    if (!write_response_header(d6s, ss, dhcp6_msgtype::reply)) return false;
-    if (!mark_addr_unused(d6s, ss)) return false;
-    return true;
-}
-
-bool D6Listener::handle_decline_msg(const d6msg_state &d6s, sbufs &ss)
-{
-    if (!write_response_header(d6s, ss, dhcp6_msgtype::reply)) return false;
-    if (!mark_addr_unused(d6s, ss)) return false;
-    return true;
-}
-
 #define OPTIONS_CONSUME(BLD_VAL) do { \
     if (!options_consume(d6s, (BLD_VAL))) { \
         log_line("dhcp6: Received malformed message on %s\n", ifname_); \
@@ -868,38 +791,61 @@ void D6Listener::process_receive(char *buf, size_t buflen,
      }
 
      switch (d6s.header.msg_type()) {
-     case dhcp6_msgtype::solicit:
+     case dhcp6_msgtype::solicit: {
          if (d6s.server_duid_blob_size) return;
-         if (!handle_solicit_msg(d6s, ss)) return;
+         if (!write_response_header(d6s, ss,
+                                    !d6s.use_rapid_commit ? dhcp6_msgtype::advertise
+                                    : dhcp6_msgtype::reply)) return;
+
+         // RFC7550 says servers MUST NOT return top-level Status Code noaddrsavail.
+         bool valid;
+         if (!attach_address_info(d6s, ss, d6_statuscode::code::noaddrsavail, &valid)) return;
+         if (!attach_dns_ntp_info(d6s, ss)) return;
+
+         if (valid && d6s.use_rapid_commit) {
+             dhcp6_opt rapid_commit;
+             rapid_commit.type(14);
+             rapid_commit.length(0);
+             if (!rapid_commit.write(ss)) return;
+         }
          break;
-     case dhcp6_msgtype::request:
-         if (serverid_incorrect(d6s)) return;
-         if (!handle_request_msg(d6s, ss)) return;
-         break;
+     }
      case dhcp6_msgtype::confirm:
          if (d6s.server_duid_blob_size) return;
-         if (!handle_confirm_msg(d6s, ss)) return;
+         if (!write_response_header(d6s, ss, dhcp6_msgtype::reply)) return;
+         bool confirmed;
+         if (!confirm_match(d6s, confirmed)) return;
+         if (!attach_status_code(ss, confirmed ? d6_statuscode::code::success
+                                               : d6_statuscode::code::notonlink)) return;
+         if (!attach_dns_ntp_info(d6s, ss)) return;
          break;
+     case dhcp6_msgtype::request:
      case dhcp6_msgtype::renew:
          if (serverid_incorrect(d6s)) return;
-         if (!handle_renew_msg(d6s, ss)) return;
+         if (!write_response_header(d6s, ss, dhcp6_msgtype::reply)) return;
+         if (!attach_address_info(d6s, ss, d6s.header.msg_type() == dhcp6_msgtype::renew
+                                  ? d6_statuscode::code::nobinding
+                                  : d6_statuscode::code::noaddrsavail)) return;
+         if (!attach_dns_ntp_info(d6s, ss)) return;
          break;
      case dhcp6_msgtype::rebind:
          if (d6s.server_duid_blob_size) return;
-         if (!handle_rebind_msg(d6s, ss)) return;
+         if (!write_response_header(d6s, ss, dhcp6_msgtype::reply)) return;
+         if (!attach_address_info(d6s, ss, d6_statuscode::code::nobinding)) return;
+         if (!attach_dns_ntp_info(d6s, ss)) return;
          break;
      case dhcp6_msgtype::release:
-         if (serverid_incorrect(d6s)) return;
-         if (!handle_release_msg(d6s, ss)) return;
-         break;
      case dhcp6_msgtype::decline:
          if (serverid_incorrect(d6s)) return;
-         if (!handle_decline_msg(d6s, ss)) return;
+         if (!write_response_header(d6s, ss, dhcp6_msgtype::reply)) return;
+         if (!mark_addr_unused(d6s, ss)) return;
          break;
      case dhcp6_msgtype::information_request:
          if (d6s.server_duid_blob_size && serverid_incorrect(d6s)) return;
          if (!d6s.ias_n) return;
-         if (!handle_information_msg(d6s, ss)) return;
+         if (!write_response_header(d6s, ss, dhcp6_msgtype::reply)) return;
+         if (!attach_dns_ntp_info(d6s, ss)) return;
+         log_line("dhcp6: Sending Information Message in response on %s\n", ifname_);
          break;
      default: return;
      }
