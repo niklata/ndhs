@@ -49,21 +49,23 @@ static bool dhcp6_opt_write(const struct dhcp6_opt *self, sbufs *sbuf)
 // Server Identifier Option
 struct dhcp6_opt_serverid
 {
-    dhcp6_opt_serverid(const char *s, size_t slen) : duid_string_(s), duid_len_(slen) {}
     const char *duid_string_;
     size_t duid_len_;
-
-    bool write(sbufs &sbuf) const
-    {
-        const auto size = DHCP6_OPT_SIZE + duid_len_;
-        if (sbufs_brem(&sbuf) < size) return false;
-        dhcp6_opt header = dhcp6_opt_create(2, duid_len_);
-        if (!dhcp6_opt_write(&header, &sbuf)) return false;
-        memcpy(sbuf.si, duid_string_, duid_len_);
-        sbuf.si += duid_len_;
-        return true;
-    }
 };
+static struct dhcp6_opt_serverid dhcp6_opt_serverid_create(const char *s, size_t slen)
+{
+    return (struct dhcp6_opt_serverid){ .duid_string_ = s, .duid_len_ = slen };
+}
+static bool dhcp6_opt_serverid_write(const struct dhcp6_opt_serverid *self, sbufs *sbuf)
+{
+    const size_t size = DHCP6_OPT_SIZE + self->duid_len_;
+    if (sbufs_brem(sbuf) < size) return false;
+    dhcp6_opt header = dhcp6_opt_create(2, self->duid_len_);
+    if (!dhcp6_opt_write(&header, sbuf)) return false;
+    memcpy(sbuf->si, self->duid_string_, self->duid_len_);
+    sbuf->si += self->duid_len_;
+    return true;
+}
 
 static in6_addr mask_v6_addr(const in6_addr *addr, uint8_t mask)
 {
@@ -324,8 +326,8 @@ bool D6Listener::write_response_header(const d6msg_state &d6s, sbufs &ss,
     send_d6hdr.msg_type(mtype);
     if (!send_d6hdr.write(ss)) return false;
 
-    dhcp6_opt_serverid send_serverid(g_server_duid, sizeof g_server_duid);
-    if (!send_serverid.write(ss)) return false;
+    struct dhcp6_opt_serverid send_serverid = dhcp6_opt_serverid_create(g_server_duid, sizeof g_server_duid);
+    if (!dhcp6_opt_serverid_write(&send_serverid, &ss)) return false;
 
     if (d6s.client_duid_blob_size == 0 ||
         (ptrdiff_t)d6s.client_duid_blob_size > ss.se - ss.si) return false;
