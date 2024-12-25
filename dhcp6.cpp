@@ -30,14 +30,14 @@ struct dhcp6_opt
 
     bool read(sbufs &rbuf)
     {
-        if (rbuf.brem() < size) return false;
+        if (sbufs_brem(&rbuf) < size) return false;
         memcpy(&data_, rbuf.si, sizeof data_);
         rbuf.si += size;
         return true;
     }
     bool write(sbufs &sbuf) const
     {
-        if (sbuf.brem() < size) return false;
+        if (sbufs_brem(&sbuf) < size) return false;
         memcpy(sbuf.si, &data_, sizeof data_);
         sbuf.si += size;
         return true;
@@ -56,7 +56,7 @@ struct dhcp6_opt_serverid
     bool write(sbufs &sbuf) const
     {
         const auto size = dhcp6_opt::size + duid_len_;
-        if (sbuf.brem() < size) return false;
+        if (sbufs_brem(&sbuf) < size) return false;
         dhcp6_opt header;
         header.type(2);
         header.length(duid_len_);
@@ -593,7 +593,7 @@ void D6Listener::process_receive(char *buf, size_t buflen,
         }
     }
 
-     while (rs.brem() >= 4) {
+    while (sbufs_brem(&rs) >= 4) {
          dhcp6_opt opt;
          if (!opt.read(rs)) return;
          OPTIONS_CONSUME(opt.size);
@@ -602,7 +602,7 @@ void D6Listener::process_receive(char *buf, size_t buflen,
          auto l = opt.length();
          auto ot = opt.type();
 
-         if (l > rs.brem()) {
+         if (l > sbufs_brem(&rs)) {
              log_line("dhcp6: Option is too long on %s\n", ifname_);
              return;
          }

@@ -90,7 +90,7 @@ public:
 
     bool read(sbufs &rbuf)
     {
-        if (rbuf.brem() < size) return false;
+        if (sbufs_brem(&rbuf) < size) return false;
         memcpy(&data_, rbuf.si, sizeof data_);
         if (version() != 6) return false; // XXX: Existing code was doing this check here.
         rbuf.si += size;
@@ -98,7 +98,7 @@ public:
     }
     bool write(sbufs &sbuf) const
     {
-        if (sbuf.brem() < size) return false;
+        if (sbufs_brem(&sbuf) < size) return false;
         memcpy(sbuf.si, &data_, sizeof data_);
         sbuf.si += size;
         return true;
@@ -110,14 +110,14 @@ private:
 #define DEF_RW_MEMBERS() \
     bool read(sbufs &rbuf) \
     { \
-        if (rbuf.brem() < size) return false; \
+        if (sbufs_brem(&rbuf) < size) return false; \
         memcpy(&data_, rbuf.si, sizeof data_); \
         rbuf.si += size; \
         return true; \
     } \
     bool write(sbufs &sbuf) const \
     { \
-        if (sbuf.brem() < size) return false; \
+        if (sbufs_brem(&sbuf) < size) return false; \
         memcpy(sbuf.si, &data_, sizeof data_); \
         sbuf.si += size; \
         return true; \

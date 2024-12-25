@@ -30,7 +30,7 @@ extern "C" {
 }
 #include "nlsocket.h"
 #include "dhcp6.hpp"
-#include "dhcp4.hpp"
+#include "dhcp4.h"
 #include "dhcp_state.h"
 #include "dynlease.h"
 #include "duid.h"
@@ -116,14 +116,13 @@ static void create_interface_listener(const struct netif_info *ifinfo,
         }
     }
     if (use_v4) {
-        D4Listener *d4l = new D4Listener();
-        if (d4l->init(ifinfo->name)) {
-            pt.fd = d4l->fd();
+        D4Listener *d4l = D4Listener_create(ifinfo->name);
+        if (d4l) {
+            pt.fd = D4Listener_fd(d4l);
             poll_array[*pfdc] = pt;
             poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = pfd_type::dhcp4, .ld4 = d4l };
         } else {
             log_line("Can't bind to dhcpv4 interface: %s\n", ifinfo->name);
-            delete d4l;
         }
     }
 }
@@ -311,7 +310,7 @@ int main(int ac, char *av[])
                 if (poll_array[i].revents & POLLIN) NLSocket_process_input(&nl_socket);
                 break;
             case pfd_type::dhcp4:
-                if (poll_array[i].revents & POLLIN) poll_meta[i].ld4->process_input();
+                if (poll_array[i].revents & POLLIN) D4Listener_process_input(poll_meta[i].ld4);
                 break;
             case pfd_type::dhcp6:
                 if (poll_array[i].revents & POLLIN) poll_meta[i].ld6->process_input();

@@ -43,7 +43,7 @@ struct dhcp6_header
 
     bool read(sbufs &rbuf)
     {
-        if (rbuf.brem() < size) return false;
+        if (sbufs_brem(&rbuf) < size) return false;
         memcpy(&type_, rbuf.si, sizeof type_);
         memcpy(&xid_, rbuf.si + 1, sizeof xid_);
         rbuf.si += size;
@@ -51,7 +51,7 @@ struct dhcp6_header
     }
     bool write(sbufs &sbuf) const
     {
-        if (sbuf.brem() < size) return false;
+        if (sbufs_brem(&sbuf) < size) return false;
         memcpy(sbuf.si, &type_, sizeof type_);
         memcpy(sbuf.si + 1, &xid_, sizeof xid_);
         sbuf.si += size;
@@ -73,7 +73,7 @@ struct d6_ia_addr {
 
     bool read(sbufs &rbuf)
     {
-        if (rbuf.brem() < size) return false;
+        if (sbufs_brem(&rbuf) < size) return false;
         memcpy(&addr, rbuf.si, sizeof addr);
         prefer_lifetime = 0; // RFC8415 S25
         valid_lifetime = 0; // RFC8415 S25
@@ -82,7 +82,7 @@ struct d6_ia_addr {
     }
     bool write(sbufs &sbuf) const
     {
-        if (sbuf.brem() < size) return false;
+        if (sbufs_brem(&sbuf) < size) return false;
         memcpy(sbuf.si, &addr, sizeof addr);
         encode32be(prefer_lifetime, sbuf.si + 16);
         encode32be(valid_lifetime, sbuf.si + 20);
@@ -102,7 +102,7 @@ struct d6_ia {
 
     bool read(sbufs &rbuf)
     {
-        if (rbuf.brem() < size) return false;
+        if (sbufs_brem(&rbuf) < size) return false;
         iaid = decode32be(rbuf.si);
         t1_seconds = 0; // RFC8415 S25
         t2_seconds = 0; // RFC8415 S25
@@ -111,7 +111,7 @@ struct d6_ia {
     }
     bool write(sbufs &sbuf) const
     {
-        if (sbuf.brem() < size) return false;
+        if (sbufs_brem(&sbuf) < size) return false;
         encode32be(iaid, sbuf.si);
         encode32be(t1_seconds, sbuf.si + 4);
         encode32be(t2_seconds, sbuf.si + 8);
@@ -136,7 +136,7 @@ struct d6_statuscode
 
     bool write(sbufs &sbuf) const
     {
-        if (sbuf.brem() < size) return false;
+        if (sbufs_brem(&sbuf) < size) return false;
         encode16be(static_cast<uint16_t>(status_code), sbuf.si);
         sbuf.si += size;
         return true;

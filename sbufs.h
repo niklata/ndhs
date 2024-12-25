@@ -7,27 +7,32 @@
 #include <stddef.h>
 #include <errno.h>
 #include <arpa/inet.h>
+#ifdef __cplusplus
 extern "C" {
+#endif
 #include "nk/log.h"
+#ifdef __cplusplus
 }
+#endif
 
 struct sbufs {
     char *si;
     char *se;
-
-    size_t brem() const {
-        return se > si ? static_cast<size_t>(se - si) : 0;
-    }
 };
+
+static inline size_t sbufs_brem(const struct sbufs *self)
+{
+    return self->se > self->si ? (size_t)(self->se - self->si) : 0;
+}
 
 static inline bool ip4_to_string(char *buf, size_t buflen, uint32_t addr)
 {
     return !!inet_ntop(AF_INET, &addr, buf, buflen);
 }
 
-static inline bool sa6_from_string(sockaddr_in6 *sin, const char *str)
+static inline bool sa6_from_string(struct sockaddr_in6 *sin, const char *str)
 {
-    memset(sin, 0, sizeof(sockaddr_in6));
+    memset(sin, 0, sizeof(struct sockaddr_in6));
     sin->sin6_family = AF_INET6;
     if (inet_pton(AF_INET6, str, &sin->sin6_addr) != 1) {
         log_line("inet_pton failed: %s\n", strerror(errno));
@@ -37,8 +42,8 @@ static inline bool sa6_from_string(sockaddr_in6 *sin, const char *str)
 }
 static inline bool sa6_to_string(char *buf, size_t buflen, const void *sin, socklen_t sinlen)
 {
-    if (sinlen < sizeof(sockaddr_in6)) return false;
-    return !!inet_ntop(AF_INET6, &((const sockaddr_in6 *)sin)->sin6_addr, buf, buflen);
+    if (sinlen < sizeof(struct sockaddr_in6)) return false;
+    return !!inet_ntop(AF_INET6, &((const struct sockaddr_in6 *)sin)->sin6_addr, buf, buflen);
 }
 
 #endif
