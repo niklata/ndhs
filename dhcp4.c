@@ -193,11 +193,11 @@ struct D4Listener *D4Listener_create(const char *ifname)
         return NULL;
     }
     struct netif_info *ifinfo = NLSocket_get_ifinfo(&nl_socket, ifindex);
+    if (!ifinfo) return NULL;
     if (!ifinfo->has_v4_address) {
         log_line("dhcp4: Interface (%s) has no IP address\n", ifname);
         return NULL;
     }
-    if (!ifinfo) return NULL;
     self = calloc(1, sizeof(struct D4Listener));
     if (!self) return NULL;
 

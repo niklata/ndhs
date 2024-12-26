@@ -14,6 +14,7 @@
 #include "multicast6.hpp"
 #include "attach_bpf.h"
 #include "sbufs.h"
+#include "dhcp_state.h"
 
 extern "C" {
 #include "nk/net_checksum16.h"

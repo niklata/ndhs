@@ -31,6 +31,7 @@ extern "C" {
 #include "nlsocket.h"
 #include "dhcp6.hpp"
 #include "dhcp4.h"
+#include "radv6.hpp"
 #include "dhcp_state.h"
 #include "dynlease.h"
 #include "duid.h"
@@ -95,11 +96,11 @@ static void create_interface_listener(const struct netif_info *ifinfo,
 
     size_t *pfdc = static_cast<size_t *>(ud);
     if (use_v6) {
-        D6Listener *d6l = new D6Listener();
-        if (d6l->init(ifinfo->name, preference)) {
+        D6Listener *d6l = D6Listener_create(ifinfo->name, preference);
+        if (d6l) {
             RA6Listener *r6l = new RA6Listener();
             if (r6l->init(ifinfo->name)) {
-                pt.fd = d6l->fd();
+                pt.fd = d6l->fd_;
                 poll_array[*pfdc] = pt;
                 poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = PFD_TYPE_DHCP6, .ld6 = d6l };
 
@@ -108,11 +109,11 @@ static void create_interface_listener(const struct netif_info *ifinfo,
                 poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = PFD_TYPE_RADV6, .lr6 = r6l };
             } else {
                 log_line("Can't bind to rav6 interface: %s\n", ifinfo->name);
+                D6Listener_destroy(d6l);
                 delete r6l;
             }
         } else {
             log_line("Can't bind to dhcpv6 interface: %s\n", ifinfo->name);
-            delete d6l;
         }
     }
     if (use_v4) {
@@ -313,7 +314,7 @@ int main(int ac, char *av[])
                 if (poll_array[i].revents & POLLIN) D4Listener_process_input(poll_meta[i].ld4);
                 break;
             case PFD_TYPE_DHCP6:
-                if (poll_array[i].revents & POLLIN) poll_meta[i].ld6->process_input();
+                if (poll_array[i].revents & POLLIN) D6Listener_process_input(poll_meta[i].ld6);
                 break;
             case PFD_TYPE_RADV6: {
                 if (poll_array[i].revents & POLLIN) poll_meta[i].lr6->process_input();
