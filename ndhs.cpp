@@ -29,7 +29,7 @@ extern "C" {
 #include "nk/random.h"
 }
 #include "nlsocket.h"
-#include "dhcp6.hpp"
+#include "dhcp6.h"
 #include "dhcp4.h"
 #include "radv6.hpp"
 #include "dhcp_state.h"
@@ -100,7 +100,7 @@ static void create_interface_listener(const struct netif_info *ifinfo,
         if (d6l) {
             RA6Listener *r6l = new RA6Listener();
             if (r6l->init(ifinfo->name)) {
-                pt.fd = d6l->fd_;
+                pt.fd = D6Listener_fd(d6l);
                 poll_array[*pfdc] = pt;
                 poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = PFD_TYPE_DHCP6, .ld6 = d6l };
 

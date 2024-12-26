@@ -10,8 +10,8 @@
 #include <nk/netbits.h>
 #include "radv6.hpp"
 #include "nlsocket.h"
-#include "dhcp6.hpp"
-#include "multicast6.hpp"
+#include "dhcp6.h"
+#include "multicast6.h"
 #include "attach_bpf.h"
 #include "sbufs.h"
 #include "dhcp_state.h"
@@ -333,7 +333,7 @@ bool RA6Listener::init(const char *ifname)
         log_line("ra6: Failed to create v6 ICMP socket on %s: %s\n", ifname_, strerror(errno));
         goto err0;
     }
-    if (!attach_multicast(fd_, ifname_, mc6_allrouters))
+    if (!attach_multicast_sockaddr_in6(fd_, ifname_, &mc6_allrouters))
         goto err1;
     attach_bpf(fd_);
 
