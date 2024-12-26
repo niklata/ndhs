@@ -297,14 +297,21 @@ bool D6Listener::allot_dynamic_ip(const char *client_duid, size_t client_duid_si
 
 #define OPT_STATUSCODE_SIZE (4)
 
+static bool dhcp6_statuscode_write(sbufs *ss, dhcp6_code status_code)
+{
+    if (sbufs_brem(ss) < sizeof(uint16_t)) return false;
+    encode16be((uint16_t)status_code, ss->si);
+    ss->si += sizeof(uint16_t);
+    return true;
+}
+
 bool D6Listener::attach_status_code(sbufs &ss, dhcp6_code scode)
 {
     static const char ok_str[] = "OK";
     static const char nak_str[] = "NO";
     dhcp6_opt header = dhcp6_opt_create(13, OPT_STATUSCODE_SIZE);
     if (!dhcp6_opt_write(&header, &ss)) return false;
-    d6_statuscode sc(scode);
-    if (!sc.write(ss)) return false;
+    if (!dhcp6_statuscode_write(&ss, scode)) return false;
     if (scode == D6_CODE_SUCCESS) {
         for (int i = 0; ok_str[i]; ++i) {
             if (ss.si == ss.se) return false;

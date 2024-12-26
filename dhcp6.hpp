@@ -127,21 +127,6 @@ struct d6_ia {
         return true;
     }
 };
-struct d6_statuscode
-{
-    d6_statuscode() : status_code(D6_CODE_SUCCESS) {}
-    explicit d6_statuscode(dhcp6_code c) : status_code(c) {}
-    dhcp6_code status_code;
-    static const size_t size = 2;
-
-    bool write(sbufs &sbuf) const
-    {
-        if (sbufs_brem(&sbuf) < size) return false;
-        encode16be(static_cast<uint16_t>(status_code), sbuf.si);
-        sbuf.si += size;
-        return true;
-    }
-};
 
 #define D6_MAX_ENCAP_DEPTH 4
 
