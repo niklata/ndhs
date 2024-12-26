@@ -41,33 +41,8 @@ enum dhcp6_code {
 // Packet header.
 struct dhcp6_header
 {
-    dhcp6_msgtype msg_type() const {
-        if (type_ >= 1 && type_ <= 13)
-            return static_cast<dhcp6_msgtype>(type_);
-        return D6_MSGTYPE_UNKNOWN;
-    };
-    void msg_type(dhcp6_msgtype v) { type_ = static_cast<uint8_t>(v); }
-    static const size_t size = 4;
-
-    bool read(sbufs &rbuf)
-    {
-        if (sbufs_brem(&rbuf) < size) return false;
-        memcpy(&type_, rbuf.si, sizeof type_);
-        memcpy(&xid_, rbuf.si + 1, sizeof xid_);
-        rbuf.si += size;
-        return true;
-    }
-    bool write(sbufs &sbuf) const
-    {
-        if (sbufs_brem(&sbuf) < size) return false;
-        memcpy(sbuf.si, &type_, sizeof type_);
-        memcpy(sbuf.si + 1, &xid_, sizeof xid_);
-        sbuf.si += size;
-        return true;
-    }
-private:
-    uint8_t type_ = 0;
-    char xid_[3] = {};
+    uint8_t type;
+    char xid[3];
 };
 
 #define D6_MAX_IAS 4

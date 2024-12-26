@@ -19,9 +19,31 @@ extern struct nk_random_state g_rngstate;
 
 extern NLSocket nl_socket;
 
+#define DHCP6_HEADER_SIZE 4
 #define DHCP6_OPT_SIZE 4
 #define DHCP6_IA_ADDR_SIZE 24
 #define DHCP6_IA_NA_SIZE 12
+
+static enum dhcp6_msgtype dhcp6_header_msgtype(const struct dhcp6_header *self)
+{
+    return self->type >= 1 && self->type <= 13 ? (dhcp6_msgtype)self->type : D6_MSGTYPE_UNKNOWN;
+}
+static bool dhcp6_header_read(struct dhcp6_header *self, sbufs *rbuf)
+{
+    if (sbufs_brem(rbuf) < DHCP6_HEADER_SIZE) return false;
+    memcpy(&self->type, rbuf->si, sizeof self->type);
+    memcpy(&self->xid, rbuf->si + 1, sizeof self->xid);
+    rbuf->si += DHCP6_HEADER_SIZE;
+    return true;
+}
+static bool dhcp6_header_write(const struct dhcp6_header *self, sbufs *sbuf)
+{
+    if (sbufs_brem(sbuf) < DHCP6_HEADER_SIZE) return false;
+    memcpy(sbuf->si, &self->type, sizeof self->type);
+    memcpy(sbuf->si + 1, &self->xid, sizeof self->xid);
+    sbuf->si += DHCP6_HEADER_SIZE;
+    return true;
+}
 
 // Option header.
 struct dhcp6_opt { uint8_t data_[4]; };
@@ -370,8 +392,8 @@ bool D6Listener::write_response_header(const d6msg_state &d6s, sbufs &ss,
                                        dhcp6_msgtype mtype)
 {
     dhcp6_header send_d6hdr(d6s.header); // to copy the xid
-    send_d6hdr.msg_type(mtype);
-    if (!send_d6hdr.write(ss)) return false;
+    send_d6hdr.type = mtype;
+    if (!dhcp6_header_write(&send_d6hdr, &ss)) return false;
 
     struct dhcp6_opt_serverid send_serverid = dhcp6_opt_serverid_create(g_server_duid, sizeof g_server_duid);
     if (!dhcp6_opt_serverid_write(&send_serverid, &ss)) return false;
@@ -592,7 +614,7 @@ void D6Listener::process_receive(char *buf, size_t buflen,
     sbufs rs{ buf, buf + buflen };
     if (!using_bpf_) {
         // Discard if the DHCP6 length < the size of a DHCP6 header.
-        if (buflen < dhcp6_header::size) {
+        if (buflen < DHCP6_HEADER_SIZE) {
             log_line("dhcp6: Packet from %s is too short (%zu) on %s\n",
                      sip_str, buflen, ifname_);
             return;
@@ -600,19 +622,19 @@ void D6Listener::process_receive(char *buf, size_t buflen,
     }
 
     d6msg_state d6s;
-    if (!d6s.header.read(rs)) {
+    if (!dhcp6_header_read(&d6s.header, &rs)) {
         log_line("dhcp6: Packet from %s has no valid option headers on %s\n",
                  sip_str, ifname_);
         return;
     }
-    OPTIONS_CONSUME(d6s.header.size);
+    OPTIONS_CONSUME(DHCP6_HEADER_SIZE);
 
     log_line("dhcp6: Message (%s) on %s\n",
-             dhcp6_msgtype_to_string(d6s.header.msg_type()), ifname_);
+             dhcp6_msgtype_to_string((dhcp6_msgtype)d6s.header.type), ifname_);
 
     // These message types are not allowed to be sent to servers.
     if (!using_bpf_) {
-        switch (d6s.header.msg_type()) {
+        switch (d6s.header.type) {
         case D6_MSGTYPE_ADVERTISE:
         case D6_MSGTYPE_REPLY:
         case D6_MSGTYPE_RECONFIGURE:
@@ -798,13 +820,13 @@ void D6Listener::process_receive(char *buf, size_t buflen,
 
      if (!d6s.optreq_exists) {
          // These message types MUST include Option Request (cf. RFC 8415 21.27)
-         switch (d6s.header.msg_type()) {
+         switch (d6s.header.type) {
          case D6_MSGTYPE_SOLICIT:
          case D6_MSGTYPE_REQUEST:
          case D6_MSGTYPE_RENEW:
          case D6_MSGTYPE_REBIND:
          case D6_MSGTYPE_INFORMATION_REQUEST:
-             log_line("Client sent invalid %s -- no Option Request is present\n", dhcp6_msgtype_to_string(d6s.header.msg_type()));
+             log_line("Client sent invalid %s -- no Option Request is present\n", dhcp6_msgtype_to_string(dhcp6_header_msgtype(&d6s.header)));
              return;
          default: break;
          }
@@ -815,11 +837,11 @@ void D6Listener::process_receive(char *buf, size_t buflen,
 
      // Clients are required to send a client identifier.
      if (!d6s.client_duid_str_size &&
-         d6s.header.msg_type() != D6_MSGTYPE_INFORMATION_REQUEST) {
+         dhcp6_header_msgtype(&d6s.header) != D6_MSGTYPE_INFORMATION_REQUEST) {
          return;
      }
 
-     switch (d6s.header.msg_type()) {
+     switch (dhcp6_header_msgtype(&d6s.header)) {
      case D6_MSGTYPE_SOLICIT: {
          if (d6s.server_duid_blob_size) return;
          if (!write_response_header(d6s, ss,
@@ -850,7 +872,7 @@ void D6Listener::process_receive(char *buf, size_t buflen,
      case D6_MSGTYPE_RENEW:
          if (serverid_incorrect(d6s)) return;
          if (!write_response_header(d6s, ss, D6_MSGTYPE_REPLY)) return;
-         if (!attach_address_info(d6s, ss, d6s.header.msg_type() == D6_MSGTYPE_RENEW
+         if (!attach_address_info(d6s, ss, dhcp6_header_msgtype(&d6s.header) == D6_MSGTYPE_RENEW
                                   ? D6_CODE_NOBINDING
                                   : D6_CODE_NOADDRSAVAIL)) return;
          if (!attach_dns_ntp_info(d6s, ss)) return;
