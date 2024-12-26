@@ -149,6 +149,8 @@ private:
     uint8_t data_[4] = {};
 };
 
+enum RouterPref { ROUTERPREF_HIGH, ROUTERPREF_MEDIUM, ROUTERPREF_LOW };
+
 class ra6_advert_header
 {
 public:
@@ -163,18 +165,17 @@ public:
     void managed_addresses(bool v) { toggle_bit(v, data_, 1, 1 << 7); }
     void other_stateful(bool v) { toggle_bit(v, data_, 1, 1 << 6); }
     void home_address(bool v) { toggle_bit(v, data_, 1, 1 << 5); }
-    enum class RouterPref { High, Medium, Low };
     void default_router_preference(RouterPref v) {
         switch (v) {
-        case RouterPref::High:
+        case ROUTERPREF_HIGH:
             toggle_bit(false, data_, 1, 1 << 4);
             toggle_bit(true, data_, 1, 1 << 3);
             break;
-        case RouterPref::Medium:
+        case ROUTERPREF_MEDIUM:
             toggle_bit(false, data_, 1, 1 << 4);
             toggle_bit(false, data_, 1, 1 << 3);
             break;
-        case RouterPref::Low:
+        case ROUTERPREF_LOW:
             toggle_bit(true, data_, 1, 1 << 4);
             toggle_bit(true, data_, 1, 1 << 3);
             break;

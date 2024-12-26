@@ -13,21 +13,29 @@ extern "C" {
 #include <net/if.h>
 }
 
-enum class dhcp6_msgtype {
-    unknown = 0,
-    solicit = 1,
-    advertise = 2,
-    request = 3,
-    confirm = 4,
-    renew = 5,
-    rebind = 6,
-    reply = 7,
-    release = 8,
-    decline = 9,
-    reconfigure = 10,
-    information_request = 11,
-    relay_forward = 12,
-    relay_reply = 13,
+enum dhcp6_msgtype {
+    D6_MSGTYPE_UNKNOWN = 0,
+    D6_MSGTYPE_SOLICIT = 1,
+    D6_MSGTYPE_ADVERTISE = 2,
+    D6_MSGTYPE_REQUEST = 3,
+    D6_MSGTYPE_CONFIRM = 4,
+    D6_MSGTYPE_RENEW = 5,
+    D6_MSGTYPE_REBIND = 6,
+    D6_MSGTYPE_REPLY = 7,
+    D6_MSGTYPE_RELEASE = 8,
+    D6_MSGTYPE_DECLINE = 9,
+    D6_MSGTYPE_RECONFIGURE = 10,
+    D6_MSGTYPE_INFORMATION_REQUEST = 11,
+    D6_MSGTYPE_RELAY_FORWARD = 12,
+    D6_MSGTYPE_RELAY_REPLY = 13,
+};
+enum dhcp6_code {
+    D6_CODE_SUCCESS = 0,
+    D6_CODE_UNSPECFAIL = 1,
+    D6_CODE_NOADDRSAVAIL = 2,
+    D6_CODE_NOBINDING = 3,
+    D6_CODE_NOTONLINK = 4,
+    D6_CODE_USEMULTICAST = 5,
 };
 
 // Packet header.
@@ -36,7 +44,7 @@ struct dhcp6_header
     dhcp6_msgtype msg_type() const {
         if (type_ >= 1 && type_ <= 13)
             return static_cast<dhcp6_msgtype>(type_);
-        return dhcp6_msgtype::unknown;
+        return D6_MSGTYPE_UNKNOWN;
     };
     void msg_type(dhcp6_msgtype v) { type_ = static_cast<uint8_t>(v); }
     static const size_t size = 4;
@@ -121,17 +129,9 @@ struct d6_ia {
 };
 struct d6_statuscode
 {
-    enum class code {
-        success = 0,
-        unspecfail = 1,
-        noaddrsavail = 2,
-        nobinding = 3,
-        notonlink = 4,
-        usemulticast = 5,
-    };
-    d6_statuscode() : status_code(code::success) {}
-    explicit d6_statuscode(code c) : status_code(c) {}
-    code status_code;
+    d6_statuscode() : status_code(D6_CODE_SUCCESS) {}
+    explicit d6_statuscode(dhcp6_code c) : status_code(c) {}
+    dhcp6_code status_code;
     static const size_t size = 2;
 
     bool write(sbufs &sbuf) const
@@ -190,13 +190,13 @@ private:
     bool create_dhcp6_socket();
     [[nodiscard]] bool allot_dynamic_ip(const char *client_duid, size_t client_duid_size,
                                         sbufs &ss, uint32_t iaid,
-                                        d6_statuscode::code failcode, bool &use_dynamic);
+                                        dhcp6_code failcode, bool &use_dynamic);
     [[nodiscard]] bool emit_IA_addr(sbufs &ss, in6_addr ipa, uint32_t iaid, uint32_t lifetime);
-    [[nodiscard]] bool emit_IA_code(sbufs &ss, uint32_t iaid, d6_statuscode::code scode);
+    [[nodiscard]] bool emit_IA_code(sbufs &ss, uint32_t iaid, dhcp6_code scode);
     [[nodiscard]] bool attach_address_info(const d6msg_state &d6s, sbufs &ss,
-                                           d6_statuscode::code failcode, bool *has_addrs = nullptr);
+                                           dhcp6_code failcode, bool *has_addrs = nullptr);
     [[nodiscard]] bool attach_dns_ntp_info(const d6msg_state &d6s, sbufs &ss);
-    [[nodiscard]] bool attach_status_code(sbufs &ss, d6_statuscode::code scode);
+    [[nodiscard]] bool attach_status_code(sbufs &ss, dhcp6_code scode);
     [[nodiscard]] bool write_response_header(const d6msg_state &d6s, sbufs &ss, dhcp6_msgtype mtype);
     [[nodiscard]] bool confirm_match(const d6msg_state &d6s, bool &confirmed);
     [[nodiscard]] bool mark_addr_unused(const d6msg_state &d6s, sbufs &ss);

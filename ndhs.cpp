@@ -35,12 +35,12 @@ extern "C" {
 #include "dynlease.h"
 #include "duid.h"
 
-enum class pfd_type
+enum pfd_type
 {
-    netlink,
-    dhcp4,
-    dhcp6,
-    radv6,
+    PFD_TYPE_NETLINK,
+    PFD_TYPE_DHCP4,
+    PFD_TYPE_DHCP6,
+    PFD_TYPE_RADV6,
 };
 
 struct pfd_meta
@@ -101,11 +101,11 @@ static void create_interface_listener(const struct netif_info *ifinfo,
             if (r6l->init(ifinfo->name)) {
                 pt.fd = d6l->fd();
                 poll_array[*pfdc] = pt;
-                poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = pfd_type::dhcp6, .ld6 = d6l };
+                poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = PFD_TYPE_DHCP6, .ld6 = d6l };
 
                 pt.fd = r6l->fd();
                 poll_array[*pfdc] = pt;
-                poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = pfd_type::radv6, .lr6 = r6l };
+                poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = PFD_TYPE_RADV6, .lr6 = r6l };
             } else {
                 log_line("Can't bind to rav6 interface: %s\n", ifinfo->name);
                 delete r6l;
@@ -120,7 +120,7 @@ static void create_interface_listener(const struct netif_info *ifinfo,
         if (d4l) {
             pt.fd = D4Listener_fd(d4l);
             poll_array[*pfdc] = pt;
-            poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = pfd_type::dhcp4, .ld4 = d4l };
+            poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = PFD_TYPE_DHCP4, .ld4 = d4l };
         } else {
             log_line("Can't bind to dhcpv4 interface: %s\n", ifinfo->name);
         }
@@ -142,7 +142,7 @@ static void init_listeners()
 
     pt.fd = nl_socket.fd_;
     poll_array[0] = pt;
-    poll_meta[0] = (struct pfd_meta){ .pfdt = pfd_type::netlink };
+    poll_meta[0] = (struct pfd_meta){ .pfdt = PFD_TYPE_NETLINK };
 
     size_t pfdc = 1;
     bound_interfaces_foreach(create_interface_listener, &pfdc);
@@ -306,16 +306,16 @@ int main(int ac, char *av[])
             if (poll_array[i].revents & (POLLHUP|POLLERR|POLLRDHUP))
                 suicide("fd closed unexpectedly\n");
             switch (poll_meta[i].pfdt) {
-            case pfd_type::netlink:
+            case PFD_TYPE_NETLINK:
                 if (poll_array[i].revents & POLLIN) NLSocket_process_input(&nl_socket);
                 break;
-            case pfd_type::dhcp4:
+            case PFD_TYPE_DHCP4:
                 if (poll_array[i].revents & POLLIN) D4Listener_process_input(poll_meta[i].ld4);
                 break;
-            case pfd_type::dhcp6:
+            case PFD_TYPE_DHCP6:
                 if (poll_array[i].revents & POLLIN) poll_meta[i].ld6->process_input();
                 break;
-            case pfd_type::radv6: {
+            case PFD_TYPE_RADV6: {
                 if (poll_array[i].revents & POLLIN) poll_meta[i].lr6->process_input();
                 auto t = poll_meta[i].lr6->send_periodic_advert();
                 timeout = timeout < t ? timeout : t;
