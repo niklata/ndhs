@@ -72,63 +72,20 @@ private:
 
 #define D6_MAX_IAS 4
 #define D6_MAX_IA_ADDRS 4
+#define D6_MAX_ENCAP_DEPTH 4
 
-struct d6_ia_addr {
+struct dhcp6_ia_addr {
     in6_addr addr;
     uint32_t prefer_lifetime;
     uint32_t valid_lifetime;
-    static const size_t size = 24;
-
-    bool read(sbufs &rbuf)
-    {
-        if (sbufs_brem(&rbuf) < size) return false;
-        memcpy(&addr, rbuf.si, sizeof addr);
-        prefer_lifetime = 0; // RFC8415 S25
-        valid_lifetime = 0; // RFC8415 S25
-        rbuf.si += size;
-        return true;
-    }
-    bool write(sbufs &sbuf) const
-    {
-        if (sbufs_brem(&sbuf) < size) return false;
-        memcpy(sbuf.si, &addr, sizeof addr);
-        encode32be(prefer_lifetime, sbuf.si + 16);
-        encode32be(valid_lifetime, sbuf.si + 20);
-        sbuf.si += size;
-        return true;
-    }
 };
-struct d6_ia {
+struct dhcp6_ia_na {
     uint32_t iaid;
     uint32_t t1_seconds;
     uint32_t t2_seconds;
     size_t ia_na_addrs_n;
-    d6_ia_addr ia_na_addrs[D6_MAX_IA_ADDRS];
-    static const size_t size = 12;
-
-    d6_ia() : ia_na_addrs_n(0) {}
-
-    bool read(sbufs &rbuf)
-    {
-        if (sbufs_brem(&rbuf) < size) return false;
-        iaid = decode32be(rbuf.si);
-        t1_seconds = 0; // RFC8415 S25
-        t2_seconds = 0; // RFC8415 S25
-        rbuf.si += size;
-        return true;
-    }
-    bool write(sbufs &sbuf) const
-    {
-        if (sbufs_brem(&sbuf) < size) return false;
-        encode32be(iaid, sbuf.si);
-        encode32be(t1_seconds, sbuf.si + 4);
-        encode32be(t2_seconds, sbuf.si + 8);
-        sbuf.si += size;
-        return true;
-    }
+    struct dhcp6_ia_addr ia_na_addrs[D6_MAX_IA_ADDRS];
 };
-
-#define D6_MAX_ENCAP_DEPTH 4
 
 struct D6Listener
 {
@@ -147,12 +104,14 @@ private:
                         client_duid_blob_size(0), server_duid_blob_size(0),
                         optreq_exists(false), optreq_dns(false), optreq_dns_search(false),
                         optreq_sntp(false), optreq_info_refresh_time(false), optreq_ntp(false),
-                        use_rapid_commit(false) {}
+                        use_rapid_commit(false) {
+            memset(ias, 0, sizeof ias);
+        }
         dhcp6_header header;
         char client_duid_str[320];
         char client_duid_blob[128];
         char server_duid_blob[128];
-        d6_ia ias[D6_MAX_IAS];
+        dhcp6_ia_na ias[D6_MAX_IAS];
         uint8_t prev_opt_code[D6_MAX_ENCAP_DEPTH];
         uint16_t prev_opt_remlen[D6_MAX_ENCAP_DEPTH];
         size_t ias_n;

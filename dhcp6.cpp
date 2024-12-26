@@ -20,6 +20,8 @@ extern struct nk_random_state g_rngstate;
 extern NLSocket nl_socket;
 
 #define DHCP6_OPT_SIZE 4
+#define DHCP6_IA_ADDR_SIZE 24
+#define DHCP6_IA_NA_SIZE 12
 
 // Option header.
 struct dhcp6_opt { uint8_t data_[4]; };
@@ -64,6 +66,44 @@ static bool dhcp6_opt_serverid_write(const struct dhcp6_opt_serverid *self, sbuf
     if (!dhcp6_opt_write(&header, sbuf)) return false;
     memcpy(sbuf->si, self->duid_string_, self->duid_len_);
     sbuf->si += self->duid_len_;
+    return true;
+}
+
+static bool dhcp6_ia_addr_read(struct dhcp6_ia_addr *self, sbufs *rbuf)
+{
+    if (sbufs_brem(rbuf) < DHCP6_IA_ADDR_SIZE) return false;
+    memcpy(&self->addr, rbuf->si, sizeof self->addr);
+    self->prefer_lifetime = 0; // RFC8415 S25
+    self->valid_lifetime = 0; // RFC8415 S25
+    rbuf->si += DHCP6_IA_ADDR_SIZE;
+    return true;
+}
+static bool dhcp6_ia_addr_write(const struct dhcp6_ia_addr *self, sbufs *sbuf)
+{
+    if (sbufs_brem(sbuf) < DHCP6_IA_ADDR_SIZE) return false;
+    memcpy(sbuf->si, &self->addr, sizeof self->addr);
+    encode32be(self->prefer_lifetime, sbuf->si + 16);
+    encode32be(self->valid_lifetime, sbuf->si + 20);
+    sbuf->si += DHCP6_IA_ADDR_SIZE;
+    return true;
+}
+
+static bool dhcp6_ia_na_read(struct dhcp6_ia_na *self, sbufs *rbuf)
+{
+    if (sbufs_brem(rbuf) < DHCP6_IA_NA_SIZE) return false;
+    self->iaid = decode32be(rbuf->si);
+    self->t1_seconds = 0; // RFC8415 S25
+    self->t2_seconds = 0; // RFC8415 S25
+    rbuf->si += DHCP6_IA_NA_SIZE;
+    return true;
+}
+static bool dhcp6_ia_na_write(const struct dhcp6_ia_na *self, sbufs *sbuf)
+{
+    if (sbufs_brem(sbuf) < DHCP6_IA_NA_SIZE) return false;
+    encode32be(self->iaid, sbuf->si);
+    encode32be(self->t1_seconds, sbuf->si + 4);
+    encode32be(self->t2_seconds, sbuf->si + 8);
+    sbuf->si += DHCP6_IA_NA_SIZE;
     return true;
 }
 
@@ -356,32 +396,35 @@ bool D6Listener::write_response_header(const d6msg_state &d6s, sbufs &ss,
 // IA.  Thus there's no reason to care about that case.
 bool D6Listener::emit_IA_addr(sbufs &ss, in6_addr ipa, uint32_t iaid, uint32_t lifetime)
 {
-    dhcp6_opt header = dhcp6_opt_create(3, d6_ia::size + DHCP6_OPT_SIZE + d6_ia_addr::size);
+    dhcp6_opt header = dhcp6_opt_create(3, DHCP6_IA_NA_SIZE + DHCP6_OPT_SIZE + DHCP6_IA_ADDR_SIZE);
     if (!dhcp6_opt_write(&header, &ss)) return false;
-    d6_ia ia;
-    ia.iaid = iaid;
-    ia.t1_seconds = static_cast<uint32_t>(0.5 * lifetime);
-    ia.t2_seconds = static_cast<uint32_t>(0.8 * lifetime);
-    if (!ia.write(ss)) return false;
-    header = dhcp6_opt_create(5, d6_ia_addr::size);
+    struct dhcp6_ia_na ia_na = {
+        .iaid = iaid,
+        .t1_seconds = (uint32_t)(lifetime / 2),
+        .t2_seconds = (uint32_t)(lifetime - lifetime / 5),
+    };
+    if (!dhcp6_ia_na_write(&ia_na, &ss)) return false;
+    header = dhcp6_opt_create(5, DHCP6_IA_ADDR_SIZE);
     if (!dhcp6_opt_write(&header, &ss)) return false;
-    d6_ia_addr addr;
-    addr.addr = ipa;
-    addr.prefer_lifetime = lifetime;
-    addr.valid_lifetime = lifetime;
-    if (!addr.write(ss)) return false;
+    struct dhcp6_ia_addr addr = {
+        .addr = ipa,
+        .prefer_lifetime = lifetime,
+        .valid_lifetime = lifetime,
+    };
+    if (!dhcp6_ia_addr_write(&addr, &ss)) return false;
     return true;
 }
 
 bool D6Listener::emit_IA_code(sbufs &ss, uint32_t iaid, dhcp6_code scode)
 {
-    dhcp6_opt header = dhcp6_opt_create(3, d6_ia::size + DHCP6_OPT_SIZE + OPT_STATUSCODE_SIZE);
+    dhcp6_opt header = dhcp6_opt_create(3, DHCP6_IA_NA_SIZE + DHCP6_OPT_SIZE + OPT_STATUSCODE_SIZE);
     if (!dhcp6_opt_write(&header, &ss)) return false;
-    d6_ia ia;
-    ia.iaid = iaid;
-    ia.t1_seconds = 0;
-    ia.t2_seconds = 0;
-    if (!ia.write(ss)) return false;
+    struct dhcp6_ia_na ia_na = {
+        .iaid = iaid,
+        .t1_seconds = 0,
+        .t2_seconds = 0,
+    };
+    if (!dhcp6_ia_na_write(&ia_na, &ss)) return false;
     if (!attach_status_code(ss, scode)) return false;
     return true;
 }
@@ -628,8 +671,8 @@ void D6Listener::process_receive(char *buf, size_t buflen,
                           d6s.ias_n, ifname_);
                  return;
              }
-             if (!d6s.ias[d6s.ias_n].read(rs)) return;
-             OPTIONS_CONSUME(d6s.ias[d6s.ias_n].size);
+             if (!dhcp6_ia_na_read(&d6s.ias[d6s.ias_n], &rs)) return;
+             OPTIONS_CONSUME(DHCP6_IA_NA_SIZE);
              ++d6s.ias_n;
 
              const auto na_options_len = l - 12;
@@ -668,10 +711,10 @@ void D6Listener::process_receive(char *buf, size_t buflen,
                           niana, ifname_);
                  return;
              }
-             if (!d6s.ias[d6s.ias_n - 1].ia_na_addrs[niana].read(rs)) return;
-             OPTIONS_CONSUME(d6s.ias[d6s.ias_n - 1].ia_na_addrs[niana].size);
+             if (!dhcp6_ia_addr_read(&d6s.ias[d6s.ias_n - 1].ia_na_addrs[niana], &rs)) return;
+             OPTIONS_CONSUME(DHCP6_IA_ADDR_SIZE);
 
-             auto iaa_options_len = l - 24;
+             auto iaa_options_len = l - DHCP6_IA_ADDR_SIZE;
              if (iaa_options_len > 0) {
                  d6s.prev_opt_code[d6s.prev_opt_n] = 5;
                  d6s.prev_opt_remlen[d6s.prev_opt_n++] = iaa_options_len;
