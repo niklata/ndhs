@@ -285,7 +285,10 @@ static bool string_to_ipaddr(struct in6_addr *r, const char *s, size_t linenum)
           | dynamic_range | dynamic_v6 | v6_entry %V6EntryEn | v4_entry %V4EntryEn;
 }%%
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-const-variable"
 %% write data;
+#pragma GCC diagnostic pop
 
 static int do_parse_cfg_line(struct cfg_parse_state *cps, const char *p, size_t plen,
                              const size_t linenum)

@@ -443,7 +443,10 @@ static void newline(struct dynlease_parse_state *self) {
     main := v4_entry %V4EntryEn | v6_entry %V6EntryEn;
 }%%
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-const-variable"
 %% write data;
+#pragma GCC diagnostic pop
 
 static int do_parse_dynlease_line(struct dynlease_parse_state *cps, const char *p, size_t plen,
                                   const size_t linenum)

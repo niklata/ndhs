@@ -62,8 +62,10 @@ static bool string_to_ipaddr(struct in6_addr *r, const char *s, size_t linenum)
 #line 286 "cfg.rl"
 
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-const-variable"
 
-#line 64 "cfg.c"
+#line 66 "cfg.c"
 static const signed char _cfg_line_m_actions[] = {
 	0, 1, 0, 1, 1, 1, 2, 1,
 	3, 1, 4, 1, 5, 1, 6, 1,
@@ -488,8 +490,9 @@ static const int cfg_line_m_error = 0;
 static const int cfg_line_m_en_main = 154;
 
 
-#line 288 "cfg.rl"
+#line 290 "cfg.rl"
 
+#pragma GCC diagnostic pop
 
 static int do_parse_cfg_line(struct cfg_parse_state *cps, const char *p, size_t plen,
 const size_t linenum)
@@ -498,15 +501,15 @@ const size_t linenum)
 	const char *eof = pe;
 	
 
-#line 496 "cfg.c"
+#line 499 "cfg.c"
 	{
 		cps->cs = (int)cfg_line_m_start;
 	}
 	
-#line 296 "cfg.rl"
+#line 299 "cfg.rl"
 
 
-#line 501 "cfg.c"
+#line 504 "cfg.c"
 	{
 		int _klen;
 		unsigned int _trans = 0;
@@ -589,7 +592,7 @@ const size_t linenum)
 #line 64 "cfg.rl"
 							cps->st = p; }
 						
-#line 583 "cfg.c"
+#line 586 "cfg.c"
 
 						break; 
 					}
@@ -601,7 +604,7 @@ const size_t linenum)
 							lc_string_inplace(cps->duid, cps->duid_len);
 						}
 						
-#line 594 "cfg.c"
+#line 597 "cfg.c"
 
 						break; 
 					}
@@ -622,7 +625,7 @@ const size_t linenum)
 							}
 						}
 						
-#line 614 "cfg.c"
+#line 617 "cfg.c"
 
 						break; 
 					}
@@ -645,7 +648,7 @@ const size_t linenum)
 							}
 						}
 						
-#line 636 "cfg.c"
+#line 639 "cfg.c"
 
 						break; 
 					}
@@ -658,7 +661,7 @@ const size_t linenum)
 							lc_string_inplace(cps->ipaddrs[cps->nipaddrs++], l);
 						}
 						
-#line 648 "cfg.c"
+#line 651 "cfg.c"
 
 						break; 
 					}
@@ -678,7 +681,7 @@ const size_t linenum)
 							emplace_bind4(linenum, buf);
 						}
 						
-#line 667 "cfg.c"
+#line 670 "cfg.c"
 
 						break; 
 					}
@@ -698,7 +701,7 @@ const size_t linenum)
 							emplace_bind6(linenum, buf);
 						}
 						
-#line 686 "cfg.c"
+#line 689 "cfg.c"
 
 						break; 
 					}
@@ -707,7 +710,7 @@ const size_t linenum)
 #line 127 "cfg.rl"
 							set_user_runas(MARKED_STRING()); }
 						
-#line 694 "cfg.c"
+#line 697 "cfg.c"
 
 						break; 
 					}
@@ -716,7 +719,7 @@ const size_t linenum)
 #line 128 "cfg.rl"
 							set_chroot_path(MARKED_STRING()); }
 						
-#line 702 "cfg.c"
+#line 705 "cfg.c"
 
 						break; 
 					}
@@ -739,7 +742,7 @@ const size_t linenum)
 							set_s6_notify_fd(fd);
 						}
 						
-#line 724 "cfg.c"
+#line 727 "cfg.c"
 
 						break; 
 					}
@@ -760,7 +763,7 @@ const size_t linenum)
 							}
 						}
 						
-#line 744 "cfg.c"
+#line 747 "cfg.c"
 
 						break; 
 					}
@@ -782,7 +785,7 @@ const size_t linenum)
 							}
 						}
 						
-#line 765 "cfg.c"
+#line 768 "cfg.c"
 
 						break; 
 					}
@@ -802,7 +805,7 @@ const size_t linenum)
 							cps->ifindex = emplace_interface(linenum, interface, cps->default_preference);
 						}
 						
-#line 784 "cfg.c"
+#line 787 "cfg.c"
 
 						break; 
 					}
@@ -822,7 +825,7 @@ const size_t linenum)
 							emplace_dns_servers(linenum, cps->ifindex, addrs, cps->nipaddrs);
 						}
 						
-#line 803 "cfg.c"
+#line 806 "cfg.c"
 
 						break; 
 					}
@@ -833,7 +836,7 @@ const size_t linenum)
 							emplace_dns_search(linenum, cps->ifindex, MARKED_STRING());
 						}
 						
-#line 813 "cfg.c"
+#line 816 "cfg.c"
 
 						break; 
 					}
@@ -853,7 +856,7 @@ const size_t linenum)
 							emplace_ntp_servers(linenum, cps->ifindex, addrs, cps->nipaddrs);
 						}
 						
-#line 832 "cfg.c"
+#line 835 "cfg.c"
 
 						break; 
 					}
@@ -869,7 +872,7 @@ const size_t linenum)
 							emplace_gateway_v4(linenum, cps->ifindex, &t);
 						}
 						
-#line 847 "cfg.c"
+#line 850 "cfg.c"
 
 						break; 
 					}
@@ -895,7 +898,7 @@ const size_t linenum)
 							emplace_dynamic_range(linenum, cps->ifindex, &tlo, &thi, cps->default_lifetime);
 						}
 						
-#line 872 "cfg.c"
+#line 875 "cfg.c"
 
 						break; 
 					}
@@ -906,7 +909,7 @@ const size_t linenum)
 							emplace_dynamic_v6(linenum, cps->ifindex);
 						}
 						
-#line 882 "cfg.c"
+#line 885 "cfg.c"
 
 						break; 
 					}
@@ -922,7 +925,7 @@ const size_t linenum)
 							emplace_dhcp4_state(linenum, cps->ifindex, cps->macaddr, &t, cps->default_lifetime);
 						}
 						
-#line 897 "cfg.c"
+#line 900 "cfg.c"
 
 						break; 
 					}
@@ -940,7 +943,7 @@ const size_t linenum)
 							cps->iaid, &t, cps->default_lifetime);
 						}
 						
-#line 914 "cfg.c"
+#line 917 "cfg.c"
 
 						break; 
 					}
@@ -964,7 +967,7 @@ const size_t linenum)
 		_out: {}
 	}
 	
-#line 297 "cfg.rl"
+#line 300 "cfg.rl"
 
 	
 	if (cps->parse_error) return -1;
