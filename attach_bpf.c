@@ -19,7 +19,7 @@ jne #0, bad
 ret #-1
 bad: ret #0
 */
-static struct sock_filter sf_icmpra[] = {
+static const struct sock_filter sf_icmpra[] = {
     { 0x30,  0,  0, 0x00000000 },
     { 0x15,  0,  3, 0x00000085 },
     { 0x30,  0,  0, 0x00000001 },
@@ -41,7 +41,7 @@ jgt #12, bad
 ret #-1
 bad: ret #0
 */
-static struct sock_filter sf_dhcp6_info[] = {
+static const struct sock_filter sf_dhcp6_info[] = {
     { 0x28,  0,  0, 0x00000002 },
     { 0x15,  0,  8, 0x00000223 },
     { 0x28,  0,  0, 0x00000004 },
@@ -59,7 +59,7 @@ bool attach_bpf_icmp6_ra(int fd, const char *ifname)
 {
     static const struct sock_fprog sfp_icmpra = {
         .len = sizeof sf_icmpra / sizeof sf_icmpra[0],
-        .filter = (struct sock_filter *)sf_icmpra,
+        .filter = (const struct sock_filter *)sf_icmpra,
     };
     int r = setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &sfp_icmpra,
                        sizeof sfp_icmpra);
@@ -81,7 +81,7 @@ bool attach_bpf_dhcp6_info(int fd, const char *ifname)
 {
     static const struct sock_fprog sfp_dhcp6_info = {
         .len = sizeof sf_dhcp6_info / sizeof sf_dhcp6_info[0],
-        .filter = (struct sock_filter *)sf_dhcp6_info,
+        .filter = (const struct sock_filter *)sf_dhcp6_info,
     };
     int r = setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &sfp_dhcp6_info,
                        sizeof sfp_dhcp6_info);
