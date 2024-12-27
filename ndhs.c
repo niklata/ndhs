@@ -92,22 +92,15 @@ static void create_interface_listener(const struct netif_info *ifinfo,
                                       bool use_v4, bool use_v6,
                                       uint8_t preference, void *ud)
 {
-    struct pollfd pt;
-    pt.events = POLLIN|POLLHUP|POLLERR;
-    pt.revents = 0;
-
     size_t *pfdc = ud;
     if (use_v6) {
         struct D6Listener *d6l = D6Listener_create(ifinfo->name, ifinfo, preference);
         if (d6l) {
             struct RA6Listener *r6l = RA6Listener_create(ifinfo->name, ifinfo);
             if (r6l) {
-                pt.fd = D6Listener_fd(d6l);
-                poll_array[*pfdc] = pt;
+                poll_array[*pfdc] = (struct pollfd){ .fd = D6Listener_fd(d6l), .events = POLLIN|POLLHUP|POLLERR };
                 poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = PFD_TYPE_DHCP6, .ld6 = d6l };
-
-                pt.fd = RA6Listener_fd(r6l);
-                poll_array[*pfdc] = pt;
+                poll_array[*pfdc] = (struct pollfd){ .fd = RA6Listener_fd(r6l), .events = POLLIN|POLLHUP|POLLERR };
                 poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = PFD_TYPE_RADV6, .lr6 = r6l };
             } else {
                 log_line("Can't bind to rav6 interface: %s\n", ifinfo->name);
@@ -120,8 +113,7 @@ static void create_interface_listener(const struct netif_info *ifinfo,
     if (use_v4) {
         struct D4Listener *d4l = D4Listener_create(ifinfo->name, ifinfo);
         if (d4l) {
-            pt.fd = D4Listener_fd(d4l);
-            poll_array[*pfdc] = pt;
+            poll_array[*pfdc] = (struct pollfd){ .fd = D4Listener_fd(d4l), .events = POLLIN|POLLHUP|POLLERR };
             poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = PFD_TYPE_DHCP4, .ld4 = d4l };
         } else {
             log_line("Can't bind to dhcpv4 interface: %s\n", ifinfo->name);
@@ -138,12 +130,7 @@ static void init_listeners(void)
 
     bound_interfaces_foreach(get_interface_addresses, NULL);
 
-    struct pollfd pt;
-    pt.events = POLLIN|POLLHUP|POLLERR;
-    pt.revents = 0;
-
-    pt.fd = nl_socket.fd_;
-    poll_array[0] = pt;
+    poll_array[0] = (struct pollfd){ .fd = nl_socket.fd_, .events = POLLIN|POLLHUP|POLLERR };
     poll_meta[0] = (struct pfd_meta){ .pfdt = PFD_TYPE_NETLINK };
 
     size_t pfdc = 1;
@@ -247,7 +234,7 @@ static void print_version(void)
 
 static void process_options(int ac, char *av[])
 {
-    static struct option long_options[] = {
+    static const struct option long_options[] = {
         {"config", 1, NULL, 'c'},
         {"version", 0, NULL, 'v'},
         {"help", 0, NULL, 'h'},
@@ -288,7 +275,7 @@ static void process_options(int ac, char *av[])
     nk_set_uidgid(ndhs_uid, ndhs_gid, NULL, 0);
 
     if (s6_notify_fd >= 0) {
-        char buf[] = "\n";
+        const char buf[] = "\n";
         safe_write(s6_notify_fd, buf, 1);
         close(s6_notify_fd);
     }
