@@ -66,234 +66,150 @@ static inline void toggle_bit(bool v, void *data, size_t arrayidx, unsigned char
  *                Autonomous Flag: True
  */
 
-class ipv6_header
+#define ICMP_HEADER_SIZE 4
+struct icmp_header { uint8_t data_[4]; };
+static uint8_t icmp_header_type(const struct icmp_header *self) { return self->data_[0]; }
+static uint8_t icmp_header_code(const struct icmp_header *self) { return self->data_[1]; }
+static void icmp_header_set_type(struct icmp_header *self, uint8_t v) { self->data_[0] = v; }
+static void icmp_header_set_checksum(struct icmp_header *self, uint8_t v) { encode16be(v, self->data_ + 2); }
+static bool icmp_header_read(struct icmp_header *self, struct sbufs *rbuf)
 {
-public:
-    uint8_t version() const { return (data_[0] >> 4) & 0xf; }
-    uint8_t traffic_class() const {
-        return (static_cast<uint32_t>(data_[0] & 0xf) << 4)
-             | (static_cast<uint32_t>(data_[1] >> 4) & 0xf);
-    }
-    uint32_t flow_label() const {
-        return (static_cast<uint32_t>(data_[1] & 0xf) << 16)
-             | ((static_cast<uint32_t>(data_[2]) << 8) | data_[3]);
-    }
-    uint16_t payload_length() const {
-        return decode16be(data_ + 4);
-    }
-    uint8_t next_header() const {
-        return data_[6];
-    }
-    uint8_t hop_limit() const {
-        return data_[7];
-    }
-    static const size_t size = 40;
-
-    bool read(struct sbufs &rbuf)
-    {
-        if (sbufs_brem(&rbuf) < size) return false;
-        memcpy(&data_, rbuf.si, sizeof data_);
-        if (version() != 6) return false; // XXX: Existing code was doing this check here.
-        rbuf.si += size;
-        return true;
-    }
-    bool write(struct sbufs &sbuf) const
-    {
-        if (sbufs_brem(&sbuf) < size) return false;
-        memcpy(sbuf.si, &data_, sizeof data_);
-        sbuf.si += size;
-        return true;
-    }
-private:
-    uint8_t data_[40] = {};
-};
-
-#define DEF_RW_MEMBERS() \
-    bool read(struct sbufs &rbuf) \
-    { \
-        if (sbufs_brem(&rbuf) < size) return false; \
-        memcpy(&data_, rbuf.si, sizeof data_); \
-        rbuf.si += size; \
-        return true; \
-    } \
-    bool write(struct sbufs &sbuf) const \
-    { \
-        if (sbufs_brem(&sbuf) < size) return false; \
-        memcpy(sbuf.si, &data_, sizeof data_); \
-        sbuf.si += size; \
-        return true; \
-    }
-
-class icmp_header
+    if (sbufs_brem(rbuf) < ICMP_HEADER_SIZE) return false;
+    memcpy(&self->data_, rbuf->si, sizeof self->data_);
+    rbuf->si += ICMP_HEADER_SIZE;
+    return true;
+}
+static bool icmp_header_write(const struct icmp_header *self, struct sbufs *sbuf)
 {
-public:
-    uint8_t type() const { return data_[0]; }
-    uint8_t code() const { return data_[1]; }
-    uint16_t checksum() const { return decode16be(data_ + 2); }
-    void type(uint8_t v) { data_[0] = v; }
-    void code(uint8_t v) { data_[1] = v; }
-    void checksum(uint16_t v) { encode16be(v, data_ + 2); }
-    static const size_t size = 4;
-    DEF_RW_MEMBERS()
-private:
-    uint8_t data_[4] = {};
-};
+    if (sbufs_brem(sbuf) < ICMP_HEADER_SIZE) return false;
+    memcpy(sbuf->si, &self->data_, sizeof self->data_);
+    sbuf->si += ICMP_HEADER_SIZE;
+    return true;
+}
 
-class ra6_solicit_header
+// Just a reserved 32-bit field.
+// Follow with MTU and Prefix Information options.
+#define RA6_SOLICIT_HEADER_SIZE 4
+struct ra6_solicit_header { uint8_t data_[4]; };
+static bool ra6_solicit_header_read(struct ra6_solicit_header *self, struct sbufs *rbuf)
 {
-public:
-    // Just a reserved 32-bit field.
-    // Follow with MTU and Prefix Information options.
-    static const size_t size = 4;
-    DEF_RW_MEMBERS()
-private:
-    uint8_t data_[4] = {};
-};
+    if (sbufs_brem(rbuf) < RA6_SOLICIT_HEADER_SIZE) return false;
+    memcpy(&self->data_, rbuf->si, sizeof self->data_);
+    rbuf->si += RA6_SOLICIT_HEADER_SIZE;
+    return true;
+}
 
-enum RouterPref { ROUTERPREF_HIGH, ROUTERPREF_MEDIUM, ROUTERPREF_LOW };
-
-class ra6_advert_header
+#define RA6_ADVERT_HEADER_SIZE 12
+// Follow with MTU and Prefix Information options.
+struct ra6_advert_header { uint8_t data_[12]; };
+static void ra6_advert_header_set_hoplimit(struct ra6_advert_header *self, uint8_t v) { self->data_[0] = v; }
+static void ra6_advert_header_set_managed_addresses(struct ra6_advert_header *self, bool v)
+{ toggle_bit(v, self->data_, 1, 1 << 7); }
+static void ra6_advert_header_set_other_stateful(struct ra6_advert_header *self, bool v)
+{ toggle_bit(v, self->data_, 1, 1 << 6); }
+static void ra6_advert_header_set_router_lifetime(struct ra6_advert_header *self, uint16_t v)
+{ encode16be(v, self->data_ + 2); }
+static void ra6_advert_header_set_reachable_time(struct ra6_advert_header *self, uint32_t v)
+{ encode32be(v, self->data_ + 4); }
+static void ra6_advert_header_set_retransmit_timer(struct ra6_advert_header *self, uint32_t v)
+{ encode32be(v, self->data_ + 8); }
+static bool ra6_advert_header_write(const struct ra6_advert_header *self, struct sbufs *sbuf)
 {
-public:
-    uint8_t hoplimit() const { return data_[0]; }
-    bool managed_addresses() const { return data_[1] & (1 << 7); }
-    bool other_stateful() const { return data_[1] & (1 << 6); }
-    bool home_address() const { return data_[1] & (1 << 5); }
-    uint16_t router_lifetime() const { return decode16be(data_ + 2); }
-    uint32_t reachable_time() const { return decode32be(data_ + 4); }
-    uint32_t retransmit_timer() const { return decode32be(data_ + 8); }
-    void hoplimit(uint8_t v) { data_[0] = v; }
-    void managed_addresses(bool v) { toggle_bit(v, data_, 1, 1 << 7); }
-    void other_stateful(bool v) { toggle_bit(v, data_, 1, 1 << 6); }
-    void home_address(bool v) { toggle_bit(v, data_, 1, 1 << 5); }
-    void default_router_preference(RouterPref v) {
-        switch (v) {
-        case ROUTERPREF_HIGH:
-            toggle_bit(false, data_, 1, 1 << 4);
-            toggle_bit(true, data_, 1, 1 << 3);
-            break;
-        case ROUTERPREF_MEDIUM:
-            toggle_bit(false, data_, 1, 1 << 4);
-            toggle_bit(false, data_, 1, 1 << 3);
-            break;
-        case ROUTERPREF_LOW:
-            toggle_bit(true, data_, 1, 1 << 4);
-            toggle_bit(true, data_, 1, 1 << 3);
-            break;
-        }
+    if (sbufs_brem(sbuf) < RA6_ADVERT_HEADER_SIZE) return false;
+    memcpy(sbuf->si, &self->data_, sizeof self->data_);
+    sbuf->si += RA6_ADVERT_HEADER_SIZE;
+    return true;
+}
+
+#define RA6_SOURCE_LLA_OPT_SIZE 8
+struct ra6_source_lla_opt { uint8_t data_[8]; };
+static void ra6_source_lla_opt_set_macaddr(struct ra6_source_lla_opt *self, const char *mac)
+{ memcpy(self->data_ + 2, mac, 6); }
+static bool ra6_source_lla_opt_write(const struct ra6_source_lla_opt *self, struct sbufs *sbuf)
+{
+    if (sbufs_brem(sbuf) < RA6_SOURCE_LLA_OPT_SIZE) return false;
+    memcpy(sbuf->si, &self->data_, sizeof self->data_);
+    sbuf->si += RA6_SOURCE_LLA_OPT_SIZE;
+    return true;
+}
+
+#define RA6_MTU_OPT_SIZE 8
+struct ra6_mtu_opt { uint8_t data_[8]; };
+static void ra6_mtu_opt_set_mtu(struct ra6_mtu_opt *self, uint32_t v) { encode32be(v, self->data_ + 4); }
+static bool ra6_mtu_opt_write(const struct ra6_mtu_opt *self, struct sbufs *sbuf)
+{
+    if (sbufs_brem(sbuf) < RA6_MTU_OPT_SIZE) return false;
+    memcpy(sbuf->si, &self->data_, sizeof self->data_);
+    sbuf->si += RA6_MTU_OPT_SIZE;
+    return true;
+}
+
+#define RA6_PREFIX_INFO_OPT_SIZE 32
+struct ra6_prefix_info_opt { uint8_t data_[32]; };
+static void ra6_prefix_info_opt_set_prefix(struct ra6_prefix_info_opt *self, const in6_addr *v, uint8_t pl)
+{
+    self->data_[2] = pl;
+    uint8_t a6[16];
+    memcpy(a6, v, sizeof a6);
+    uint8_t keep_bytes = pl / 8;
+    uint8_t keep_bits = pl % 8;
+    if (keep_bits == 0)
+        memset(a6 + keep_bytes, 0, 16 -  keep_bytes);
+    else {
+        memset(a6 + keep_bytes + 1, 0, 16u - keep_bytes - 1u);
+        uint8_t mask = 0xff;
+        while (keep_bits--)
+            mask >>= 1;
+        a6[keep_bytes] &= ~mask;
     }
-    void router_lifetime(uint16_t v) { encode16be(v, data_ + 2); }
-    void reachable_time(uint32_t v) { encode32be(v, data_ + 4); }
-    void retransmit_timer(uint32_t v) { encode32be(v, data_ + 8); }
-    // Follow with MTU and Prefix Information options.
-    static const size_t size = 12;
-    DEF_RW_MEMBERS()
-private:
-    uint8_t data_[12] = {};
-};
-
-class ra6_source_lla_opt
+    memcpy(self->data_ + 16, a6, sizeof a6);
+}
+static void ra6_prefix_info_opt_set_on_link(struct ra6_prefix_info_opt *self, bool v)
+{ toggle_bit(v, self->data_, 3, 1 << 7); }
+static void ra6_prefix_info_opt_set_auto_addr_cfg(struct ra6_prefix_info_opt *self, bool v)
+{ toggle_bit(v, self->data_, 3, 1 << 6); }
+static void ra6_prefix_info_opt_set_router_addr_flag(struct ra6_prefix_info_opt *self, bool v)
+{ toggle_bit(v, self->data_, 3, 1 << 5); }
+static void ra6_prefix_info_opt_set_valid_lifetime(struct ra6_prefix_info_opt *self, uint32_t v)
+{ encode32be(v, self->data_ + 4); }
+static void ra6_prefix_info_opt_set_preferred_lifetime(struct ra6_prefix_info_opt *self, uint32_t v)
+{ encode32be(v, self->data_ + 8); }
+static bool ra6_prefix_info_opt_write(const struct ra6_prefix_info_opt *self, struct sbufs *sbuf)
 {
-public:
-    uint8_t type() const { return data_[0]; }
-    uint8_t length() const { return data_[1] * 8; }
-    const uint8_t *macaddr() const { return data_ + 2; }
-    void macaddr(char *mac, size_t maclen) {
-        if (maclen != 6) suicide("ra6: wrong maclen\n");
-        memcpy(data_ + 2, mac, 6);
-    }
-    static const size_t size = 8;
-    DEF_RW_MEMBERS()
-private:
-    uint8_t data_[8] = { 1, 1 };
-};
+    if (sbufs_brem(sbuf) < RA6_PREFIX_INFO_OPT_SIZE) return false;
+    memcpy(sbuf->si, &self->data_, sizeof self->data_);
+    sbuf->si += RA6_PREFIX_INFO_OPT_SIZE;
+    return true;
+}
 
-class ra6_mtu_opt
+#define RA6_RDNS_OPT_SIZE 8
+struct ra6_rdns_opt { uint8_t data_[8]; };
+static void ra6_rdns_opt_set_length(struct ra6_rdns_opt *self, uint8_t numdns) { self->data_[1] = 1 + 2 * numdns; }
+static void ra6_rdns_opt_set_lifetime(struct ra6_rdns_opt *self, uint32_t v) { encode32be(v, self->data_ + 4); }
+static bool ra6_rdns_opt_write(const struct ra6_rdns_opt *self, struct sbufs *sbuf)
 {
-public:
-    uint8_t type() const { return data_[0]; }
-    uint8_t length() const { return data_[1] * 8; }
-    uint32_t mtu() const { return decode32be(data_ + 4); }
-    void mtu(uint32_t v) { encode32be(v, data_ + 4); }
-    static const size_t size = 8;
-    DEF_RW_MEMBERS()
-private:
-    uint8_t data_[8] = { 5, 1 };
-};
+    if (sbufs_brem(sbuf) < RA6_RDNS_OPT_SIZE) return false;
+    memcpy(sbuf->si, &self->data_, sizeof self->data_);
+    sbuf->si += RA6_RDNS_OPT_SIZE;
+    return true;
+}
 
-class ra6_prefix_info_opt
+#define RA6_DNS_SEARCH_OPT_SIZE 8
+struct ra6_dns_search_opt { uint8_t data_[8]; };
+static size_t ra6_dns_search_opt_set_length(struct ra6_dns_search_opt *self, size_t sz) {
+    self->data_[1] = 1 + sz / 8;
+    size_t slack = sz % 8;
+    self->data_[1] += slack > 0 ? 1 : 0;
+    return 8 * self->data_[1] - (8 + sz);
+}
+static void ra6_dns_search_opt_set_lifetime(struct ra6_dns_search_opt *self, uint32_t v) { encode32be(v, self->data_ + 4); }
+static bool ra6_dns_search_opt_write(const struct ra6_dns_search_opt *self, struct sbufs *sbuf)
 {
-public:
-    uint8_t type() const { return data_[0]; }
-    uint8_t length() const { return data_[1]; }
-    uint8_t prefix_length() const { return data_[2]; }
-    bool on_link() const { return data_[3] & (1 << 7); }
-    bool auto_addr_cfg() const { return data_[3] & (1 << 6); }
-    bool router_addr_flag() const { return data_[3] & (1 << 5); }
-    uint32_t valid_lifetime() const { return decode32be(data_ + 4); }
-    uint32_t preferred_lifetime() const { return decode32be(data_ + 8); }
-    // ip address is at data_ + 16
-    void on_link(bool v) { toggle_bit(v, data_, 3, 1 << 7); }
-    void auto_addr_cfg(bool v) { toggle_bit(v, data_, 3, 1 << 6); }
-    void router_addr_flag(bool v) { toggle_bit(v, data_, 3, 1 << 5); }
-    void valid_lifetime(uint32_t v) { encode32be(v, data_ + 4); }
-    void preferred_lifetime(uint32_t v) { encode32be(v, data_ + 8); }
-    void prefix(const in6_addr *v, uint8_t pl) {
-        uint8_t a6[16];
-        data_[2] = pl;
-        memcpy(a6, v, sizeof a6);
-        uint8_t keep_bytes = pl / 8;
-        uint8_t keep_bits = pl % 8;
-        if (keep_bits == 0)
-            memset(a6 + keep_bytes, 0, 16 -  keep_bytes);
-        else {
-            memset(a6 + keep_bytes + 1, 0, 16u - keep_bytes - 1u);
-            uint8_t mask = 0xff;
-            while (keep_bits--)
-                mask >>= 1;
-            a6[keep_bytes] &= ~mask;
-        }
-        memcpy(data_ + 16, a6, sizeof a6);
-    }
-    static const size_t size = 32;
-    DEF_RW_MEMBERS()
-private:
-    uint8_t data_[32] = { 3, 4 };
-};
-
-class ra6_rdns_opt
-{
-public:
-    uint8_t type() const { return data_[0]; }
-    uint8_t length() const { return data_[1] * 8; }
-    uint32_t lifetime() const { return decode32be(data_ + 4); }
-    void length(uint8_t numdns) { data_[1] = 1 + 2 * numdns; }
-    void lifetime(uint32_t v) { encode32be(v, data_ + 4); }
-    static const size_t size = 8;
-    DEF_RW_MEMBERS()
-private:
-    uint8_t data_[8] = { 25 };
-};
-
-class ra6_dns_search_opt
-{
-public:
-    uint8_t type() const { return data_[0]; }
-    uint8_t length() const { return data_[1] * 8; }
-    uint32_t lifetime() const { return decode32be(data_ + 4); }
-    size_t length(size_t sz) {
-        data_[1] = 1 + sz / 8;
-        size_t slack = sz % 8;
-        data_[1] += slack > 0 ? 1 : 0;
-        return 8 * data_[1] - (8 + sz);
-    }
-    void lifetime(uint32_t v) { encode32be(v, data_ + 4); }
-    static const size_t size = 8;
-    DEF_RW_MEMBERS()
-private:
-    uint8_t data_[8] = { 31 };
-};
-#undef DEF_RW_MEMBERS
+    if (sbufs_brem(sbuf) < RA6_DNS_SEARCH_OPT_SIZE) return false;
+    memcpy(sbuf->si, &self->data_, sizeof self->data_);
+    sbuf->si += RA6_DNS_SEARCH_OPT_SIZE;
+    return true;
+}
 
 static void attach_bpf(struct RA6Listener *self)
 {
@@ -384,14 +300,13 @@ err0:
 
 static bool send_advert(struct RA6Listener *self)
 {
-    struct icmp_header icmp_hdr;
-    struct ra6_advert_header ra6adv_hdr;
-    struct ra6_source_lla_opt ra6_slla;
-    struct ra6_mtu_opt ra6_mtu;
-    struct ra6_prefix_info_opt ra6_pfxi;
-    struct ra6_rdns_opt ra6_dns;
-    struct ra6_dns_search_opt ra6_dsrch;
-    uint16_t csum;
+    struct icmp_header icmp_hdr = {0};
+    struct ra6_advert_header ra6adv_hdr = {0};
+    struct ra6_source_lla_opt ra6_slla = { 1, 1 };
+    struct ra6_mtu_opt ra6_mtu = { 5, 1 };
+    struct ra6_prefix_info_opt ra6_pfxi = { 3, 4 };
+    struct ra6_rdns_opt ra6_dns = { 25 };
+    struct ra6_dns_search_opt ra6_dsrch = { 31 };
     uint32_t pktl(sizeof icmp_hdr + sizeof ra6adv_hdr + sizeof ra6_slla
                   + sizeof ra6_mtu);
 
@@ -405,34 +320,32 @@ static bool send_advert(struct RA6Listener *self)
         return false;
     }
 
-    icmp_hdr.type(134);
-    icmp_hdr.code(0);
-    icmp_hdr.checksum(0);
-    csum = net_checksum16(&icmp_hdr, sizeof icmp_hdr);
+    icmp_header_set_type(&icmp_hdr, 134);
+    uint16_t csum = net_checksum16(&icmp_hdr, sizeof icmp_hdr);
 
-    ra6adv_hdr.hoplimit(0);
-    ra6adv_hdr.managed_addresses(true);
-    ra6adv_hdr.other_stateful(true);
-    ra6adv_hdr.router_lifetime(3 * self->advi_s_max_);
-    ra6adv_hdr.reachable_time(0);
-    ra6adv_hdr.retransmit_timer(0);
+    ra6_advert_header_set_hoplimit(&ra6adv_hdr, 0);
+    ra6_advert_header_set_managed_addresses(&ra6adv_hdr, true);
+    ra6_advert_header_set_other_stateful(&ra6adv_hdr, true);
+    ra6_advert_header_set_router_lifetime(&ra6adv_hdr, 3 * self->advi_s_max_);
+    ra6_advert_header_set_reachable_time(&ra6adv_hdr, 0);
+    ra6_advert_header_set_retransmit_timer(&ra6adv_hdr, 0);
     csum = net_checksum16_add
         (csum, net_checksum16(&ra6adv_hdr, sizeof ra6adv_hdr));
 
-    ra6_slla.macaddr(ifinfo->macaddr, sizeof ifinfo->macaddr);
+    ra6_source_lla_opt_set_macaddr(&ra6_slla, ifinfo->macaddr);
     csum = net_checksum16_add
            (csum, net_checksum16(&ra6_slla, sizeof ra6_slla));
-    ra6_mtu.mtu(ifinfo->mtu);
+    ra6_mtu_opt_set_mtu(&ra6_mtu, ifinfo->mtu);
     csum = net_checksum16_add
            (csum, net_checksum16(&ra6_mtu, sizeof ra6_mtu));
 
     // Prefix Information
-    ra6_pfxi.prefix(&ifinfo->v6_address_global, ifinfo->v6_prefixlen_global);
-    ra6_pfxi.on_link(true);
-    ra6_pfxi.auto_addr_cfg(false);
-    ra6_pfxi.router_addr_flag(true);
-    ra6_pfxi.valid_lifetime(2592000);
-    ra6_pfxi.preferred_lifetime(604800);
+    ra6_prefix_info_opt_set_prefix(&ra6_pfxi, &ifinfo->v6_address_global, ifinfo->v6_prefixlen_global);
+    ra6_prefix_info_opt_set_on_link(&ra6_pfxi, true);
+    ra6_prefix_info_opt_set_auto_addr_cfg(&ra6_pfxi, false);
+    ra6_prefix_info_opt_set_router_addr_flag(&ra6_pfxi, true);
+    ra6_prefix_info_opt_set_valid_lifetime(&ra6_pfxi, 2592000);
+    ra6_prefix_info_opt_set_preferred_lifetime(&ra6_pfxi, 604800);
     csum = net_checksum16_add(csum, net_checksum16(&ra6_pfxi, sizeof ra6_pfxi));
     pktl += sizeof ra6_pfxi;
 
@@ -440,16 +353,16 @@ static bool send_advert(struct RA6Listener *self)
     struct blob d6b = query_dns6_search_blob(ifinfo->index);
 
     if (dns_servers.n) {
-        ra6_dns.length(dns_servers.n);
-        ra6_dns.lifetime(self->advi_s_max_ * 2);
+        ra6_rdns_opt_set_length(&ra6_dns, dns_servers.n);
+        ra6_rdns_opt_set_lifetime(&ra6_dns, self->advi_s_max_ * 2);
         csum = net_checksum16_add(csum, net_checksum16(&ra6_dns, sizeof ra6_dns));
         pktl += sizeof ra6_dns + 16 * dns_servers.n;
     }
 
     size_t dns_search_slack = 0;
     if (d6b.s && d6b.n) {
-        dns_search_slack = ra6_dsrch.length(d6b.n);
-        ra6_dsrch.lifetime(self->advi_s_max_ * 2);
+        dns_search_slack = ra6_dns_search_opt_set_length(&ra6_dsrch, d6b.n);
+        ra6_dns_search_opt_set_lifetime(&ra6_dsrch, self->advi_s_max_ * 2);
         csum = net_checksum16_add(csum, net_checksum16(&ra6_dsrch, sizeof ra6_dsrch));
         csum = net_checksum16_add(csum, net_checksum16(d6b.s, d6b.n));
         pktl += sizeof ra6_dsrch + d6b.n + dns_search_slack;
@@ -464,24 +377,24 @@ static bool send_advert(struct RA6Listener *self)
             csum = net_checksum16_add(csum, net_checksum16(&dns_servers.addrs[i], sizeof dns_servers.addrs[i]));
         }
     }
-    icmp_hdr.checksum(csum);
+    icmp_header_set_checksum(&icmp_hdr, csum);
 
     char sbuf[4096];
     struct sbufs ss = { &sbuf[0], &sbuf[4096] };
-    if (!icmp_hdr.write(ss)) return false;
-    if (!ra6adv_hdr.write(ss)) return false;
-    if (!ra6_slla.write(ss)) return false;
-    if (!ra6_mtu.write(ss)) return false;
-    if (!ra6_pfxi.write(ss)) return false;
+    if (!icmp_header_write(&icmp_hdr, &ss)) return false;
+    if (!ra6_advert_header_write(&ra6adv_hdr, &ss)) return false;
+    if (!ra6_source_lla_opt_write(&ra6_slla, &ss)) return false;
+    if (!ra6_mtu_opt_write(&ra6_mtu, &ss)) return false;
+    if (!ra6_prefix_info_opt_write(&ra6_pfxi, &ss)) return false;
     if (dns_servers.n) {
-        if (!ra6_dns.write(ss)) return false;
+        if (!ra6_rdns_opt_write(&ra6_dns, &ss)) return false;
         size_t siz = 16 * dns_servers.n;
         if (ss.se - ss.si < (ptrdiff_t)siz) return false;
         memcpy(ss.si, dns_servers.addrs, siz);
         ss.si += siz;
     }
     if (d6b.s && d6b.n) {
-        if (!ra6_dsrch.write(ss)) return false;
+        if (!ra6_dns_search_opt_write(&ra6_dsrch, &ss)) return false;
         if (ss.se - ss.si < (ptrdiff_t)d6b.n) return false;
         memcpy(ss.si, d6b.s, d6b.n);
         ss.si += d6b.n;
@@ -535,13 +448,13 @@ static void process_receive(struct RA6Listener *self, char *buf, size_t buflen,
 
     struct sbufs rs = { buf, buf + buflen };
     // Discard if the ICMP length < 8 octets.
-    if (buflen < icmp_header::size + ra6_solicit_header::size) {
+    if (buflen < ICMP_HEADER_SIZE + RA6_SOLICIT_HEADER_SIZE) {
         log_line("ra6: ICMP from %s is too short: %zu\n", sip_str, buflen);
         return;
     }
 
     struct icmp_header icmp_hdr;
-    if (!icmp_hdr.read(rs)) return;
+    if (!icmp_header_read(&icmp_hdr, &rs)) return;
 
     // XXX: Discard if the ip header hop limit field != 255
 #if 0
@@ -553,19 +466,19 @@ static void process_receive(struct RA6Listener *self, char *buf, size_t buflen,
 
     if (!self->using_bpf_) {
         // Discard if the ICMP code is not 0.
-        if (icmp_hdr.code() != 0) {
+        if (icmp_header_code(&icmp_hdr) != 0) {
             log_line("ra6: ICMP code != 0 on %s\n", self->ifname_);
             return;
         }
 
-        if (icmp_hdr.type() != 133) {
+        if (icmp_header_type(&icmp_hdr) != 133) {
             log_line("ra6: ICMP type != 133 on %s\n", self->ifname_);
             return;
         }
     }
 
     struct ra6_solicit_header ra6_solicit_hdr;
-    if (!ra6_solicit_hdr.read(rs)) return;
+    if (!ra6_solicit_header_read(&ra6_solicit_hdr, &rs)) return;
 
     uint8_t macaddr[6];
     bool got_macaddr = false;
