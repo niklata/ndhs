@@ -1,33 +1,40 @@
 // Copyright 2014-2024 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
+#include <stdbool.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <pwd.h>
-
+#include <time.h>
 #include <net/if.h>
 #include <sys/socket.h>
 
 #include <nk/netbits.h>
-#include "radv6.hpp"
+#include "radv6.h"
 #include "nlsocket.h"
 #include "dhcp6.h"
 #include "multicast6.h"
 #include "attach_bpf.h"
 #include "sbufs.h"
 #include "dhcp_state.h"
-
-extern "C" {
 #include "nk/net_checksum16.h"
 #include "nk/log.h"
 #include "nk/io.h"
 #include "nk/random.h"
-}
 
 extern struct nk_random_state g_rngstate;
 
+struct RA6Listener
+{
+    struct timespec advert_ts_;
+    char ifname_[IFNAMSIZ];
+    int fd_;
+    unsigned advi_s_max_;
+    bool using_bpf_:1;
+};
+
 static inline void toggle_bit(bool v, void *data, size_t arrayidx, unsigned char bitidx)
 {
-    auto d = static_cast<unsigned char *>(data);
+    unsigned char *d = data;
     if (v) d[arrayidx] |= bitidx;
     else d[arrayidx] &= ~bitidx;
 }
@@ -146,7 +153,7 @@ static bool ra6_mtu_opt_write(const struct ra6_mtu_opt *self, struct sbufs *sbuf
 
 #define RA6_PREFIX_INFO_OPT_SIZE 32
 struct ra6_prefix_info_opt { uint8_t data_[32]; };
-static void ra6_prefix_info_opt_set_prefix(struct ra6_prefix_info_opt *self, const in6_addr *v, uint8_t pl)
+static void ra6_prefix_info_opt_set_prefix(struct ra6_prefix_info_opt *self, const struct in6_addr *v, uint8_t pl)
 {
     self->data_[2] = pl;
     uint8_t a6[16];
@@ -239,11 +246,11 @@ static bool send_advert(struct RA6Listener *self);
  * DNS server information.  We will support RFC6106, too, but
  * Windows needs DHCPv6 for DNS.
  */
-extern NLSocket nl_socket;
+extern struct NLSocket nl_socket;
 static bool init_addrs;
-static sockaddr_in6 ip6_any;
-static sockaddr_in6 mc6_allhosts;
-static sockaddr_in6 mc6_allrouters;
+static struct sockaddr_in6 ip6_any;
+static struct sockaddr_in6 mc6_allhosts;
+static struct sockaddr_in6 mc6_allrouters;
 static const uint8_t icmp_nexthdr = 58; // Assigned value
 
 struct RA6Listener *RA6Listener_create(const char *ifname)
@@ -262,7 +269,7 @@ struct RA6Listener *RA6Listener_create(const char *ifname)
         log_line("RA6Listener: Interface name (%s) too long\n", ifname);
         return NULL;
     }
-    self = static_cast<struct RA6Listener *>(calloc(1, sizeof(struct RA6Listener)));
+    self = calloc(1, sizeof(struct RA6Listener));
     if (!self) return NULL;
 
     set_advi_s_max(self, 600);
@@ -302,13 +309,13 @@ static bool send_advert(struct RA6Listener *self)
 {
     struct icmp_header icmp_hdr = {0};
     struct ra6_advert_header ra6adv_hdr = {0};
-    struct ra6_source_lla_opt ra6_slla = { 1, 1 };
-    struct ra6_mtu_opt ra6_mtu = { 5, 1 };
-    struct ra6_prefix_info_opt ra6_pfxi = { 3, 4 };
-    struct ra6_rdns_opt ra6_dns = { 25 };
-    struct ra6_dns_search_opt ra6_dsrch = { 31 };
-    uint32_t pktl(sizeof icmp_hdr + sizeof ra6adv_hdr + sizeof ra6_slla
-                  + sizeof ra6_mtu);
+    struct ra6_source_lla_opt ra6_slla = {{ 1, 1 }};
+    struct ra6_mtu_opt ra6_mtu = {{ 5, 1 }};
+    struct ra6_prefix_info_opt ra6_pfxi = {{ 3, 4 }};
+    struct ra6_rdns_opt ra6_dns = {{ 25 }};
+    struct ra6_dns_search_opt ra6_dsrch = {{ 31 }};
+    uint32_t pktl = sizeof icmp_hdr + sizeof ra6adv_hdr + sizeof ra6_slla
+                  + sizeof ra6_mtu;
 
     struct netif_info *ifinfo = NLSocket_get_ifinfo_by_name(&nl_socket, self->ifname_);
     if (!ifinfo) {
@@ -433,18 +440,18 @@ static bool ip6_is_unspecified(const struct sockaddr_storage *sa)
 }
 
 static void process_receive(struct RA6Listener *self, char *buf, size_t buflen,
-                            const struct sockaddr_storage &sai, socklen_t sailen)
+                            const struct sockaddr_storage *sai, socklen_t sailen)
 {
     if (sailen < sizeof(struct sockaddr_in6)) {
         log_line("ra6: Received too-short address family on %s: %u\n", self->ifname_, sailen);
         return;
     }
     char sip_str[32];
-    if (!sa6_to_string(sip_str, sizeof sip_str, &sai, sailen)) {
+    if (!sa6_to_string(sip_str, sizeof sip_str, sai, sailen)) {
         log_line("ra6: Failed to stringize sender ip on %s\n", self->ifname_);
         return;
     }
-    bool sender_unspecified = ip6_is_unspecified(&sai);
+    bool sender_unspecified = ip6_is_unspecified(sai);
 
     struct sbufs rs = { buf, buf + buflen };
     // Discard if the ICMP length < 8 octets.
@@ -485,8 +492,8 @@ static void process_receive(struct RA6Listener *self, char *buf, size_t buflen,
 
     // Only the source link-layer address option is defined.
     while (rs.se >= 2 + rs.si) {
-        auto opt_type = static_cast<uint8_t>(*rs.si++);
-        size_t opt_length = 8 * static_cast<uint8_t>(*rs.si++);
+        uint8_t opt_type = (uint8_t)(*rs.si++);
+        size_t opt_length = 8 * (size_t)(*rs.si++);
         // Discard if any included option has a length <= 0.
         if (opt_length <= 0) {
             log_line("ra6: Solicitation option length <= 0 on %s\n", self->ifname_);
@@ -498,20 +505,20 @@ static void process_receive(struct RA6Listener *self, char *buf, size_t buflen,
                 return;
             }
             if (opt_length == 8) {
-                if (rs.se - rs.si < static_cast<ptrdiff_t>(sizeof macaddr)) {
+                if (rs.se - rs.si < (ptrdiff_t)sizeof macaddr) {
                     log_line("ra6: Source Link-Layer Address is wrong size for ethernet on %s\n", self->ifname_);
                     return;
                 }
                 got_macaddr = true;
                 for (size_t i = 0; i < sizeof macaddr; ++i) {
-                    macaddr[i] = static_cast<uint8_t>(*rs.si++);
+                    macaddr[i] = (uint8_t)(*rs.si++);
                 }
             } else {
                 log_line("ra6: Source Link-Layer Address is wrong size for ethernet on %s\n", self->ifname_);
                 return;
             }
         } else {
-            if (rs.se - rs.si < static_cast<ptrdiff_t>(opt_length) - 2) {
+            if (rs.se - rs.si < (ptrdiff_t)opt_length - 2) {
                 log_line("ra6: Invalid length(%zu) for option type(%u) on %s\n", opt_length, +opt_type, self->ifname_);
                 return;
             }
@@ -539,13 +546,15 @@ void RA6Listener_process_input(struct RA6Listener *self)
     for (;;) {
         struct sockaddr_storage sai;
         socklen_t sailen = sizeof sai;
-        auto buflen = recvfrom(self->fd_, buf, sizeof buf, MSG_DONTWAIT, (struct sockaddr *)&sai, &sailen);
+        ssize_t buflen = recvfrom(self->fd_, buf, sizeof buf, MSG_DONTWAIT, (struct sockaddr *)&sai, &sailen);
         if (buflen < 0) {
             int err = errno;
             if (err == EINTR) continue;
             if (err == EAGAIN || err == EWOULDBLOCK) break;
             suicide("ra6: recvfrom failed on %s: %s\n", self->ifname_, strerror(err));
         }
-        process_receive(self, buf, (size_t)buflen, sai, sailen);
+        process_receive(self, buf, (size_t)buflen, &sai, sailen);
     }
 }
+
+int RA6Listener_fd(const struct RA6Listener *self) { return self->fd_; }

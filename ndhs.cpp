@@ -31,7 +31,7 @@ extern "C" {
 #include "nlsocket.h"
 #include "dhcp6.h"
 #include "dhcp4.h"
-#include "radv6.hpp"
+#include "radv6.h"
 #include "dhcp_state.h"
 #include "dynlease.h"
 #include "duid.h"
@@ -104,7 +104,7 @@ static void create_interface_listener(const struct netif_info *ifinfo,
                 poll_array[*pfdc] = pt;
                 poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = PFD_TYPE_DHCP6, .ld6 = d6l };
 
-                pt.fd = r6l->fd_;
+                pt.fd = RA6Listener_fd(r6l);
                 poll_array[*pfdc] = pt;
                 poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = PFD_TYPE_RADV6, .lr6 = r6l };
             } else {
