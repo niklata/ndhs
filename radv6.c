@@ -40,6 +40,17 @@ static inline void toggle_bit(bool v, void *data, size_t arrayidx, unsigned char
     else d[arrayidx] &= ~bitidx;
 }
 
+static inline bool sa6_from_string(struct sockaddr_in6 *sin, const char *str)
+{
+    memset(sin, 0, sizeof(struct sockaddr_in6));
+    sin->sin6_family = AF_INET6;
+    if (inet_pton(AF_INET6, str, &sin->sin6_addr) != 1) {
+        log_line("inet_pton failed: %s\n", strerror(errno));
+        return false;
+    }
+    return true;
+}
+
 /* XXX: Configuration options:
  *
  * is_router = false :: Can we forward packets to/from the interface?

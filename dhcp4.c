@@ -63,6 +63,11 @@ static uint64_t hwaddr_to_int64(uint8_t *hwaddr)
            ((uint64_t)hwaddr[5] << 40);
 }
 
+static inline bool ip4_to_string(char *buf, size_t buflen, uint32_t addr)
+{
+    return !!inet_ntop(AF_INET, &addr, buf, buflen);
+}
+
 static struct D4State *find(struct D4State *self, uint64_t h)
 {
     for (size_t i = 0; i < D4_CLIENT_STATE_TABLESIZE; ++i) {
