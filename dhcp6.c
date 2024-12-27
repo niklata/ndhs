@@ -59,6 +59,7 @@ enum dhcp6_msgtype {
     D6_MSGTYPE_INFORMATION_REQUEST = 11,
     D6_MSGTYPE_RELAY_FORWARD = 12,
     D6_MSGTYPE_RELAY_REPLY = 13,
+    D6_MSGTYPE_END = 14,
 };
 enum dhcp6_code {
     D6_CODE_SUCCESS = 0,
@@ -322,24 +323,25 @@ void D6Listener_destroy(struct D6Listener *self)
     free(self);
 }
 
-static const char * dhcp6_msgtype_to_string(enum dhcp6_msgtype m)
+static const char *dhcp6_msgtype_to_string(enum dhcp6_msgtype m)
 {
-    switch (m) {
-    default: return "unknown";
-    case D6_MSGTYPE_SOLICIT: return "solicit";
-    case D6_MSGTYPE_ADVERTISE: return "advertise";
-    case D6_MSGTYPE_REQUEST: return "request";
-    case D6_MSGTYPE_CONFIRM: return "confirm";
-    case D6_MSGTYPE_RENEW: return "renew";
-    case D6_MSGTYPE_REBIND: return "rebind";
-    case D6_MSGTYPE_REPLY: return "reply";
-    case D6_MSGTYPE_RELEASE: return "release";
-    case D6_MSGTYPE_DECLINE: return "decline";
-    case D6_MSGTYPE_RECONFIGURE: return "reconfigure";
-    case D6_MSGTYPE_INFORMATION_REQUEST: return "information_request";
-    case D6_MSGTYPE_RELAY_FORWARD: return "relay_forward";
-    case D6_MSGTYPE_RELAY_REPLY: return "relay_reply";
-    }
+    static const char *pp[] = {
+        "unknown",
+        "solicit",
+        "advertise",
+        "request",
+        "confirm",
+        "renew",
+        "rebind",
+        "reply",
+        "release",
+        "decline",
+        "reconfigure",
+        "information_request",
+        "relay_forward",
+        "relay_reply",
+    };
+    return pp[m < D6_MSGTYPE_END && m >= 0 ? m : 0];
 }
 
 static const char * dhcp6_opt_to_string(uint16_t opttype)

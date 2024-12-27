@@ -59,7 +59,7 @@ static bool string_to_ipaddr(struct in6_addr *r, const char *s, size_t linenum)
 }
 
 
-#line 288 "cfg.rl"
+#line 286 "cfg.rl"
 
 
 
@@ -488,7 +488,7 @@ static const int cfg_line_m_error = 0;
 static const int cfg_line_m_en_main = 154;
 
 
-#line 290 "cfg.rl"
+#line 288 "cfg.rl"
 
 
 static int do_parse_cfg_line(struct cfg_parse_state *cps, const char *p, size_t plen,
@@ -503,7 +503,7 @@ const size_t linenum)
 		cps->cs = (int)cfg_line_m_start;
 	}
 	
-#line 298 "cfg.rl"
+#line 296 "cfg.rl"
 
 
 #line 501 "cfg.c"
@@ -810,8 +810,7 @@ const size_t linenum)
 							{
 #line 183 "cfg.rl"
 							
-							size_t n = sizeof(struct in6_addr) * cps->nipaddrs;
-							struct in6_addr *addrs = malloc(n);
+							struct in6_addr *addrs = calloc(cps->nipaddrs, sizeof(struct in6_addr));
 							if (!addrs) abort();
 							for (size_t i = 0; i < cps->nipaddrs; ++i) {
 								if (!string_to_ipaddr(&addrs[i], cps->ipaddrs[i], strlen(cps->ipaddrs[i]))) {
@@ -823,27 +822,26 @@ const size_t linenum)
 							emplace_dns_servers(linenum, cps->ifindex, addrs, cps->nipaddrs);
 						}
 						
-#line 804 "cfg.c"
+#line 803 "cfg.c"
 
 						break; 
 					}
 					case 14:  {
 							{
-#line 196 "cfg.rl"
+#line 195 "cfg.rl"
 							
 							emplace_dns_search(linenum, cps->ifindex, MARKED_STRING());
 						}
 						
-#line 814 "cfg.c"
+#line 813 "cfg.c"
 
 						break; 
 					}
 					case 15:  {
 							{
-#line 199 "cfg.rl"
+#line 198 "cfg.rl"
 							
-							size_t n = sizeof(struct in6_addr) * cps->nipaddrs;
-							struct in6_addr *addrs = malloc(n);
+							struct in6_addr *addrs = calloc(cps->nipaddrs, sizeof(struct in6_addr));
 							if (!addrs) abort();
 							for (size_t i = 0; i < cps->nipaddrs; ++i) {
 								if (!string_to_ipaddr(&addrs[i], cps->ipaddrs[i], strlen(cps->ipaddrs[i]))) {
@@ -855,13 +853,13 @@ const size_t linenum)
 							emplace_ntp_servers(linenum, cps->ifindex, addrs, cps->nipaddrs);
 						}
 						
-#line 834 "cfg.c"
+#line 832 "cfg.c"
 
 						break; 
 					}
 					case 16:  {
 							{
-#line 212 "cfg.rl"
+#line 210 "cfg.rl"
 							
 							struct in6_addr t;
 							if (!string_to_ipaddr(&t, cps->ipaddrs[0], linenum)) {
@@ -871,13 +869,13 @@ const size_t linenum)
 							emplace_gateway_v4(linenum, cps->ifindex, &t);
 						}
 						
-#line 849 "cfg.c"
+#line 847 "cfg.c"
 
 						break; 
 					}
 					case 17:  {
 							{
-#line 220 "cfg.rl"
+#line 218 "cfg.rl"
 							
 							if (cps->nipaddrs != 2) {
 								fprintf(stderr, "XXX: dynrange nipaddrs != 2 (%zu)\n", cps->nipaddrs);
@@ -897,24 +895,24 @@ const size_t linenum)
 							emplace_dynamic_range(linenum, cps->ifindex, &tlo, &thi, cps->default_lifetime);
 						}
 						
-#line 874 "cfg.c"
+#line 872 "cfg.c"
 
 						break; 
 					}
 					case 18:  {
 							{
-#line 238 "cfg.rl"
+#line 236 "cfg.rl"
 							
 							emplace_dynamic_v6(linenum, cps->ifindex);
 						}
 						
-#line 884 "cfg.c"
+#line 882 "cfg.c"
 
 						break; 
 					}
 					case 19:  {
 							{
-#line 241 "cfg.rl"
+#line 239 "cfg.rl"
 							
 							struct in6_addr t;
 							if (!string_to_ipaddr(&t, cps->ipaddrs[0], linenum)) {
@@ -924,13 +922,13 @@ const size_t linenum)
 							emplace_dhcp4_state(linenum, cps->ifindex, cps->macaddr, &t, cps->default_lifetime);
 						}
 						
-#line 899 "cfg.c"
+#line 897 "cfg.c"
 
 						break; 
 					}
 					case 20:  {
 							{
-#line 249 "cfg.rl"
+#line 247 "cfg.rl"
 							
 							struct in6_addr t;
 							if (!string_to_ipaddr(&t, cps->ipaddrs[0], linenum)) {
@@ -942,7 +940,7 @@ const size_t linenum)
 							cps->iaid, &t, cps->default_lifetime);
 						}
 						
-#line 916 "cfg.c"
+#line 914 "cfg.c"
 
 						break; 
 					}
@@ -966,7 +964,7 @@ const size_t linenum)
 		_out: {}
 	}
 	
-#line 299 "cfg.rl"
+#line 297 "cfg.rl"
 
 	
 	if (cps->parse_error) return -1;
