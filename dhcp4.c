@@ -177,7 +177,7 @@ err0:
 }
 
 // Only intended to be called once per listener.
-struct D4Listener *D4Listener_create(const char *ifname)
+struct D4Listener *D4Listener_create(const char *ifname, const struct netif_info *ifinfo)
 {
     struct D4Listener *self;
     size_t ifname_src_size = strlen(ifname);
@@ -185,13 +185,6 @@ struct D4Listener *D4Listener_create(const char *ifname)
         log_line("D4Listener: Interface name (%s) too long\n", ifname);
         return NULL;
     }
-    int ifindex = NLSocket_get_ifindex(&nl_socket, ifname);;
-    if (ifindex == -1) {
-        log_line("dhcp4: Failed to get interface index for %s\n", ifname);
-        return NULL;
-    }
-    struct netif_info *ifinfo = NLSocket_get_ifinfo(&nl_socket, ifindex);
-    if (!ifinfo) return NULL;
     if (!ifinfo->has_v4_address) {
         log_line("dhcp4: Interface (%s) has no IP address\n", ifname);
         return NULL;
@@ -199,7 +192,7 @@ struct D4Listener *D4Listener_create(const char *ifname)
     self = calloc(1, sizeof(struct D4Listener));
     if (!self) return NULL;
 
-    self->ifindex_ = ifindex;
+    self->ifindex_ = ifinfo->index;
     *(char *)(mempcpy(self->ifname_, ifname, ifname_src_size)) = 0;
     self->local_ip_ = ifinfo->v4_address;
 

@@ -7,8 +7,9 @@
 extern "C" {
 #endif
 
+struct netif_info;
 struct D4Listener;
-struct D4Listener *D4Listener_create(const char *ifname);
+struct D4Listener *D4Listener_create(const char *ifname, const struct netif_info *ifinfo);
 void D4Listener_process_input(struct D4Listener *self);
 int D4Listener_fd(const struct D4Listener *self);
 

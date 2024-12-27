@@ -27,6 +27,7 @@ struct RA6Listener
 {
     struct timespec advert_ts_;
     char ifname_[IFNAMSIZ];
+    int ifindex;
     int fd_;
     unsigned advi_s_max_;
     bool using_bpf_:1;
@@ -253,7 +254,7 @@ static struct sockaddr_in6 mc6_allhosts;
 static struct sockaddr_in6 mc6_allrouters;
 static const uint8_t icmp_nexthdr = 58; // Assigned value
 
-struct RA6Listener *RA6Listener_create(const char *ifname)
+struct RA6Listener *RA6Listener_create(const char *ifname, const struct netif_info *ifinfo)
 {
     if (!init_addrs) {
         if (!sa6_from_string(&ip6_any, "::")) return NULL; // XXX: All-zero is fine, no need to do this.
@@ -269,9 +270,14 @@ struct RA6Listener *RA6Listener_create(const char *ifname)
         log_line("RA6Listener: Interface name (%s) too long\n", ifname);
         return NULL;
     }
+    if (!ifinfo->has_v6_address_global) {
+        log_line("ra6: Failed to get global ipv6 address for %s\n", ifname);
+        return NULL;
+    }
     self = calloc(1, sizeof(struct RA6Listener));
     if (!self) return NULL;
 
+    self->ifindex = ifinfo->index;
     set_advi_s_max(self, 600);
     self->using_bpf_ = false;
     *(char *)(mempcpy(self->ifname_, ifname, ifname_src_size)) = 0;
@@ -317,13 +323,9 @@ static bool send_advert(struct RA6Listener *self)
     uint32_t pktl = sizeof icmp_hdr + sizeof ra6adv_hdr + sizeof ra6_slla
                   + sizeof ra6_mtu;
 
-    struct netif_info *ifinfo = NLSocket_get_ifinfo_by_name(&nl_socket, self->ifname_);
+    struct netif_info *ifinfo = NLSocket_get_ifinfo(&nl_socket, self->ifindex);
     if (!ifinfo) {
-        log_line("ra6: Failed to get interface index for %s\n", self->ifname_);
-        return false;
-    }
-    if (!ifinfo->has_v6_address_global) {
-        log_line("ra6: Failed to get global ipv6 address for %s\n", self->ifname_);
+        log_line("ra6: Failed to get interface info for %s\n", self->ifname_);
         return false;
     }
 

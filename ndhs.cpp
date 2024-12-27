@@ -96,9 +96,9 @@ static void create_interface_listener(const struct netif_info *ifinfo,
 
     size_t *pfdc = static_cast<size_t *>(ud);
     if (use_v6) {
-        D6Listener *d6l = D6Listener_create(ifinfo->name, preference);
+        D6Listener *d6l = D6Listener_create(ifinfo->name, ifinfo, preference);
         if (d6l) {
-            RA6Listener *r6l = RA6Listener_create(ifinfo->name);
+            RA6Listener *r6l = RA6Listener_create(ifinfo->name, ifinfo);
             if (r6l) {
                 pt.fd = D6Listener_fd(d6l);
                 poll_array[*pfdc] = pt;
@@ -116,7 +116,7 @@ static void create_interface_listener(const struct netif_info *ifinfo,
         }
     }
     if (use_v4) {
-        D4Listener *d4l = D4Listener_create(ifinfo->name);
+        D4Listener *d4l = D4Listener_create(ifinfo->name, ifinfo);
         if (d4l) {
             pt.fd = D4Listener_fd(d4l);
             poll_array[*pfdc] = pt;

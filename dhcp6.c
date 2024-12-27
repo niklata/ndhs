@@ -274,7 +274,7 @@ err0:
     return false;
 }
 
-struct D6Listener *D6Listener_create(const char *ifname, uint8_t preference)
+struct D6Listener *D6Listener_create(const char *ifname, const struct netif_info *ifinfo, uint8_t preference)
 {
     struct D6Listener *self;
     size_t ifname_src_size = strlen(ifname);
@@ -282,21 +282,14 @@ struct D6Listener *D6Listener_create(const char *ifname, uint8_t preference)
         log_line("D6Listener: Interface name (%s) too long\n", ifname);
         return NULL;
     }
-    int ifindex = NLSocket_get_ifindex(&nl_socket, ifname);
-    if (ifindex == -1) {
-        log_line("dhcp6: Failed to get interface index for %s\n", ifname);
-        return NULL;
-    }
-    struct netif_info *ifinfo = NLSocket_get_ifinfo(&nl_socket, self->ifindex_);
-    if (!ifinfo) return NULL;
     if (!ifinfo->has_v6_address_global || !ifinfo->has_v6_address_link) {
-        log_line("dhcp6: Failed to get ip address for %s\n", self->ifname_);
+        log_line("dhcp6: Failed to get ip address for %s\n", ifname);
         return NULL;
     }
     self = calloc(1, sizeof(struct D6Listener));
     if (!self) return NULL;
 
-    self->ifindex_ = ifindex;
+    self->ifindex_ = ifinfo->index;
     self->using_bpf_ = false;
     self->preference_ = preference;
     *(char *)(mempcpy(self->ifname_, ifname, ifname_src_size)) = 0;
