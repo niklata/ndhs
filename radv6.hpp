@@ -1,37 +1,22 @@
-// Copyright 2016-2022 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2016-2024 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
-#ifndef NDHS_RADV6_HPP_
-#define NDHS_RADV6_HPP_
+#ifndef NDHS_RADV6_H_
+#define NDHS_RADV6_H_
 
 #include <time.h>
-#include "sbufs.h"
-extern "C" {
 #include <net/if.h>
-}
 
 struct RA6Listener
 {
-    RA6Listener() {}
-    RA6Listener(const RA6Listener &) = delete;
-    RA6Listener &operator=(const RA6Listener &) = delete;
-
-    [[nodiscard]] bool init(const char *ifname);
-    void process_input();
-    int send_periodic_advert();
-    auto fd() const { return fd_; }
-    const char *ifname() const { return ifname_; }
-private:
-    void process_receive(char *buf, size_t buflen,
-                         const sockaddr_storage &sai, socklen_t sailen);
-    void set_advi_s_max(unsigned v);
-    void set_next_advert_ts();
-    [[nodiscard]] bool send_advert();
-    void attach_bpf(int fd);
     struct timespec advert_ts_;
     char ifname_[IFNAMSIZ];
     int fd_;
     unsigned advi_s_max_;
     bool using_bpf_:1;
 };
+
+struct RA6Listener *RA6Listener_create(const char *ifname);
+void RA6Listener_process_input(struct RA6Listener *self);
+int RA6Listener_send_periodic_advert(struct RA6Listener *self);
 
 #endif

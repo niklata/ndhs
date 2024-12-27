@@ -1,4 +1,4 @@
-// Copyright 2014-2020 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2014-2024 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <unistd.h>
 #include <sys/types.h>
@@ -89,7 +89,7 @@ public:
     }
     static const size_t size = 40;
 
-    bool read(sbufs &rbuf)
+    bool read(struct sbufs &rbuf)
     {
         if (sbufs_brem(&rbuf) < size) return false;
         memcpy(&data_, rbuf.si, sizeof data_);
@@ -97,7 +97,7 @@ public:
         rbuf.si += size;
         return true;
     }
-    bool write(sbufs &sbuf) const
+    bool write(struct sbufs &sbuf) const
     {
         if (sbufs_brem(&sbuf) < size) return false;
         memcpy(sbuf.si, &data_, sizeof data_);
@@ -109,14 +109,14 @@ private:
 };
 
 #define DEF_RW_MEMBERS() \
-    bool read(sbufs &rbuf) \
+    bool read(struct sbufs &rbuf) \
     { \
         if (sbufs_brem(&rbuf) < size) return false; \
         memcpy(&data_, rbuf.si, sizeof data_); \
         rbuf.si += size; \
         return true; \
     } \
-    bool write(sbufs &sbuf) const \
+    bool write(struct sbufs &sbuf) const \
     { \
         if (sbufs_brem(&sbuf) < size) return false; \
         memcpy(sbuf.si, &data_, sizeof data_); \
@@ -295,125 +295,113 @@ private:
 };
 #undef DEF_RW_MEMBERS
 
+static void attach_bpf(struct RA6Listener *self)
+{
+    self->using_bpf_ = attach_bpf_icmp6_ra(self->fd_, self->ifname_);
+}
+
+static void set_next_advert_ts(struct RA6Listener *self)
+{
+    unsigned advi_s_min = self->advi_s_max_ / 3 > 3u ? self->advi_s_max_ / 3 : 3u;
+    // The extremely small distribution skew does not matter here.
+    unsigned advi_s = (unsigned)(nk_random_u64(&g_rngstate) % (self->advi_s_max_ - advi_s_min)) + advi_s_min;
+    clock_gettime(CLOCK_BOOTTIME, &self->advert_ts_);
+    self->advert_ts_.tv_sec += advi_s;
+}
+
+static void set_advi_s_max(struct RA6Listener *self, unsigned v)
+{
+    v = v > 4u ? v : 4u;
+    v = v < 1800u ? v : 1800u;
+    self->advi_s_max_ = v;
+}
+
+static bool send_advert(struct RA6Listener *self);
+
 /*
  * We will need to minimally support DHCPv6 for providing
  * DNS server information.  We will support RFC6106, too, but
  * Windows needs DHCPv6 for DNS.
  */
 extern NLSocket nl_socket;
-static bool init_addrs(false);
+static bool init_addrs;
 static sockaddr_in6 ip6_any;
 static sockaddr_in6 mc6_allhosts;
 static sockaddr_in6 mc6_allrouters;
-static const uint8_t icmp_nexthdr(58); // Assigned value
+static const uint8_t icmp_nexthdr = 58; // Assigned value
 
-bool RA6Listener::init(const char *ifname)
+struct RA6Listener *RA6Listener_create(const char *ifname)
 {
-    sockaddr_in6 sai;
-    size_t ifname_src_size = strlen(ifname);
-    if (ifname_src_size >= sizeof ifname_) {
-        log_line("RA6Listener: Interface name (%s) too long\n", ifname);
-        goto err0;
-    }
-
     if (!init_addrs) {
-        if (!sa6_from_string(&ip6_any, "::")) goto err0;
-        if (!sa6_from_string(&mc6_allhosts, "ff02::1")) goto err0;
-        if (!sa6_from_string(&mc6_allrouters, "ff02::2")) goto err0;
+        if (!sa6_from_string(&ip6_any, "::")) return NULL; // XXX: All-zero is fine, no need to do this.
+        if (!sa6_from_string(&mc6_allhosts, "ff02::1")) return NULL;
+        if (!sa6_from_string(&mc6_allrouters, "ff02::2")) return NULL;
         init_addrs = true;
     }
 
-    advi_s_max_ = 600;
-    using_bpf_ = false;
-    *static_cast<char *>(mempcpy(ifname_, ifname, ifname_src_size)) = 0;
+    struct RA6Listener *self;
+    struct sockaddr_in6 sai = { .sin6_family = AF_INET6, };
+    size_t ifname_src_size = strlen(ifname);
+    if (ifname_src_size >= sizeof self->ifname_) {
+        log_line("RA6Listener: Interface name (%s) too long\n", ifname);
+        return NULL;
+    }
+    self = static_cast<struct RA6Listener *>(calloc(1, sizeof(struct RA6Listener)));
+    if (!self) return NULL;
 
-    if (fd_ > 0) close(fd_);
-    fd_ = socket(AF_INET6, SOCK_RAW|SOCK_CLOEXEC, IPPROTO_ICMPV6);
-    if (fd_ < 0) {
-        log_line("ra6: Failed to create v6 ICMP socket on %s: %s\n", ifname_, strerror(errno));
+    set_advi_s_max(self, 600);
+    self->using_bpf_ = false;
+    *(char *)(mempcpy(self->ifname_, ifname, ifname_src_size)) = 0;
+
+    if (self->fd_ >= 0) close(self->fd_);
+    self->fd_ = socket(AF_INET6, SOCK_RAW|SOCK_CLOEXEC, IPPROTO_ICMPV6);
+    if (self->fd_ < 0) {
+        log_line("ra6: Failed to create v6 ICMP socket on %s: %s\n", self->ifname_, strerror(errno));
         goto err0;
     }
-    if (!attach_multicast_sockaddr_in6(fd_, ifname_, &mc6_allrouters))
+    if (!attach_multicast_sockaddr_in6(self->fd_, self->ifname_, &mc6_allrouters)) {
         goto err1;
-    attach_bpf(fd_);
+    }
+    attach_bpf(self);
 
-    memset(&sai, 0, sizeof sai); // s6_addr, s6_port are set to any/0 here
-    sai.sin6_family = AF_INET6;
-    if (bind(fd_, (const sockaddr *)&sai, sizeof sai)) {
-        log_line("ra6: Failed to bind ICMP route advertisement listener on %s: %s\n", ifname_, strerror(errno));
+    if (bind(self->fd_, (const struct sockaddr *)&sai, sizeof sai)) {
+        log_line("ra6: Failed to bind ICMP route advertisement listener on %s: %s\n", self->ifname_, strerror(errno));
         goto err1;
     }
 
-    if (!send_advert())
-        log_line("ra6: Failed to send initial router advertisement on %s\n", ifname_);
-    set_next_advert_ts();
+    if (!send_advert(self))
+        log_line("ra6: Failed to send initial router advertisement on %s\n", self->ifname_);
+    set_next_advert_ts(self);
 
-    return true;
+    return self;
 err1:
-    close(fd_);
-    fd_ = -1;
+    close(self->fd_);
+    self->fd_ = -1;
 err0:
-    return false;
+    free(self);
+    return NULL;
 }
 
-void RA6Listener::process_input()
+static bool send_advert(struct RA6Listener *self)
 {
-    char buf[8192];
-    for (;;) {
-        sockaddr_storage sai;
-        socklen_t sailen = sizeof sai;
-        auto buflen = recvfrom(fd_, buf, sizeof buf, MSG_DONTWAIT, (sockaddr *)&sai, &sailen);
-        if (buflen < 0) {
-            int err = errno;
-            if (err == EINTR) continue;
-            if (err == EAGAIN || err == EWOULDBLOCK) break;
-            suicide("ra6: recvfrom failed on %s: %s\n", ifname_, strerror(err));
-        }
-        process_receive(buf, static_cast<size_t>(buflen), sai, sailen);
-    }
-}
-
-void RA6Listener::attach_bpf(int fd)
-{
-    using_bpf_ = attach_bpf_icmp6_ra(fd, ifname_);
-}
-
-void RA6Listener::set_advi_s_max(unsigned v)
-{
-    v = v > 4u ? v : 4u;
-    v = v < 1800u ? v : 1800u;
-    advi_s_max_ = v;
-}
-
-void RA6Listener::set_next_advert_ts()
-{
-    unsigned advi_s_min = advi_s_max_ / 3 > 3u ? advi_s_max_ / 3 : 3u;
-    // The extremely small distribution skew does not matter here.
-    unsigned advi_s = (unsigned)(nk_random_u64(&g_rngstate) % (advi_s_max_ - advi_s_min)) + advi_s_min;
-    clock_gettime(CLOCK_BOOTTIME, &advert_ts_);
-    advert_ts_.tv_sec += advi_s;
-}
-
-bool RA6Listener::send_advert()
-{
-    icmp_header icmp_hdr;
-    ra6_advert_header ra6adv_hdr;
-    ra6_source_lla_opt ra6_slla;
-    ra6_mtu_opt ra6_mtu;
-    ra6_prefix_info_opt ra6_pfxi;
-    ra6_rdns_opt ra6_dns;
-    ra6_dns_search_opt ra6_dsrch;
+    struct icmp_header icmp_hdr;
+    struct ra6_advert_header ra6adv_hdr;
+    struct ra6_source_lla_opt ra6_slla;
+    struct ra6_mtu_opt ra6_mtu;
+    struct ra6_prefix_info_opt ra6_pfxi;
+    struct ra6_rdns_opt ra6_dns;
+    struct ra6_dns_search_opt ra6_dsrch;
     uint16_t csum;
     uint32_t pktl(sizeof icmp_hdr + sizeof ra6adv_hdr + sizeof ra6_slla
                   + sizeof ra6_mtu);
 
-    auto ifinfo = NLSocket_get_ifinfo_by_name(&nl_socket, ifname_);
+    struct netif_info *ifinfo = NLSocket_get_ifinfo_by_name(&nl_socket, self->ifname_);
     if (!ifinfo) {
-        log_line("ra6: Failed to get interface index for %s\n", ifname_);
+        log_line("ra6: Failed to get interface index for %s\n", self->ifname_);
         return false;
     }
     if (!ifinfo->has_v6_address_global) {
-        log_line("ra6: Failed to get global ipv6 address for %s\n", ifname_);
+        log_line("ra6: Failed to get global ipv6 address for %s\n", self->ifname_);
         return false;
     }
 
@@ -425,7 +413,7 @@ bool RA6Listener::send_advert()
     ra6adv_hdr.hoplimit(0);
     ra6adv_hdr.managed_addresses(true);
     ra6adv_hdr.other_stateful(true);
-    ra6adv_hdr.router_lifetime(3 * advi_s_max_);
+    ra6adv_hdr.router_lifetime(3 * self->advi_s_max_);
     ra6adv_hdr.reachable_time(0);
     ra6adv_hdr.retransmit_timer(0);
     csum = net_checksum16_add
@@ -448,12 +436,12 @@ bool RA6Listener::send_advert()
     csum = net_checksum16_add(csum, net_checksum16(&ra6_pfxi, sizeof ra6_pfxi));
     pktl += sizeof ra6_pfxi;
 
-    auto dns_servers = query_dns_servers(ifinfo->index);
+    struct addrlist dns_servers = query_dns_servers(ifinfo->index);
     struct blob d6b = query_dns6_search_blob(ifinfo->index);
 
     if (dns_servers.n) {
         ra6_dns.length(dns_servers.n);
-        ra6_dns.lifetime(advi_s_max_ * 2);
+        ra6_dns.lifetime(self->advi_s_max_ * 2);
         csum = net_checksum16_add(csum, net_checksum16(&ra6_dns, sizeof ra6_dns));
         pktl += sizeof ra6_dns + 16 * dns_servers.n;
     }
@@ -461,7 +449,7 @@ bool RA6Listener::send_advert()
     size_t dns_search_slack = 0;
     if (d6b.s && d6b.n) {
         dns_search_slack = ra6_dsrch.length(d6b.n);
-        ra6_dsrch.lifetime(advi_s_max_ * 2);
+        ra6_dsrch.lifetime(self->advi_s_max_ * 2);
         csum = net_checksum16_add(csum, net_checksum16(&ra6_dsrch, sizeof ra6_dsrch));
         csum = net_checksum16_add(csum, net_checksum16(d6b.s, d6b.n));
         pktl += sizeof ra6_dsrch + d6b.n + dns_search_slack;
@@ -479,7 +467,7 @@ bool RA6Listener::send_advert()
     icmp_hdr.checksum(csum);
 
     char sbuf[4096];
-    sbufs ss{ &sbuf[0], &sbuf[4096] };
+    struct sbufs ss = { &sbuf[0], &sbuf[4096] };
     if (!icmp_hdr.write(ss)) return false;
     if (!ra6adv_hdr.write(ss)) return false;
     if (!ra6_slla.write(ss)) return false;
@@ -502,58 +490,57 @@ bool RA6Listener::send_advert()
             *ss.si++ = 0;
         }
     }
-    const size_t slen = ss.si > sbuf ? static_cast<size_t>(ss.si - sbuf) : 0;
+    size_t slen = ss.si > sbuf ? (size_t)(ss.si - sbuf) : 0;
 
-    if (safe_sendto(fd_, sbuf, slen, 0, (const sockaddr *)&mc6_allhosts, sizeof mc6_allhosts) < 0) {
-        log_line("ra6: sendto failed on %s: %s\n", ifname_, strerror(errno));
+    if (safe_sendto(self->fd_, sbuf, slen, 0, (const struct sockaddr *)&mc6_allhosts, sizeof mc6_allhosts) < 0) {
+        log_line("ra6: sendto failed on %s: %s\n", self->ifname_, strerror(errno));
         return false;
     }
     return true;
 }
 
-int RA6Listener::send_periodic_advert()
+int RA6Listener_send_periodic_advert(struct RA6Listener *self)
 {
     struct timespec now;
     clock_gettime(CLOCK_BOOTTIME, &now);
-    if (now.tv_sec > advert_ts_.tv_sec
-        || (now.tv_sec == advert_ts_.tv_sec && now.tv_nsec > advert_ts_.tv_nsec)) {
-        if (!send_advert())
-            log_line("ra6: Failed to send periodic router advertisement on %s\n", ifname_);
-        set_next_advert_ts();
+    if (now.tv_sec > self->advert_ts_.tv_sec
+        || (now.tv_sec == self->advert_ts_.tv_sec && now.tv_nsec > self->advert_ts_.tv_nsec)) {
+        if (!send_advert(self))
+            log_line("ra6: Failed to send periodic router advertisement on %s\n", self->ifname_);
+        set_next_advert_ts(self);
     }
-    return 1000 + (advert_ts_.tv_sec - now.tv_sec) * 1000; // Always wait at least 1s
+    return 1000 + (self->advert_ts_.tv_sec - now.tv_sec) * 1000; // Always wait at least 1s
 }
 
-bool ip6_is_unspecified(const sockaddr_storage &sa)
+static bool ip6_is_unspecified(const struct sockaddr_storage *sa)
 {
-    sockaddr_in6 sai, t;
+    struct sockaddr_in6 sai, t = {0};
     memcpy(&sai, &sa, sizeof sai);
-    memset(&t, 0, sizeof t);
     return memcmp(&sai.sin6_addr, &t.sin6_addr, sizeof t.sin6_addr) == 0;
 }
 
-void RA6Listener::process_receive(char *buf, size_t buflen,
-                                  const sockaddr_storage &sai, socklen_t sailen)
+static void process_receive(struct RA6Listener *self, char *buf, size_t buflen,
+                            const struct sockaddr_storage &sai, socklen_t sailen)
 {
-    if (sailen < sizeof(sockaddr_in6)) {
-        log_line("ra6: Received too-short address family on %s: %u\n", ifname_, sailen);
+    if (sailen < sizeof(struct sockaddr_in6)) {
+        log_line("ra6: Received too-short address family on %s: %u\n", self->ifname_, sailen);
         return;
     }
     char sip_str[32];
     if (!sa6_to_string(sip_str, sizeof sip_str, &sai, sailen)) {
-        log_line("ra6: Failed to stringize sender ip on %s\n", ifname_);
+        log_line("ra6: Failed to stringize sender ip on %s\n", self->ifname_);
         return;
     }
-    const bool sender_unspecified = ip6_is_unspecified(sai);
+    bool sender_unspecified = ip6_is_unspecified(&sai);
 
-    sbufs rs{ buf, buf + buflen };
+    struct sbufs rs = { buf, buf + buflen };
     // Discard if the ICMP length < 8 octets.
     if (buflen < icmp_header::size + ra6_solicit_header::size) {
         log_line("ra6: ICMP from %s is too short: %zu\n", sip_str, buflen);
         return;
     }
 
-    icmp_header icmp_hdr;
+    struct icmp_header icmp_hdr;
     if (!icmp_hdr.read(rs)) return;
 
     // XXX: Discard if the ip header hop limit field != 255
@@ -564,24 +551,24 @@ void RA6Listener::process_receive(char *buf, size_t buflen,
     }
 #endif
 
-    if (!using_bpf_) {
+    if (!self->using_bpf_) {
         // Discard if the ICMP code is not 0.
         if (icmp_hdr.code() != 0) {
-            log_line("ra6: ICMP code != 0 on %s\n", ifname_);
+            log_line("ra6: ICMP code != 0 on %s\n", self->ifname_);
             return;
         }
 
         if (icmp_hdr.type() != 133) {
-            log_line("ra6: ICMP type != 133 on %s\n", ifname_);
+            log_line("ra6: ICMP type != 133 on %s\n", self->ifname_);
             return;
         }
     }
 
-    ra6_solicit_header ra6_solicit_hdr;
+    struct ra6_solicit_header ra6_solicit_hdr;
     if (!ra6_solicit_hdr.read(rs)) return;
 
     uint8_t macaddr[6];
-    bool got_macaddr(false);
+    bool got_macaddr = false;
 
     // Only the source link-layer address option is defined.
     while (rs.se >= 2 + rs.si) {
@@ -589,17 +576,17 @@ void RA6Listener::process_receive(char *buf, size_t buflen,
         size_t opt_length = 8 * static_cast<uint8_t>(*rs.si++);
         // Discard if any included option has a length <= 0.
         if (opt_length <= 0) {
-            log_line("ra6: Solicitation option length <= 0 on %s\n", ifname_);
+            log_line("ra6: Solicitation option length <= 0 on %s\n", self->ifname_);
             return;
         }
         if (opt_type == 1) {
             if (got_macaddr) {
-                log_line("ra6: More than one Source Link-Layer Address option on %s; dropping\n", ifname_);
+                log_line("ra6: More than one Source Link-Layer Address option on %s; dropping\n", self->ifname_);
                 return;
             }
             if (opt_length == 8) {
                 if (rs.se - rs.si < static_cast<ptrdiff_t>(sizeof macaddr)) {
-                    log_line("ra6: Source Link-Layer Address is wrong size for ethernet on %s\n", ifname_);
+                    log_line("ra6: Source Link-Layer Address is wrong size for ethernet on %s\n", self->ifname_);
                     return;
                 }
                 got_macaddr = true;
@@ -607,15 +594,15 @@ void RA6Listener::process_receive(char *buf, size_t buflen,
                     macaddr[i] = static_cast<uint8_t>(*rs.si++);
                 }
             } else {
-                log_line("ra6: Source Link-Layer Address is wrong size for ethernet on %s\n", ifname_);
+                log_line("ra6: Source Link-Layer Address is wrong size for ethernet on %s\n", self->ifname_);
                 return;
             }
         } else {
             if (rs.se - rs.si < static_cast<ptrdiff_t>(opt_length) - 2) {
-                log_line("ra6: Invalid length(%zu) for option type(%u) on %s\n", opt_length, +opt_type, ifname_);
+                log_line("ra6: Invalid length(%zu) for option type(%u) on %s\n", opt_length, +opt_type, self->ifname_);
                 return;
             }
-            log_line("ra6: Ignoring unknown option type(%u) on %s\n", +opt_type, ifname_);
+            log_line("ra6: Ignoring unknown option type(%u) on %s\n", +opt_type, self->ifname_);
             for (size_t i = 0; i < opt_length - 2; ++i) rs.si++;
         }
     }
@@ -623,13 +610,29 @@ void RA6Listener::process_receive(char *buf, size_t buflen,
     // Discard if the source address is unspecified and
     // there is no source link-layer address option included.
     if (!got_macaddr && sender_unspecified) {
-        log_line("ra6: Solicitation provides no specified source address or option on %s\n", ifname_);
+        log_line("ra6: Solicitation provides no specified source address or option on %s\n", self->ifname_);
         return;
     }
 
     // Send a router advertisement in reply.
-    if (!send_advert())
-        log_line("ra6: Failed to send router advertisement on %s\n", ifname_);
-    set_next_advert_ts();
+    if (!send_advert(self))
+        log_line("ra6: Failed to send router advertisement on %s\n", self->ifname_);
+    set_next_advert_ts(self);
 }
 
+void RA6Listener_process_input(struct RA6Listener *self)
+{
+    char buf[8192];
+    for (;;) {
+        struct sockaddr_storage sai;
+        socklen_t sailen = sizeof sai;
+        auto buflen = recvfrom(self->fd_, buf, sizeof buf, MSG_DONTWAIT, (struct sockaddr *)&sai, &sailen);
+        if (buflen < 0) {
+            int err = errno;
+            if (err == EINTR) continue;
+            if (err == EAGAIN || err == EWOULDBLOCK) break;
+            suicide("ra6: recvfrom failed on %s: %s\n", self->ifname_, strerror(err));
+        }
+        process_receive(self, buf, (size_t)buflen, sai, sailen);
+    }
+}

@@ -98,19 +98,18 @@ static void create_interface_listener(const struct netif_info *ifinfo,
     if (use_v6) {
         D6Listener *d6l = D6Listener_create(ifinfo->name, preference);
         if (d6l) {
-            RA6Listener *r6l = new RA6Listener();
-            if (r6l->init(ifinfo->name)) {
+            RA6Listener *r6l = RA6Listener_create(ifinfo->name);
+            if (r6l) {
                 pt.fd = D6Listener_fd(d6l);
                 poll_array[*pfdc] = pt;
                 poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = PFD_TYPE_DHCP6, .ld6 = d6l };
 
-                pt.fd = r6l->fd();
+                pt.fd = r6l->fd_;
                 poll_array[*pfdc] = pt;
                 poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = PFD_TYPE_RADV6, .lr6 = r6l };
             } else {
                 log_line("Can't bind to rav6 interface: %s\n", ifinfo->name);
                 D6Listener_destroy(d6l);
-                delete r6l;
             }
         } else {
             log_line("Can't bind to dhcpv6 interface: %s\n", ifinfo->name);
@@ -317,8 +316,8 @@ int main(int ac, char *av[])
                 if (poll_array[i].revents & POLLIN) D6Listener_process_input(poll_meta[i].ld6);
                 break;
             case PFD_TYPE_RADV6: {
-                if (poll_array[i].revents & POLLIN) poll_meta[i].lr6->process_input();
-                auto t = poll_meta[i].lr6->send_periodic_advert();
+                if (poll_array[i].revents & POLLIN) RA6Listener_process_input(poll_meta[i].lr6);
+                auto t = RA6Listener_send_periodic_advert(poll_meta[i].lr6);
                 timeout = timeout < t ? timeout : t;
                 break;
             }
