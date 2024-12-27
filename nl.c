@@ -124,11 +124,10 @@ int nl_foreach_nlmsg(char *buf, size_t blen, uint32_t seq, uint32_t portid,
 
 static int nl_sendgetlink_do(int fd, uint32_t seq, int ifindex, int by_ifindex)
 {
-    char nlbuf[512];
+    char nlbuf[512] = {0};
     struct nlmsghdr *nlh = (struct nlmsghdr *)nlbuf;
     struct ifinfomsg *ifinfomsg;
 
-    memset(nlbuf, 0, sizeof nlbuf);
     nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
     nlh->nlmsg_type = RTM_GETLINK;
     nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_ROOT;
@@ -169,11 +168,10 @@ int nl_sendgetlink(int fd, uint32_t seq, int ifindex)
 static int nl_sendgetaddr_do(int fd, uint32_t seq, uint32_t ifindex, int by_ifindex,
                              int afamily, int by_afamily)
 {
-    char nlbuf[512];
+    char nlbuf[512] = {0};
     struct nlmsghdr *nlh = (struct nlmsghdr *)nlbuf;
     struct ifaddrmsg *ifaddrmsg;
 
-    memset(nlbuf, 0, sizeof nlbuf);
     nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
     nlh->nlmsg_type = RTM_GETADDR;
     nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_ROOT;

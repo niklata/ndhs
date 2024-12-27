@@ -184,10 +184,7 @@ static void setup_signals_ndhs(void)
     if (sigprocmask(SIG_SETMASK, &mask, NULL) < 0)
         suicide("sigprocmask failed\n");
 
-    struct sigaction sa;
-    memset(&sa, 0, sizeof sa);
-    sa.sa_handler = signal_handler;
-    sa.sa_flags = SA_RESTART;
+    struct sigaction sa = { .sa_handler = signal_handler, .sa_flags = SA_RESTART };
     if (sigemptyset(&sa.sa_mask))
         suicide("sigemptyset failed\n");
     for (int i = 0; ss[i] != SIGKILL; ++i)
