@@ -827,12 +827,8 @@ static void process_receive(struct D6Listener *self, char *buf, size_t buflen,
              d6s.optreq_exists = true;
              l /= 2;
              while (l--) {
-                 char b[2];
-                 b[1] = *rs.si++;
-                 b[0] = *rs.si++;
+                 uint16_t v = decode16be(rs.si); rs.si += 2;
                  OPTIONS_CONSUME(2);
-                 uint16_t v;
-                 memcpy(&v, b, 2);
                  switch (v) {
                  case 23: d6s.optreq_dns = true; break;
                  case 24: d6s.optreq_dns_search = true; break;
@@ -855,11 +851,8 @@ static void process_receive(struct D6Listener *self, char *buf, size_t buflen,
                  log_line("dhcp6: Client-sent option ElapsedTime has a bad length on %s\n", self->ifname_);
                  return;
              }
-             char b[2];
-             b[1] = *rs.si++;
-             b[0] = *rs.si++;
+             d6s.elapsed_time = decode16be(rs.si); rs.si += 2;
              OPTIONS_CONSUME(2);
-             memcpy(&d6s.elapsed_time, b, 2);
          } else if (ot == 14) { // Rapid Commit
              if (l != 0) {
                  log_line("dhcp6: Client-sent option Rapid Commit has a bad length on %s\n", self->ifname_);
@@ -872,9 +865,8 @@ static void process_receive(struct D6Listener *self, char *buf, size_t buflen,
                  log_line("dhcp6: Client-sent option Client FQDN has a bad length on %s\n", self->ifname_);
                  return;
              }
-             uint8_t flags, namelen;
-             memcpy(&flags, rs.si++, 1);
-             memcpy(&namelen, rs.si++, 1);
+             uint8_t flags = (uint8_t)*rs.si++;
+             uint8_t namelen = (uint8_t)*rs.si++;
              OPTIONS_CONSUME(2);
              l -= 2;
              if (l != namelen) {
