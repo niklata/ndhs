@@ -1,5 +1,5 @@
 # ndhs
-Copyright 2011-2022 Nicholas J. Kain.
+Copyright 2011-2024 Nicholas J. Kain.
 See LICENSE for licensing information.
 
 ## Introduction

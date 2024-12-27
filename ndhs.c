@@ -215,7 +215,7 @@ static void setup_signals_ndhs(void)
 static void usage(void)
 {
     printf("ndhs " NDHS_VERSION ", DHCPv4/DHCPv6 and IPv6 Router Advertisement server.\n");
-    printf("Copyright 2014-2022 Nicholas J. Kain\n");
+    printf("Copyright 2014-2024 Nicholas J. Kain\n");
     printf("ndhs [options] [configfile]...\n\nOptions:\n");
     printf("--config          -c []  Path to configuration file.\n");
     printf("--version         -v     Print version and exit.\n");
@@ -225,7 +225,7 @@ static void usage(void)
 static void print_version(void)
 {
     log_line("ndhs " NDHS_VERSION ", ipv6 router advertisment and dhcp server.\n"
-             "Copyright 2014-2022 Nicholas J. Kain\n\n"
+             "Copyright 2014-2024 Nicholas J. Kain\n\n"
 "Permission is hereby granted, free of charge, to any person obtaining\n"
 "a copy of this software and associated documentation files (the\n"
 "\"Software\"), to deal in the Software without restriction, including\n"

@@ -1,4 +1,4 @@
-// Copyright 2020-2022 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2020-2024 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #ifndef NDHS_SBUFS_H_
 #define NDHS_SBUFS_H_
