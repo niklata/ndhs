@@ -136,9 +136,7 @@ static bool create_dhcp4_socket(struct D4Listener *self)
     struct sockaddr_in sai = {
         .sin_family = AF_INET,
         .sin_port = htons(67),
-        .sin_addr.s_addr = 0, // any
     };
-    if (self->fd_ > 0) close(self->fd_);
     self->fd_ = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, IPPROTO_UDP);
     if (self->fd_ < 0) {
         log_line("dhcp4: Failed to create v4 UDP socket on %s: %s\n", self->ifname_, strerror(errno));

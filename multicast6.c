@@ -1,3 +1,5 @@
+// Copyright 2016-2024 Nicholas J. Kain <njkain at gmail dot com>
+// SPDX-License-Identifier: MIT
 #include "multicast6.h"
 #include "nlsocket.h"
 #include "nk/log.h"

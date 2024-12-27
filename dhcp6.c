@@ -248,8 +248,10 @@ struct d6msg_state
 static bool create_dhcp6_socket(struct D6Listener *self)
 {
     struct in6_addr mc6_alldhcp_ras;
-    struct sockaddr_in6 sai;
-    if (self->fd_ > 0) close(self->fd_);
+    struct sockaddr_in6 sai = {
+        .sin6_family = AF_INET6,
+        .sin6_port = htons(547),
+    };
     self->fd_ = socket(AF_INET6, SOCK_DGRAM|SOCK_CLOEXEC, IPPROTO_UDP);
     if (self->fd_ < 0) {
         log_line("dhcp6: Failed to create v6 UDP socket on %s: %s\n", self->ifname_, strerror(errno));
@@ -259,9 +261,6 @@ static bool create_dhcp6_socket(struct D6Listener *self)
     if (!attach_multicast_in6_addr(self->fd_, self->ifname_, &mc6_alldhcp_ras)) goto err1;
     self->using_bpf_ = attach_bpf_dhcp6_info(self->fd_, self->ifname_);
 
-    memset(&sai, 0, sizeof sai); // s6_addr is set to any here
-    sai.sin6_family = AF_INET6;
-    sai.sin6_port = htons(547);
     if (bind(self->fd_, (const struct sockaddr *)&sai, sizeof sai)) {
         log_line("dhcp6: Failed to bind to UDP 547 on %s: %s\n", self->ifname_, strerror(errno));
         goto err1;
