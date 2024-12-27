@@ -41,10 +41,7 @@ void NLSocket_init(struct NLSocket *self)
 
     request_links(self);
 
-    struct pollfd pfd;
-    pfd.fd = self->fd_;
-    pfd.events = POLLIN|POLLHUP|POLLERR;
-    pfd.revents = 0;
+    struct pollfd pfd = { .fd = self->fd_, .events = POLLIN|POLLHUP|POLLERR };
     for (;(self->got_newlink_ == false);) {
         if (poll(&pfd, 1, -1) < 0) {
             if (errno == EINTR) continue;
@@ -65,10 +62,7 @@ bool NLSocket_get_interface_addresses(struct NLSocket *self, int ifindex)
     if (self->query_ifindex_ < 0) return false;
     request_addrs(self, self->query_ifindex_);
 
-    struct pollfd pfd;
-    pfd.fd = self->fd_;
-    pfd.events = POLLIN|POLLHUP|POLLERR;
-    pfd.revents = 0;
+    struct pollfd pfd = { .fd = self->fd_, .events = POLLIN|POLLHUP|POLLERR };
     while (self->query_ifindex_ >= 0) {
         if (poll(&pfd, 1, -1) < 0) {
             if (errno == EINTR) continue;
@@ -125,18 +119,18 @@ static void parse_raw_address4(struct in6_addr *addr, struct rtattr *tb[], size_
 static void process_rt_addr_msgs(struct NLSocket *self, const struct nlmsghdr *nlh)
 {
     struct ifaddrmsg *ifa = NLMSG_DATA(nlh);
-    struct rtattr *tb[IFA_MAX];
-    memset(tb, 0, sizeof tb);
+    struct rtattr *tb[IFA_MAX] = {0};
     nl_rtattr_parse(nlh, sizeof *ifa, rtattr_assign, tb);
 
-    struct netif_addrinfo nia;
-    nia.addr_type = ifa->ifa_family;
+    struct netif_addrinfo nia = {
+        .addr_type = ifa->ifa_family,
+        .prefixlen = ifa->ifa_prefixlen,
+        .flags = ifa->ifa_flags,
+        .if_index = (int)ifa->ifa_index,
+        .scope = ifa->ifa_scope,
+    };
     if (nia.addr_type != AF_INET6 && nia.addr_type != AF_INET)
         return;
-    nia.prefixlen = ifa->ifa_prefixlen;
-    nia.flags = ifa->ifa_flags;
-    nia.if_index = (int)ifa->ifa_index;
-    nia.scope = ifa->ifa_scope;
     if (tb[IFA_ADDRESS]) {
         if (nia.addr_type == AF_INET6)
             parse_raw_address6(&nia.address, tb, IFA_ADDRESS);
@@ -238,17 +232,17 @@ static void process_rt_addr_msgs(struct NLSocket *self, const struct nlmsghdr *n
 static void process_rt_link_msgs(struct NLSocket *self, const struct nlmsghdr *nlh)
 {
     struct ifinfomsg *ifm = NLMSG_DATA(nlh);
-    struct rtattr *tb[IFLA_MAX];
-    memset(tb, 0, sizeof tb);
+    struct rtattr *tb[IFLA_MAX] = {0};
     nl_rtattr_parse(nlh, sizeof *ifm, rtattr_assign, tb);
 
-    struct netif_info nii;
-    nii.family = ifm->ifi_family;
-    nii.device_type = ifm->ifi_type;
-    nii.index = ifm->ifi_index;
-    nii.flags = ifm->ifi_flags;
-    nii.change_mask = ifm->ifi_change;
-    nii.is_active = ifm->ifi_flags & IFF_UP;
+    struct netif_info nii = {
+        .family = ifm->ifi_family,
+        .device_type = ifm->ifi_type,
+        .index = ifm->ifi_index,
+        .flags = ifm->ifi_flags,
+        .change_mask = ifm->ifi_change,
+        .is_active = ifm->ifi_flags & IFF_UP,
+    };
     if (tb[IFLA_ADDRESS]) {
         const uint8_t *mac = RTA_DATA(tb[IFLA_ADDRESS]);
         memcpy(nii.macaddr, mac, sizeof nii.macaddr);
