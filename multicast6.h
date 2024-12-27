@@ -6,15 +6,7 @@
 #include <net/if.h>
 #include <ipaddr.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 bool attach_multicast_sockaddr_in6(int fd, const char *ifname, const struct sockaddr_in6 *mc6addr);
 bool attach_multicast_in6_addr(int fd, const char *ifname, const struct in6_addr *mc6addr);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

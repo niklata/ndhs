@@ -3,19 +3,11 @@
 #ifndef NDHS_RADV6_H_
 #define NDHS_RADV6_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct netif_info;
 struct RA6Listener;
 struct RA6Listener *RA6Listener_create(const char *ifname, const struct netif_info *ifinfo);
 void RA6Listener_process_input(struct RA6Listener *self);
 int RA6Listener_send_periodic_advert(struct RA6Listener *self);
 int RA6Listener_fd(const struct RA6Listener *self);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

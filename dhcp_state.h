@@ -5,10 +5,6 @@
 
 #include <ipaddr.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <nlsocket.h>
 
 struct dhcpv6_entry {
@@ -73,9 +69,5 @@ bool query_use_dynamic_v6(int ifindex, uint32_t *dynamic_lifetime);
 bool query_unused_addr_v6(int ifindex, const struct in6_addr *addr);
 size_t bound_interfaces_count(void);
 void bound_interfaces_foreach(void (*fn)(const struct netif_info *, bool, bool, uint8_t, void *), void *userptr);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

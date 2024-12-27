@@ -7,9 +7,6 @@
 #include <ipaddr.h>
 #include <net/if.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 #include "nl.h"
 
 #define MAX_NL_INTERFACES 50
@@ -71,9 +68,5 @@ static inline struct netif_info *NLSocket_get_ifinfo_by_name(struct NLSocket *se
     }
     return NULL;
 }
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

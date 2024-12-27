@@ -1,6 +1,6 @@
-// Copyright 2014-2022 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2014-2024 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
-#define NDHS_VERSION "2.0"
+#define NDHS_VERSION "3.0"
 #define LEASEFILE_PATH "/store/dynlease.txt"
 
 #include <limits.h>
@@ -22,12 +22,10 @@
 #include <signal.h>
 #include <poll.h>
 #include <errno.h>
-extern "C" {
 #include "nk/log.h"
 #include "nk/privs.h"
 #include "nk/io.h"
 #include "nk/random.h"
-}
 #include "nlsocket.h"
 #include "dhcp6.h"
 #include "dhcp4.h"
@@ -46,16 +44,16 @@ enum pfd_type
 
 struct pfd_meta
 {
-    pfd_type pfdt;
+    enum pfd_type pfdt;
     // These are owning pointers.
     union {
-        D4Listener *ld4;
-        D6Listener *ld6;
-        RA6Listener *lr6;
+        struct D4Listener *ld4;
+        struct D6Listener *ld6;
+        struct RA6Listener *lr6;
     };
 };
 
-nk_random_state g_rngstate;
+struct nk_random_state g_rngstate;
 
 static const char *configfile = "/etc/ndhs.conf";
 static char *chroot_path;
@@ -63,13 +61,17 @@ static uid_t ndhs_uid;
 static gid_t ndhs_gid;
 static int s6_notify_fd = -1;
 
-NLSocket nl_socket;
+struct NLSocket nl_socket;
 
 static struct pollfd *poll_array;
 static struct pfd_meta *poll_meta;
 static size_t poll_size = 1;
 
-extern "C" bool parse_config(const char *path);
+extern bool parse_config(const char *path);
+
+void set_user_runas(const char *username, size_t len);
+void set_chroot_path(const char *path, size_t len);
+void set_s6_notify_fd(int fd);
 
 static void count_bound_listeners(const struct netif_info *, bool use_v4, bool use_v6, uint8_t, void *)
 {
@@ -91,14 +93,14 @@ static void create_interface_listener(const struct netif_info *ifinfo,
                                       uint8_t preference, void *ud)
 {
     struct pollfd pt;
-    pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+    pt.events = POLLIN|POLLHUP|POLLERR;
     pt.revents = 0;
 
-    size_t *pfdc = static_cast<size_t *>(ud);
+    size_t *pfdc = ud;
     if (use_v6) {
-        D6Listener *d6l = D6Listener_create(ifinfo->name, ifinfo, preference);
+        struct D6Listener *d6l = D6Listener_create(ifinfo->name, ifinfo, preference);
         if (d6l) {
-            RA6Listener *r6l = RA6Listener_create(ifinfo->name, ifinfo);
+            struct RA6Listener *r6l = RA6Listener_create(ifinfo->name, ifinfo);
             if (r6l) {
                 pt.fd = D6Listener_fd(d6l);
                 poll_array[*pfdc] = pt;
@@ -116,7 +118,7 @@ static void create_interface_listener(const struct netif_info *ifinfo,
         }
     }
     if (use_v4) {
-        D4Listener *d4l = D4Listener_create(ifinfo->name, ifinfo);
+        struct D4Listener *d4l = D4Listener_create(ifinfo->name, ifinfo);
         if (d4l) {
             pt.fd = D4Listener_fd(d4l);
             poll_array[*pfdc] = pt;
@@ -127,17 +129,17 @@ static void create_interface_listener(const struct netif_info *ifinfo,
     }
 }
 
-static void init_listeners()
+static void init_listeners(void)
 {
-    bound_interfaces_foreach(count_bound_listeners, nullptr);
-    poll_array = static_cast<struct pollfd *>(malloc(poll_size * sizeof *poll_array));
-    poll_meta = static_cast<struct pfd_meta *>(malloc(poll_size * sizeof *poll_meta));
+    bound_interfaces_foreach(count_bound_listeners, NULL);
+    poll_array = malloc(poll_size * sizeof *poll_array);
+    poll_meta = malloc(poll_size * sizeof *poll_meta);
     if (!poll_array || !poll_meta) abort();
 
-    bound_interfaces_foreach(get_interface_addresses, nullptr);
+    bound_interfaces_foreach(get_interface_addresses, NULL);
 
     struct pollfd pt;
-    pt.events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+    pt.events = POLLIN|POLLHUP|POLLERR;
     pt.revents = 0;
 
     pt.fd = nl_socket.fd_;
@@ -150,8 +152,6 @@ static void init_listeners()
     poll_size = pfdc;
 }
 
-extern "C" {
-
 void set_user_runas(const char *username, size_t len)
 {
     char buf[256];
@@ -162,15 +162,15 @@ void set_user_runas(const char *username, size_t len)
     if (nk_uidgidbyname(buf, &ndhs_uid, &ndhs_gid))
         suicide("invalid user '%s' specified\n", buf);
 }
+
 void set_chroot_path(const char *path, size_t len)
 {
     chroot_path = strndup(path, len);
 }
+
 void set_s6_notify_fd(int fd)
 {
     s6_notify_fd = fd;
-}
-
 }
 
 static volatile sig_atomic_t l_signal_exit;
@@ -183,11 +183,9 @@ static void signal_handler(int signo)
     errno = serrno;
 }
 
-static void setup_signals_ndhs()
+static void setup_signals_ndhs(void)
 {
-    static const int ss[] = {
-        SIGINT, SIGTERM, SIGKILL
-    };
+    static const int ss[] = { SIGINT, SIGTERM, SIGKILL };
     sigset_t mask;
     if (sigprocmask(0, 0, &mask) < 0)
         suicide("sigprocmask failed\n");
@@ -196,7 +194,7 @@ static void setup_signals_ndhs()
             suicide("sigdelset failed\n");
     if (sigaddset(&mask, SIGPIPE))
         suicide("sigaddset failed\n");
-    if (sigprocmask(SIG_SETMASK, &mask, nullptr) < 0)
+    if (sigprocmask(SIG_SETMASK, &mask, NULL) < 0)
         suicide("sigprocmask failed\n");
 
     struct sigaction sa;
@@ -214,7 +212,7 @@ static void setup_signals_ndhs()
         suicide("sigaction failed\n");
 }
 
-static void usage()
+static void usage(void)
 {
     printf("ndhs " NDHS_VERSION ", DHCPv4/DHCPv6 and IPv6 Router Advertisement server.\n");
     printf("Copyright 2014-2022 Nicholas J. Kain\n");
@@ -224,7 +222,7 @@ static void usage()
     printf("--help            -h     Print this help and exit.\n");
 }
 
-static void print_version()
+static void print_version(void)
 {
     log_line("ndhs " NDHS_VERSION ", ipv6 router advertisment and dhcp server.\n"
              "Copyright 2014-2022 Nicholas J. Kain\n\n"
@@ -250,13 +248,13 @@ static void print_version()
 static void process_options(int ac, char *av[])
 {
     static struct option long_options[] = {
-        {"config", 1, nullptr, 'c'},
-        {"version", 0, nullptr, 'v'},
-        {"help", 0, nullptr, 'h'},
-        {nullptr, 0, nullptr, 0 }
+        {"config", 1, NULL, 'c'},
+        {"version", 0, NULL, 'v'},
+        {"help", 0, NULL, 'h'},
+        {NULL, 0, NULL, 0 }
     };
     for (;;) {
-        auto c = getopt_long(ac, av, "c:vh", long_options, nullptr);
+        int c = getopt_long(ac, av, "c:vh", long_options, NULL);
         if (c == -1) break;
         switch (c) {
             case 'c': configfile = strdup(optarg); break;
@@ -287,7 +285,7 @@ static void process_options(int ac, char *av[])
     nk_set_chroot(chroot_path);
     duid_load_from_file();
     dynlease_deserialize(LEASEFILE_PATH);
-    nk_set_uidgid(ndhs_uid, ndhs_gid, nullptr, 0);
+    nk_set_uidgid(ndhs_uid, ndhs_gid, NULL, 0);
 
     if (s6_notify_fd >= 0) {
         char buf[] = "\n";
@@ -303,7 +301,7 @@ int main(int ac, char *av[])
     for (;;) {
         int timeout = INT_MAX;
         for (size_t i = 0, iend = poll_size; i < iend; ++i) {
-            if (poll_array[i].revents & (POLLHUP|POLLERR|POLLRDHUP))
+            if (poll_array[i].revents & (POLLHUP|POLLERR))
                 suicide("fd closed unexpectedly\n");
             switch (poll_meta[i].pfdt) {
             case PFD_TYPE_NETLINK:
@@ -317,7 +315,7 @@ int main(int ac, char *av[])
                 break;
             case PFD_TYPE_RADV6: {
                 if (poll_array[i].revents & POLLIN) RA6Listener_process_input(poll_meta[i].lr6);
-                auto t = RA6Listener_send_periodic_advert(poll_meta[i].lr6);
+                int t = RA6Listener_send_periodic_advert(poll_meta[i].lr6);
                 timeout = timeout < t ? timeout : t;
                 break;
             }

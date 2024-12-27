@@ -1,6 +1,7 @@
 #ifndef NKLIB_IPADDR_H_
 #define NKLIB_IPADDR_H_
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 #include <limits.h>
@@ -11,12 +12,6 @@
 #else
 #include <windows.h>
 #include <ws2tcpip.h>
-#endif
-
-#ifdef __cplusplus
-extern "C" {
-#else
-#include <stdbool.h>
 #endif
 
 // These are helpers to access ip addresses stored in in6_addr
@@ -112,9 +107,5 @@ static inline bool ipaddr_compare_masked(const struct in6_addr *a, const struct 
         return ipaddr_u32_compare_masked(a32[3], b32[3], mask);
     }
 }
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

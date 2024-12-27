@@ -5,10 +5,6 @@
 
 #include <ipaddr.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 size_t dynlease6_count(int ifindex);
 void dynlease_gc(void);
 bool dynlease4_add(int ifindex, const struct in6_addr *addr,
@@ -29,9 +25,5 @@ bool dynlease6_del(int ifindex, const struct in6_addr *addr,
                    const char *duid, size_t duid_len, uint32_t iaid);
 bool dynlease_serialize(const char *path);
 bool dynlease_deserialize(const char *path);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

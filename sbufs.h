@@ -7,13 +7,7 @@
 #include <stddef.h>
 #include <errno.h>
 #include <arpa/inet.h>
-#ifdef __cplusplus
-extern "C" {
-#endif
 #include "nk/log.h"
-#ifdef __cplusplus
-}
-#endif
 
 struct sbufs {
     char *si;
