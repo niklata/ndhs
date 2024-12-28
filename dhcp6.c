@@ -608,18 +608,18 @@ static bool mark_addr_unused(struct D6Listener *self, const struct d6msg_state *
     return true;
 }
 
-#define OPTIONS_CONSUME(BLD_VAL) do { \
-    if (!options_consume(&d6s, (BLD_VAL))) { \
-        log_line("dhcp6: Received malformed message on %s\n", self->ifname_); \
-        return; \
-    } \
-} while (0)
+#define OPTIONS_CONSUME(BLD_VAL) do {                                   \
+        if (!options_consume(&d6s, (BLD_VAL), self->ifname_)) return;   \
+    } while (0)
 
-static bool options_consume(struct d6msg_state *d6s, size_t v)
+static bool options_consume(struct d6msg_state *d6s, size_t v, const char *ifname)
 {
     size_t nempty = 0;
     for (size_t i = 0; i < d6s->prev_opt_n; ++i) {
-        if (d6s->prev_opt_remlen[i] < v) return false; // option_depth would underflow
+        if (d6s->prev_opt_remlen[i] < v) {
+            log_line("dhcp6: Received malformed message on %s\n", ifname);
+            return false; // option_depth would underflow
+        }
         d6s->prev_opt_remlen[i] -= v;
         if (d6s->prev_opt_remlen[i] == 0) ++nempty;
     }
