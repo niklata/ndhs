@@ -352,6 +352,156 @@ static void newline(struct dynlease_parse_state *self) {
 #pragma GCC diagnostic ignored "-Wunused-const-variable"
 
 #line 352 "dynlease.c"
+static const signed char _dynlease_line_m_actions[] = {
+	0, 1, 0, 1, 1, 1, 2, 1,
+	3, 1, 4, 1, 5, 1, 6, 1,
+	7, 1, 8, 1, 9, 2, 7, 8,
+	2, 7, 9, 0
+};
+
+static const short _dynlease_line_m_key_offsets[] = {
+	0, 0, 4, 6, 9, 18, 27, 33,
+	39, 48, 54, 55, 61, 67, 68, 74,
+	80, 81, 87, 93, 94, 100, 106, 107,
+	113, 119, 122, 127, 130, 139, 148, 157,
+	166, 175, 184, 189, 194, 199, 209, 215,
+	221, 231, 236, 239, 244, 0
+};
+
+static const char _dynlease_line_m_trans_keys[] = {
+	32, 118, 9, 13, 52, 54, 32, 9,
+	13, 32, 9, 13, 48, 57, 65, 90,
+	97, 122, 32, 9, 13, 48, 57, 65,
+	90, 97, 122, 32, 46, 9, 13, 48,
+	57, 32, 46, 9, 13, 48, 57, 32,
+	9, 13, 48, 57, 65, 70, 97, 102,
+	48, 57, 65, 70, 97, 102, 58, 48,
+	57, 65, 70, 97, 102, 48, 57, 65,
+	70, 97, 102, 58, 48, 57, 65, 70,
+	97, 102, 48, 57, 65, 70, 97, 102,
+	58, 48, 57, 65, 70, 97, 102, 48,
+	57, 65, 70, 97, 102, 58, 48, 57,
+	65, 70, 97, 102, 48, 57, 65, 70,
+	97, 102, 58, 48, 57, 65, 70, 97,
+	102, 48, 57, 65, 70, 97, 102, 32,
+	9, 13, 32, 9, 13, 48, 57, 32,
+	9, 13, 32, 9, 13, 48, 57, 65,
+	90, 97, 122, 32, 9, 13, 48, 57,
+	65, 90, 97, 122, 32, 9, 13, 48,
+	58, 65, 70, 97, 102, 32, 9, 13,
+	48, 58, 65, 70, 97, 102, 32, 9,
+	13, 48, 57, 65, 70, 97, 102, 32,
+	9, 13, 48, 57, 65, 70, 97, 102,
+	32, 9, 13, 48, 57, 32, 9, 13,
+	48, 57, 32, 9, 13, 48, 57, 32,
+	45, 9, 13, 48, 57, 65, 70, 97,
+	102, 48, 57, 65, 70, 97, 102, 48,
+	57, 65, 70, 97, 102, 32, 45, 9,
+	13, 48, 57, 65, 70, 97, 102, 32,
+	9, 13, 48, 57, 32, 9, 13, 32,
+	9, 13, 48, 57, 32, 9, 13, 0
+};
+
+static const signed char _dynlease_line_m_single_lengths[] = {
+	0, 2, 2, 1, 1, 1, 2, 2,
+	1, 0, 1, 0, 0, 1, 0, 0,
+	1, 0, 0, 1, 0, 0, 1, 0,
+	0, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 2, 0, 0,
+	2, 1, 1, 1, 1, 0
+};
+
+static const signed char _dynlease_line_m_range_lengths[] = {
+	0, 1, 0, 1, 4, 4, 2, 2,
+	4, 3, 0, 3, 3, 0, 3, 3,
+	0, 3, 3, 0, 3, 3, 0, 3,
+	3, 1, 2, 1, 4, 4, 4, 4,
+	4, 4, 2, 2, 2, 4, 3, 3,
+	4, 2, 1, 2, 1, 0
+};
+
+static const short _dynlease_line_m_index_offsets[] = {
+	0, 0, 4, 7, 10, 16, 22, 27,
+	32, 38, 42, 44, 48, 52, 54, 58,
+	62, 64, 68, 72, 74, 78, 82, 84,
+	88, 92, 95, 99, 102, 108, 114, 120,
+	126, 132, 138, 142, 146, 150, 157, 161,
+	165, 172, 176, 179, 183, 0
+};
+
+static const signed char _dynlease_line_m_cond_targs[] = {
+	1, 2, 1, 0, 3, 27, 0, 4,
+	4, 0, 4, 4, 5, 5, 5, 0,
+	6, 6, 5, 5, 5, 0, 6, 7,
+	6, 7, 0, 8, 7, 8, 7, 0,
+	8, 8, 9, 9, 9, 0, 10, 10,
+	10, 0, 11, 0, 12, 12, 12, 0,
+	13, 13, 13, 0, 14, 0, 15, 15,
+	15, 0, 16, 16, 16, 0, 17, 0,
+	18, 18, 18, 0, 19, 19, 19, 0,
+	20, 0, 21, 21, 21, 0, 22, 22,
+	22, 0, 23, 0, 24, 24, 24, 0,
+	25, 25, 25, 0, 26, 26, 0, 26,
+	26, 41, 0, 28, 28, 0, 28, 28,
+	29, 29, 29, 0, 30, 30, 29, 29,
+	29, 0, 30, 30, 31, 31, 31, 0,
+	32, 32, 31, 31, 31, 0, 32, 32,
+	33, 33, 33, 0, 34, 34, 37, 37,
+	37, 0, 34, 34, 35, 0, 36, 36,
+	35, 0, 36, 36, 43, 0, 34, 38,
+	34, 33, 33, 33, 0, 39, 39, 39,
+	0, 40, 40, 40, 0, 34, 38, 34,
+	39, 39, 39, 0, 42, 42, 41, 0,
+	42, 42, 0, 44, 44, 43, 0, 44,
+	44, 0, 0, 1, 2, 3, 4, 5,
+	6, 7, 8, 9, 10, 11, 12, 13,
+	14, 15, 16, 17, 18, 19, 20, 21,
+	22, 23, 24, 25, 26, 27, 28, 29,
+	30, 31, 32, 33, 34, 35, 36, 37,
+	38, 39, 40, 41, 42, 43, 44, 0
+};
+
+static const signed char _dynlease_line_m_cond_actions[] = {
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 1, 1, 1, 0,
+	3, 3, 0, 0, 0, 0, 0, 1,
+	0, 1, 0, 11, 0, 11, 0, 0,
+	0, 0, 1, 1, 1, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 9, 9, 0, 0,
+	0, 1, 0, 0, 0, 0, 0, 0,
+	1, 1, 1, 0, 3, 3, 0, 0,
+	0, 0, 0, 0, 1, 1, 1, 0,
+	13, 13, 0, 0, 0, 0, 0, 0,
+	1, 1, 1, 0, 5, 5, 0, 0,
+	0, 0, 0, 0, 1, 0, 7, 7,
+	0, 0, 0, 0, 1, 0, 5, 0,
+	5, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 5, 0, 5,
+	0, 0, 0, 0, 15, 15, 0, 0,
+	0, 0, 0, 15, 15, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 21, 17, 24, 19, 0
+};
+
+static const short _dynlease_line_m_eof_trans[] = {
+	187, 188, 189, 190, 191, 192, 193, 194,
+	195, 196, 197, 198, 199, 200, 201, 202,
+	203, 204, 205, 206, 207, 208, 209, 210,
+	211, 212, 213, 214, 215, 216, 217, 218,
+	219, 220, 221, 222, 223, 224, 225, 226,
+	227, 228, 229, 230, 231, 0
+};
+
 static const int dynlease_line_m_start = 1;
 static const int dynlease_line_m_first_final = 41;
 static const int dynlease_line_m_error = 0;
@@ -370,7 +520,7 @@ const size_t linenum)
 	const char *eof = pe;
 	
 
-#line 368 "dynlease.c"
+#line 518 "dynlease.c"
 	{
 		cps->cs = (int)dynlease_line_m_start;
 	}
@@ -378,1496 +528,260 @@ const size_t linenum)
 #line 457 "dynlease.rl"
 
 
-#line 373 "dynlease.c"
-{
-		switch ( cps->cs ) {
-			case 1:
-			goto st_case_1;
-			case 0:
-			goto st_case_0;
-			case 2:
-			goto st_case_2;
-			case 3:
-			goto st_case_3;
-			case 4:
-			goto st_case_4;
-			case 5:
-			goto st_case_5;
-			case 6:
-			goto st_case_6;
-			case 7:
-			goto st_case_7;
-			case 8:
-			goto st_case_8;
-			case 9:
-			goto st_case_9;
-			case 10:
-			goto st_case_10;
-			case 11:
-			goto st_case_11;
-			case 12:
-			goto st_case_12;
-			case 13:
-			goto st_case_13;
-			case 14:
-			goto st_case_14;
-			case 15:
-			goto st_case_15;
-			case 16:
-			goto st_case_16;
-			case 17:
-			goto st_case_17;
-			case 18:
-			goto st_case_18;
-			case 19:
-			goto st_case_19;
-			case 20:
-			goto st_case_20;
-			case 21:
-			goto st_case_21;
-			case 22:
-			goto st_case_22;
-			case 23:
-			goto st_case_23;
-			case 24:
-			goto st_case_24;
-			case 25:
-			goto st_case_25;
-			case 26:
-			goto st_case_26;
-			case 41:
-			goto st_case_41;
-			case 42:
-			goto st_case_42;
-			case 27:
-			goto st_case_27;
-			case 28:
-			goto st_case_28;
-			case 29:
-			goto st_case_29;
-			case 30:
-			goto st_case_30;
-			case 31:
-			goto st_case_31;
-			case 32:
-			goto st_case_32;
-			case 33:
-			goto st_case_33;
-			case 34:
-			goto st_case_34;
-			case 35:
-			goto st_case_35;
-			case 36:
-			goto st_case_36;
-			case 43:
-			goto st_case_43;
-			case 44:
-			goto st_case_44;
-			case 37:
-			goto st_case_37;
-			case 38:
-			goto st_case_38;
-			case 39:
-			goto st_case_39;
-			case 40:
-			goto st_case_40;
-		}
-		_st1:
-		if ( p == eof )
-			goto _out1;
-		p+= 1;
-		st_case_1:
+#line 523 "dynlease.c"
+	{
+		int _klen;
+		unsigned int _trans = 0;
+		const char * _keys;
+		const signed char * _acts;
+		unsigned int _nacts;
+		_resume: {}
 		if ( p == pe && p != eof )
-			goto _out1;
+			goto _out;
 		if ( p == eof ) {
-			goto _st1;}
-		else {
-			switch( ( (*( p))) ) {
-				case 32: {
-					goto _st1;
-				}
-				case 118: {
-					goto _st2;
-				}
+			if ( _dynlease_line_m_eof_trans[cps->cs] > 0 ) {
+				_trans = (unsigned int)_dynlease_line_m_eof_trans[cps->cs] - 1;
 			}
-			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-				goto _st1;
-			}
-			goto _st0;
 		}
-		_st0:
-		if ( p == eof )
-			goto _out0;
-		st_case_0:
-		goto _out0;
-		_st2:
-		if ( p == eof )
-			goto _out2;
-		p+= 1;
-		st_case_2:
-		if ( p == pe && p != eof )
-			goto _out2;
-		if ( p == eof ) {
-			goto _st2;}
 		else {
-			switch( ( (*( p))) ) {
-				case 52: {
-					goto _st3;
-				}
-				case 54: {
-					goto _st27;
-				}
-			}
-			goto _st0;
-		}
-		_st3:
-		if ( p == eof )
-			goto _out3;
-		p+= 1;
-		st_case_3:
-		if ( p == pe && p != eof )
-			goto _out3;
-		if ( p == eof ) {
-			goto _st3;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st4;
-			}
-			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-				goto _st4;
-			}
-			goto _st0;
-		}
-		_st4:
-		if ( p == eof )
-			goto _out4;
-		p+= 1;
-		st_case_4:
-		if ( p == pe && p != eof )
-			goto _out4;
-		if ( p == eof ) {
-			goto _st4;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st4;
-			}
-			if ( ( (*( p))) < 48 ) {
-				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _st4;
-				}
-			} else if ( ( (*( p))) > 57 ) {
-				if ( ( (*( p))) > 90 ) {
-					if ( 97 <= ( (*( p))) && ( (*( p))) <= 122 ) {
-						goto _ctr6;
+			_keys = ( _dynlease_line_m_trans_keys + (_dynlease_line_m_key_offsets[cps->cs]));
+			_trans = (unsigned int)_dynlease_line_m_index_offsets[cps->cs];
+			
+			_klen = (int)_dynlease_line_m_single_lengths[cps->cs];
+			if ( _klen > 0 ) {
+				const char *_lower = _keys;
+				const char *_upper = _keys + _klen - 1;
+				const char *_mid;
+				while ( 1 ) {
+					if ( _upper < _lower ) {
+						_keys += _klen;
+						_trans += (unsigned int)_klen;
+						break;
 					}
-				} else if ( ( (*( p))) >= 65 ) {
-					goto _ctr6;
+					
+					_mid = _lower + ((_upper-_lower) >> 1);
+					if ( ( (*( p))) < (*( _mid)) )
+						_upper = _mid - 1;
+					else if ( ( (*( p))) > (*( _mid)) )
+						_lower = _mid + 1;
+					else {
+						_trans += (unsigned int)(_mid - _keys);
+						goto _match;
+					}
 				}
-			} else {
-				goto _ctr6;
 			}
-			goto _st0;
+			
+			_klen = (int)_dynlease_line_m_range_lengths[cps->cs];
+			if ( _klen > 0 ) {
+				const char *_lower = _keys;
+				const char *_upper = _keys + (_klen<<1) - 2;
+				const char *_mid;
+				while ( 1 ) {
+					if ( _upper < _lower ) {
+						_trans += (unsigned int)_klen;
+						break;
+					}
+					
+					_mid = _lower + (((_upper-_lower) >> 1) & ~1);
+					if ( ( (*( p))) < (*( _mid)) )
+						_upper = _mid - 2;
+					else if ( ( (*( p))) > (*( _mid + 1)) )
+						_lower = _mid + 2;
+					else {
+						_trans += (unsigned int)((_mid - _keys)>>1);
+						break;
+					}
+				}
+			}
+			
+			_match: {}
 		}
-		_ctr6:
-			{
-#line 350 "dynlease.rl"
-			cps->st = p; }
+		cps->cs = (int)_dynlease_line_m_cond_targs[_trans];
 		
-#line 567 "dynlease.c"
+		if ( _dynlease_line_m_cond_actions[_trans] != 0 ) {
+			
+			_acts = ( _dynlease_line_m_actions + (_dynlease_line_m_cond_actions[_trans]));
+			_nacts = (unsigned int)(*( _acts));
+			_acts += 1;
+			while ( _nacts > 0 ) {
+				switch ( (*( _acts)) )
+				{
+					case 0:  {
+							{
+#line 350 "dynlease.rl"
+							cps->st = p; }
+						
+#line 605 "dynlease.c"
 
-		goto _st5;
-		_st5:
-		if ( p == eof )
-			goto _out5;
-		p+= 1;
-		st_case_5:
-		if ( p == pe && p != eof )
-			goto _out5;
-		if ( p == eof ) {
-			goto _st5;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _ctr8;
-			}
-			if ( ( (*( p))) < 48 ) {
-				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _ctr8;
-				}
-			} else if ( ( (*( p))) > 57 ) {
-				if ( ( (*( p))) > 90 ) {
-					if ( 97 <= ( (*( p))) && ( (*( p))) <= 122 ) {
-						goto _st5;
+						break; 
 					}
-				} else if ( ( (*( p))) >= 65 ) {
-					goto _st5;
-				}
-			} else {
-				goto _st5;
-			}
-			goto _st0;
-		}
-		_ctr8:
-			{
+					case 1:  {
+							{
 #line 352 "dynlease.rl"
-			
-			assign_strbuf(cps->interface, NULL, sizeof cps->interface, cps->st, p);
-			const struct netif_info *nlinfo = NLSocket_get_ifinfo_by_name(&nl_socket, cps->interface);
-			cps->ifindex = nlinfo ? nlinfo->index : -1;
-		}
-		
-#line 608 "dynlease.c"
+							
+							assign_strbuf(cps->interface, NULL, sizeof cps->interface, cps->st, p);
+							const struct netif_info *nlinfo = NLSocket_get_ifinfo_by_name(&nl_socket, cps->interface);
+							cps->ifindex = nlinfo ? nlinfo->index : -1;
+						}
+						
+#line 617 "dynlease.c"
 
-		goto _st6;
-		_st6:
-		if ( p == eof )
-			goto _out6;
-		p+= 1;
-		st_case_6:
-		if ( p == pe && p != eof )
-			goto _out6;
-		if ( p == eof ) {
-			goto _st6;}
-		else {
-			switch( ( (*( p))) ) {
-				case 32: {
-					goto _st6;
-				}
-				case 46: {
-					goto _ctr10;
-				}
-			}
-			if ( ( (*( p))) > 13 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _ctr10;
-				}
-			} else if ( ( (*( p))) >= 9 ) {
-				goto _st6;
-			}
-			goto _st0;
-		}
-		_ctr10:
-			{
-#line 350 "dynlease.rl"
-			cps->st = p; }
-		
-#line 642 "dynlease.c"
-
-		goto _st7;
-		_st7:
-		if ( p == eof )
-			goto _out7;
-		p+= 1;
-		st_case_7:
-		if ( p == pe && p != eof )
-			goto _out7;
-		if ( p == eof ) {
-			goto _st7;}
-		else {
-			switch( ( (*( p))) ) {
-				case 32: {
-					goto _ctr12;
-				}
-				case 46: {
-					goto _st7;
-				}
-			}
-			if ( ( (*( p))) > 13 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st7;
-				}
-			} else if ( ( (*( p))) >= 9 ) {
-				goto _ctr12;
-			}
-			goto _st0;
-		}
-		_ctr12:
-			{
-#line 389 "dynlease.rl"
-			
-			size_t l;
-			assign_strbuf(cps->v4_addr, &l, sizeof cps->v4_addr, cps->st, p);
-			lc_string_inplace(cps->v4_addr, l);
-		}
-		
-#line 680 "dynlease.c"
-
-		goto _st8;
-		_st8:
-		if ( p == eof )
-			goto _out8;
-		p+= 1;
-		st_case_8:
-		if ( p == pe && p != eof )
-			goto _out8;
-		if ( p == eof ) {
-			goto _st8;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st8;
-			}
-			if ( ( (*( p))) < 48 ) {
-				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _st8;
-				}
-			} else if ( ( (*( p))) > 57 ) {
-				if ( ( (*( p))) > 70 ) {
-					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-						goto _ctr14;
+						break; 
 					}
-				} else if ( ( (*( p))) >= 65 ) {
-					goto _ctr14;
-				}
-			} else {
-				goto _ctr14;
-			}
-			goto _st0;
-		}
-		_ctr14:
-			{
-#line 350 "dynlease.rl"
-			cps->st = p; }
-		
-#line 717 "dynlease.c"
-
-		goto _st9;
-		_st9:
-		if ( p == eof )
-			goto _out9;
-		p+= 1;
-		st_case_9:
-		if ( p == pe && p != eof )
-			goto _out9;
-		if ( p == eof ) {
-			goto _st9;}
-		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st10;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st10;
-				}
-			} else {
-				goto _st10;
-			}
-			goto _st0;
-		}
-		_st10:
-		if ( p == eof )
-			goto _out10;
-		p+= 1;
-		st_case_10:
-		if ( p == pe && p != eof )
-			goto _out10;
-		if ( p == eof ) {
-			goto _st10;}
-		else {
-			if ( ( (*( p))) == 58 ) {
-				goto _st11;
-			}
-			goto _st0;
-		}
-		_st11:
-		if ( p == eof )
-			goto _out11;
-		p+= 1;
-		st_case_11:
-		if ( p == pe && p != eof )
-			goto _out11;
-		if ( p == eof ) {
-			goto _st11;}
-		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st12;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st12;
-				}
-			} else {
-				goto _st12;
-			}
-			goto _st0;
-		}
-		_st12:
-		if ( p == eof )
-			goto _out12;
-		p+= 1;
-		st_case_12:
-		if ( p == pe && p != eof )
-			goto _out12;
-		if ( p == eof ) {
-			goto _st12;}
-		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st13;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st13;
-				}
-			} else {
-				goto _st13;
-			}
-			goto _st0;
-		}
-		_st13:
-		if ( p == eof )
-			goto _out13;
-		p+= 1;
-		st_case_13:
-		if ( p == pe && p != eof )
-			goto _out13;
-		if ( p == eof ) {
-			goto _st13;}
-		else {
-			if ( ( (*( p))) == 58 ) {
-				goto _st14;
-			}
-			goto _st0;
-		}
-		_st14:
-		if ( p == eof )
-			goto _out14;
-		p+= 1;
-		st_case_14:
-		if ( p == pe && p != eof )
-			goto _out14;
-		if ( p == eof ) {
-			goto _st14;}
-		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st15;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st15;
-				}
-			} else {
-				goto _st15;
-			}
-			goto _st0;
-		}
-		_st15:
-		if ( p == eof )
-			goto _out15;
-		p+= 1;
-		st_case_15:
-		if ( p == pe && p != eof )
-			goto _out15;
-		if ( p == eof ) {
-			goto _st15;}
-		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st16;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st16;
-				}
-			} else {
-				goto _st16;
-			}
-			goto _st0;
-		}
-		_st16:
-		if ( p == eof )
-			goto _out16;
-		p+= 1;
-		st_case_16:
-		if ( p == pe && p != eof )
-			goto _out16;
-		if ( p == eof ) {
-			goto _st16;}
-		else {
-			if ( ( (*( p))) == 58 ) {
-				goto _st17;
-			}
-			goto _st0;
-		}
-		_st17:
-		if ( p == eof )
-			goto _out17;
-		p+= 1;
-		st_case_17:
-		if ( p == pe && p != eof )
-			goto _out17;
-		if ( p == eof ) {
-			goto _st17;}
-		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st18;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st18;
-				}
-			} else {
-				goto _st18;
-			}
-			goto _st0;
-		}
-		_st18:
-		if ( p == eof )
-			goto _out18;
-		p+= 1;
-		st_case_18:
-		if ( p == pe && p != eof )
-			goto _out18;
-		if ( p == eof ) {
-			goto _st18;}
-		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st19;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st19;
-				}
-			} else {
-				goto _st19;
-			}
-			goto _st0;
-		}
-		_st19:
-		if ( p == eof )
-			goto _out19;
-		p+= 1;
-		st_case_19:
-		if ( p == pe && p != eof )
-			goto _out19;
-		if ( p == eof ) {
-			goto _st19;}
-		else {
-			if ( ( (*( p))) == 58 ) {
-				goto _st20;
-			}
-			goto _st0;
-		}
-		_st20:
-		if ( p == eof )
-			goto _out20;
-		p+= 1;
-		st_case_20:
-		if ( p == pe && p != eof )
-			goto _out20;
-		if ( p == eof ) {
-			goto _st20;}
-		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st21;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st21;
-				}
-			} else {
-				goto _st21;
-			}
-			goto _st0;
-		}
-		_st21:
-		if ( p == eof )
-			goto _out21;
-		p+= 1;
-		st_case_21:
-		if ( p == pe && p != eof )
-			goto _out21;
-		if ( p == eof ) {
-			goto _st21;}
-		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st22;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st22;
-				}
-			} else {
-				goto _st22;
-			}
-			goto _st0;
-		}
-		_st22:
-		if ( p == eof )
-			goto _out22;
-		p+= 1;
-		st_case_22:
-		if ( p == pe && p != eof )
-			goto _out22;
-		if ( p == eof ) {
-			goto _st22;}
-		else {
-			if ( ( (*( p))) == 58 ) {
-				goto _st23;
-			}
-			goto _st0;
-		}
-		_st23:
-		if ( p == eof )
-			goto _out23;
-		p+= 1;
-		st_case_23:
-		if ( p == pe && p != eof )
-			goto _out23;
-		if ( p == eof ) {
-			goto _st23;}
-		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st24;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st24;
-				}
-			} else {
-				goto _st24;
-			}
-			goto _st0;
-		}
-		_st24:
-		if ( p == eof )
-			goto _out24;
-		p+= 1;
-		st_case_24:
-		if ( p == pe && p != eof )
-			goto _out24;
-		if ( p == eof ) {
-			goto _st24;}
-		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st25;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st25;
-				}
-			} else {
-				goto _st25;
-			}
-			goto _st0;
-		}
-		_st25:
-		if ( p == eof )
-			goto _out25;
-		p+= 1;
-		st_case_25:
-		if ( p == pe && p != eof )
-			goto _out25;
-		if ( p == eof ) {
-			goto _st25;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _ctr32;
-			}
-			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-				goto _ctr32;
-			}
-			goto _st0;
-		}
-		_ctr32:
-			{
-#line 374 "dynlease.rl"
-			
-			char buf[32];
-			ptrdiff_t blen = p - cps->st;
-			if (blen < 0 || blen >= (int)sizeof buf) {
-				cps->parse_error = true;
-				{p+= 1; cps->cs = 26; goto _out;}
-			}
-			*((char *)mempcpy(buf, cps->st, (size_t)blen)) = 0;
-			if (sscanf(buf, "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx",
-			&cps->macaddr[0], &cps->macaddr[1], &cps->macaddr[2],
-			&cps->macaddr[3], &cps->macaddr[4], &cps->macaddr[5]) != 6) {
-				cps->parse_error = true;
-				{p+= 1; cps->cs = 26; goto _out;}
-			}
-		}
-		
-#line 1084 "dynlease.c"
-
-		goto _st26;
-		_st26:
-		if ( p == eof )
-			goto _out26;
-		p+= 1;
-		st_case_26:
-		if ( p == pe && p != eof )
-			goto _out26;
-		if ( p == eof ) {
-			goto _st26;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st26;
-			}
-			if ( ( (*( p))) > 13 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _ctr34;
-				}
-			} else if ( ( (*( p))) >= 9 ) {
-				goto _st26;
-			}
-			goto _st0;
-		}
-		_ctr34:
-			{
-#line 350 "dynlease.rl"
-			cps->st = p; }
-		
-#line 1113 "dynlease.c"
-
-		goto _st41;
-		_ctr57:
-			{
-#line 399 "dynlease.rl"
-			
-			char buf[64];
-			ptrdiff_t blen = p - cps->st;
-			if (blen < 0 || blen >= (int)sizeof buf) {
-				cps->parse_error = true;
-				{p+= 1; cps->cs = 41; goto _out;}
-			}
-			memcpy(buf, cps->st, (size_t)blen); buf[blen] = 0;
-			if (sscanf(buf, "%" SCNi64, &cps->expire_time) != 1) {
-				cps->parse_error = true;
-				{p+= 1; cps->cs = 41; goto _out;}
-			}
-		}
-		
-#line 1132 "dynlease.c"
-
-			{
-#line 413 "dynlease.rl"
-			
-			struct in6_addr ipa;
-			if (!ipaddr_from_string(&ipa, cps->v4_addr)) {
-				log_line("Bad IP address at line %zu: %s\n", linenum, cps->v4_addr);
-				cps->parse_error = true;
-				{p+= 1; cps->cs = 41; goto _out;}
-			}
-			dynlease4_add(cps->ifindex, &ipa, cps->macaddr, cps->expire_time);
-		}
-		
-#line 1145 "dynlease.c"
-
-		goto _st41;
-		_st41:
-		if ( p == eof )
-			goto _out41;
-		p+= 1;
-		st_case_41:
-		if ( p == pe && p != eof )
-			goto _out41;
-		if ( p == eof ) {
-			goto _ctr57;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _ctr58;
-			}
-			if ( ( (*( p))) > 13 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st41;
-				}
-			} else if ( ( (*( p))) >= 9 ) {
-				goto _ctr58;
-			}
-			goto _st0;
-		}
-		_ctr58:
-			{
-#line 399 "dynlease.rl"
-			
-			char buf[64];
-			ptrdiff_t blen = p - cps->st;
-			if (blen < 0 || blen >= (int)sizeof buf) {
-				cps->parse_error = true;
-				{p+= 1; cps->cs = 42; goto _out;}
-			}
-			memcpy(buf, cps->st, (size_t)blen); buf[blen] = 0;
-			if (sscanf(buf, "%" SCNi64, &cps->expire_time) != 1) {
-				cps->parse_error = true;
-				{p+= 1; cps->cs = 42; goto _out;}
-			}
-		}
-		
-#line 1186 "dynlease.c"
-
-		goto _st42;
-		_ctr60:
-			{
-#line 413 "dynlease.rl"
-			
-			struct in6_addr ipa;
-			if (!ipaddr_from_string(&ipa, cps->v4_addr)) {
-				log_line("Bad IP address at line %zu: %s\n", linenum, cps->v4_addr);
-				cps->parse_error = true;
-				{p+= 1; cps->cs = 42; goto _out;}
-			}
-			dynlease4_add(cps->ifindex, &ipa, cps->macaddr, cps->expire_time);
-		}
-		
-#line 1201 "dynlease.c"
-
-		goto _st42;
-		_st42:
-		if ( p == eof )
-			goto _out42;
-		p+= 1;
-		st_case_42:
-		if ( p == pe && p != eof )
-			goto _out42;
-		if ( p == eof ) {
-			goto _ctr60;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st42;
-			}
-			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-				goto _st42;
-			}
-			goto _st0;
-		}
-		_st27:
-		if ( p == eof )
-			goto _out27;
-		p+= 1;
-		st_case_27:
-		if ( p == pe && p != eof )
-			goto _out27;
-		if ( p == eof ) {
-			goto _st27;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st28;
-			}
-			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-				goto _st28;
-			}
-			goto _st0;
-		}
-		_st28:
-		if ( p == eof )
-			goto _out28;
-		p+= 1;
-		st_case_28:
-		if ( p == pe && p != eof )
-			goto _out28;
-		if ( p == eof ) {
-			goto _st28;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st28;
-			}
-			if ( ( (*( p))) < 48 ) {
-				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _st28;
-				}
-			} else if ( ( (*( p))) > 57 ) {
-				if ( ( (*( p))) > 90 ) {
-					if ( 97 <= ( (*( p))) && ( (*( p))) <= 122 ) {
-						goto _ctr36;
-					}
-				} else if ( ( (*( p))) >= 65 ) {
-					goto _ctr36;
-				}
-			} else {
-				goto _ctr36;
-			}
-			goto _st0;
-		}
-		_ctr36:
-			{
-#line 350 "dynlease.rl"
-			cps->st = p; }
-		
-#line 1274 "dynlease.c"
-
-		goto _st29;
-		_st29:
-		if ( p == eof )
-			goto _out29;
-		p+= 1;
-		st_case_29:
-		if ( p == pe && p != eof )
-			goto _out29;
-		if ( p == eof ) {
-			goto _st29;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _ctr38;
-			}
-			if ( ( (*( p))) < 48 ) {
-				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _ctr38;
-				}
-			} else if ( ( (*( p))) > 57 ) {
-				if ( ( (*( p))) > 90 ) {
-					if ( 97 <= ( (*( p))) && ( (*( p))) <= 122 ) {
-						goto _st29;
-					}
-				} else if ( ( (*( p))) >= 65 ) {
-					goto _st29;
-				}
-			} else {
-				goto _st29;
-			}
-			goto _st0;
-		}
-		_ctr38:
-			{
-#line 352 "dynlease.rl"
-			
-			assign_strbuf(cps->interface, NULL, sizeof cps->interface, cps->st, p);
-			const struct netif_info *nlinfo = NLSocket_get_ifinfo_by_name(&nl_socket, cps->interface);
-			cps->ifindex = nlinfo ? nlinfo->index : -1;
-		}
-		
-#line 1315 "dynlease.c"
-
-		goto _st30;
-		_st30:
-		if ( p == eof )
-			goto _out30;
-		p+= 1;
-		st_case_30:
-		if ( p == pe && p != eof )
-			goto _out30;
-		if ( p == eof ) {
-			goto _st30;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st30;
-			}
-			if ( ( (*( p))) < 48 ) {
-				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _st30;
-				}
-			} else if ( ( (*( p))) > 58 ) {
-				if ( ( (*( p))) > 70 ) {
-					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-						goto _ctr40;
-					}
-				} else if ( ( (*( p))) >= 65 ) {
-					goto _ctr40;
-				}
-			} else {
-				goto _ctr40;
-			}
-			goto _st0;
-		}
-		_ctr40:
-			{
-#line 350 "dynlease.rl"
-			cps->st = p; }
-		
-#line 1352 "dynlease.c"
-
-		goto _st31;
-		_st31:
-		if ( p == eof )
-			goto _out31;
-		p+= 1;
-		st_case_31:
-		if ( p == pe && p != eof )
-			goto _out31;
-		if ( p == eof ) {
-			goto _st31;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _ctr42;
-			}
-			if ( ( (*( p))) < 48 ) {
-				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _ctr42;
-				}
-			} else if ( ( (*( p))) > 58 ) {
-				if ( ( (*( p))) > 70 ) {
-					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-						goto _st31;
-					}
-				} else if ( ( (*( p))) >= 65 ) {
-					goto _st31;
-				}
-			} else {
-				goto _st31;
-			}
-			goto _st0;
-		}
-		_ctr42:
-			{
-#line 394 "dynlease.rl"
-			
-			size_t l;
-			assign_strbuf(cps->v6_addr, &l, sizeof cps->v6_addr, cps->st, p);
-			lc_string_inplace(cps->v6_addr, l);
-		}
-		
-#line 1393 "dynlease.c"
-
-		goto _st32;
-		_st32:
-		if ( p == eof )
-			goto _out32;
-		p+= 1;
-		st_case_32:
-		if ( p == pe && p != eof )
-			goto _out32;
-		if ( p == eof ) {
-			goto _st32;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st32;
-			}
-			if ( ( (*( p))) < 48 ) {
-				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _st32;
-				}
-			} else if ( ( (*( p))) > 57 ) {
-				if ( ( (*( p))) > 70 ) {
-					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-						goto _ctr44;
-					}
-				} else if ( ( (*( p))) >= 65 ) {
-					goto _ctr44;
-				}
-			} else {
-				goto _ctr44;
-			}
-			goto _st0;
-		}
-		_ctr44:
-			{
-#line 350 "dynlease.rl"
-			cps->st = p; }
-		
-#line 1430 "dynlease.c"
-
-		goto _st33;
-		_st33:
-		if ( p == eof )
-			goto _out33;
-		p+= 1;
-		st_case_33:
-		if ( p == pe && p != eof )
-			goto _out33;
-		if ( p == eof ) {
-			goto _st33;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _ctr46;
-			}
-			if ( ( (*( p))) < 48 ) {
-				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _ctr46;
-				}
-			} else if ( ( (*( p))) > 57 ) {
-				if ( ( (*( p))) > 70 ) {
-					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-						goto _st37;
-					}
-				} else if ( ( (*( p))) >= 65 ) {
-					goto _st37;
-				}
-			} else {
-				goto _st37;
-			}
-			goto _st0;
-		}
-		_ctr46:
-			{
+					case 2:  {
+							{
 #line 357 "dynlease.rl"
-			
-			assign_strbuf(cps->duid, &cps->duid_len, sizeof cps->duid, cps->st, p);
-			lc_string_inplace(cps->duid, cps->duid_len);
-		}
-		
-#line 1470 "dynlease.c"
+							
+							assign_strbuf(cps->duid, &cps->duid_len, sizeof cps->duid, cps->st, p);
+							lc_string_inplace(cps->duid, cps->duid_len);
+						}
+						
+#line 628 "dynlease.c"
 
-		goto _st34;
-		_st34:
-		if ( p == eof )
-			goto _out34;
-		p+= 1;
-		st_case_34:
-		if ( p == pe && p != eof )
-			goto _out34;
-		if ( p == eof ) {
-			goto _st34;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st34;
-			}
-			if ( ( (*( p))) > 13 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _ctr49;
-				}
-			} else if ( ( (*( p))) >= 9 ) {
-				goto _st34;
-			}
-			goto _st0;
-		}
-		_ctr49:
-			{
-#line 350 "dynlease.rl"
-			cps->st = p; }
-		
-#line 1499 "dynlease.c"
-
-		goto _st35;
-		_st35:
-		if ( p == eof )
-			goto _out35;
-		p+= 1;
-		st_case_35:
-		if ( p == pe && p != eof )
-			goto _out35;
-		if ( p == eof ) {
-			goto _st35;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _ctr51;
-			}
-			if ( ( (*( p))) > 13 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st35;
-				}
-			} else if ( ( (*( p))) >= 9 ) {
-				goto _ctr51;
-			}
-			goto _st0;
-		}
-		_ctr51:
-			{
+						break; 
+					}
+					case 3:  {
+							{
 #line 361 "dynlease.rl"
-			
-			char buf[64];
-			ptrdiff_t blen = p - cps->st;
-			if (blen < 0 || blen >= (int)sizeof buf) {
-				cps->parse_error = true;
-				{p+= 1; cps->cs = 36; goto _out;}
-			}
-			memcpy(buf, cps->st, (size_t)blen); buf[blen] = 0;
-			if (sscanf(buf, "%" SCNu32, &cps->iaid) != 1) {
-				cps->parse_error = true;
-				{p+= 1; cps->cs = 36; goto _out;}
-			}
-		}
-		
-#line 1540 "dynlease.c"
+							
+							char buf[64];
+							ptrdiff_t blen = p - cps->st;
+							if (blen < 0 || blen >= (int)sizeof buf) {
+								cps->parse_error = true;
+								{p += 1; goto _out; }
+							}
+							memcpy(buf, cps->st, (size_t)blen); buf[blen] = 0;
+							if (sscanf(buf, "%" SCNu32, &cps->iaid) != 1) {
+								cps->parse_error = true;
+								{p += 1; goto _out; }
+							}
+						}
+						
+#line 648 "dynlease.c"
 
-		goto _st36;
-		_st36:
-		if ( p == eof )
-			goto _out36;
-		p+= 1;
-		st_case_36:
-		if ( p == pe && p != eof )
-			goto _out36;
-		if ( p == eof ) {
-			goto _st36;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st36;
-			}
-			if ( ( (*( p))) > 13 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _ctr53;
-				}
-			} else if ( ( (*( p))) >= 9 ) {
-				goto _st36;
-			}
-			goto _st0;
-		}
-		_ctr53:
-			{
-#line 350 "dynlease.rl"
-			cps->st = p; }
-		
-#line 1569 "dynlease.c"
-
-		goto _st43;
-		_ctr62:
-			{
-#line 399 "dynlease.rl"
-			
-			char buf[64];
-			ptrdiff_t blen = p - cps->st;
-			if (blen < 0 || blen >= (int)sizeof buf) {
-				cps->parse_error = true;
-				{p+= 1; cps->cs = 43; goto _out;}
-			}
-			memcpy(buf, cps->st, (size_t)blen); buf[blen] = 0;
-			if (sscanf(buf, "%" SCNi64, &cps->expire_time) != 1) {
-				cps->parse_error = true;
-				{p+= 1; cps->cs = 43; goto _out;}
-			}
-		}
-		
-#line 1588 "dynlease.c"
-
-			{
-#line 422 "dynlease.rl"
-			
-			struct in6_addr ipa;
-			if (!ipaddr_from_string(&ipa, cps->v6_addr)) {
-				log_line("Bad IP address at line %zu: %s\n", linenum, cps->v6_addr);
-				cps->parse_error = true;
-				{p+= 1; cps->cs = 43; goto _out;}
-			}
-			dynlease6_add(cps->ifindex, &ipa, cps->duid, cps->duid_len, cps->iaid, cps->expire_time);
-		}
-		
-#line 1601 "dynlease.c"
-
-		goto _st43;
-		_st43:
-		if ( p == eof )
-			goto _out43;
-		p+= 1;
-		st_case_43:
-		if ( p == pe && p != eof )
-			goto _out43;
-		if ( p == eof ) {
-			goto _ctr62;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _ctr63;
-			}
-			if ( ( (*( p))) > 13 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st43;
-				}
-			} else if ( ( (*( p))) >= 9 ) {
-				goto _ctr63;
-			}
-			goto _st0;
-		}
-		_ctr63:
-			{
-#line 399 "dynlease.rl"
-			
-			char buf[64];
-			ptrdiff_t blen = p - cps->st;
-			if (blen < 0 || blen >= (int)sizeof buf) {
-				cps->parse_error = true;
-				{p+= 1; cps->cs = 44; goto _out;}
-			}
-			memcpy(buf, cps->st, (size_t)blen); buf[blen] = 0;
-			if (sscanf(buf, "%" SCNi64, &cps->expire_time) != 1) {
-				cps->parse_error = true;
-				{p+= 1; cps->cs = 44; goto _out;}
-			}
-		}
-		
-#line 1642 "dynlease.c"
-
-		goto _st44;
-		_ctr65:
-			{
-#line 422 "dynlease.rl"
-			
-			struct in6_addr ipa;
-			if (!ipaddr_from_string(&ipa, cps->v6_addr)) {
-				log_line("Bad IP address at line %zu: %s\n", linenum, cps->v6_addr);
-				cps->parse_error = true;
-				{p+= 1; cps->cs = 44; goto _out;}
-			}
-			dynlease6_add(cps->ifindex, &ipa, cps->duid, cps->duid_len, cps->iaid, cps->expire_time);
-		}
-		
-#line 1657 "dynlease.c"
-
-		goto _st44;
-		_st44:
-		if ( p == eof )
-			goto _out44;
-		p+= 1;
-		st_case_44:
-		if ( p == pe && p != eof )
-			goto _out44;
-		if ( p == eof ) {
-			goto _ctr65;}
-		else {
-			if ( ( (*( p))) == 32 ) {
-				goto _st44;
-			}
-			if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-				goto _st44;
-			}
-			goto _st0;
-		}
-		_st37:
-		if ( p == eof )
-			goto _out37;
-		p+= 1;
-		st_case_37:
-		if ( p == pe && p != eof )
-			goto _out37;
-		if ( p == eof ) {
-			goto _st37;}
-		else {
-			switch( ( (*( p))) ) {
-				case 32: {
-					goto _ctr46;
-				}
-				case 45: {
-					goto _st38;
-				}
-			}
-			if ( ( (*( p))) < 48 ) {
-				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _ctr46;
-				}
-			} else if ( ( (*( p))) > 57 ) {
-				if ( ( (*( p))) > 70 ) {
-					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-						goto _st33;
+						break; 
 					}
-				} else if ( ( (*( p))) >= 65 ) {
-					goto _st33;
-				}
-			} else {
-				goto _st33;
-			}
-			goto _st0;
-		}
-		_st38:
-		if ( p == eof )
-			goto _out38;
-		p+= 1;
-		st_case_38:
-		if ( p == pe && p != eof )
-			goto _out38;
-		if ( p == eof ) {
-			goto _st38;}
-		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st39;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st39;
-				}
-			} else {
-				goto _st39;
-			}
-			goto _st0;
-		}
-		_st39:
-		if ( p == eof )
-			goto _out39;
-		p+= 1;
-		st_case_39:
-		if ( p == pe && p != eof )
-			goto _out39;
-		if ( p == eof ) {
-			goto _st39;}
-		else {
-			if ( ( (*( p))) < 65 ) {
-				if ( 48 <= ( (*( p))) && ( (*( p))) <= 57 ) {
-					goto _st40;
-				}
-			} else if ( ( (*( p))) > 70 ) {
-				if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-					goto _st40;
-				}
-			} else {
-				goto _st40;
-			}
-			goto _st0;
-		}
-		_st40:
-		if ( p == eof )
-			goto _out40;
-		p+= 1;
-		st_case_40:
-		if ( p == pe && p != eof )
-			goto _out40;
-		if ( p == eof ) {
-			goto _st40;}
-		else {
-			switch( ( (*( p))) ) {
-				case 32: {
-					goto _ctr46;
-				}
-				case 45: {
-					goto _st38;
-				}
-			}
-			if ( ( (*( p))) < 48 ) {
-				if ( 9 <= ( (*( p))) && ( (*( p))) <= 13 ) {
-					goto _ctr46;
-				}
-			} else if ( ( (*( p))) > 57 ) {
-				if ( ( (*( p))) > 70 ) {
-					if ( 97 <= ( (*( p))) && ( (*( p))) <= 102 ) {
-						goto _st39;
+					case 4:  {
+							{
+#line 374 "dynlease.rl"
+							
+							char buf[32];
+							ptrdiff_t blen = p - cps->st;
+							if (blen < 0 || blen >= (int)sizeof buf) {
+								cps->parse_error = true;
+								{p += 1; goto _out; }
+							}
+							*((char *)mempcpy(buf, cps->st, (size_t)blen)) = 0;
+							if (sscanf(buf, "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx",
+							&cps->macaddr[0], &cps->macaddr[1], &cps->macaddr[2],
+							&cps->macaddr[3], &cps->macaddr[4], &cps->macaddr[5]) != 6) {
+								cps->parse_error = true;
+								{p += 1; goto _out; }
+							}
+						}
+						
+#line 670 "dynlease.c"
+
+						break; 
 					}
-				} else if ( ( (*( p))) >= 65 ) {
-					goto _st39;
+					case 5:  {
+							{
+#line 389 "dynlease.rl"
+							
+							size_t l;
+							assign_strbuf(cps->v4_addr, &l, sizeof cps->v4_addr, cps->st, p);
+							lc_string_inplace(cps->v4_addr, l);
+						}
+						
+#line 682 "dynlease.c"
+
+						break; 
+					}
+					case 6:  {
+							{
+#line 394 "dynlease.rl"
+							
+							size_t l;
+							assign_strbuf(cps->v6_addr, &l, sizeof cps->v6_addr, cps->st, p);
+							lc_string_inplace(cps->v6_addr, l);
+						}
+						
+#line 694 "dynlease.c"
+
+						break; 
+					}
+					case 7:  {
+							{
+#line 399 "dynlease.rl"
+							
+							char buf[64];
+							ptrdiff_t blen = p - cps->st;
+							if (blen < 0 || blen >= (int)sizeof buf) {
+								cps->parse_error = true;
+								{p += 1; goto _out; }
+							}
+							memcpy(buf, cps->st, (size_t)blen); buf[blen] = 0;
+							if (sscanf(buf, "%" SCNi64, &cps->expire_time) != 1) {
+								cps->parse_error = true;
+								{p += 1; goto _out; }
+							}
+						}
+						
+#line 714 "dynlease.c"
+
+						break; 
+					}
+					case 8:  {
+							{
+#line 413 "dynlease.rl"
+							
+							struct in6_addr ipa;
+							if (!ipaddr_from_string(&ipa, cps->v4_addr)) {
+								log_line("Bad IP address at line %zu: %s\n", linenum, cps->v4_addr);
+								cps->parse_error = true;
+								{p += 1; goto _out; }
+							}
+							dynlease4_add(cps->ifindex, &ipa, cps->macaddr, cps->expire_time);
+						}
+						
+#line 730 "dynlease.c"
+
+						break; 
+					}
+					case 9:  {
+							{
+#line 422 "dynlease.rl"
+							
+							struct in6_addr ipa;
+							if (!ipaddr_from_string(&ipa, cps->v6_addr)) {
+								log_line("Bad IP address at line %zu: %s\n", linenum, cps->v6_addr);
+								cps->parse_error = true;
+								{p += 1; goto _out; }
+							}
+							dynlease6_add(cps->ifindex, &ipa, cps->duid, cps->duid_len, cps->iaid, cps->expire_time);
+						}
+						
+#line 746 "dynlease.c"
+
+						break; 
+					}
 				}
-			} else {
-				goto _st39;
+				_nacts -= 1;
+				_acts += 1;
 			}
-			goto _st0;
+			
 		}
-		_out1: cps->cs = 1; goto _out; 
-		_out0: cps->cs = 0; goto _out; 
-		_out2: cps->cs = 2; goto _out; 
-		_out3: cps->cs = 3; goto _out; 
-		_out4: cps->cs = 4; goto _out; 
-		_out5: cps->cs = 5; goto _out; 
-		_out6: cps->cs = 6; goto _out; 
-		_out7: cps->cs = 7; goto _out; 
-		_out8: cps->cs = 8; goto _out; 
-		_out9: cps->cs = 9; goto _out; 
-		_out10: cps->cs = 10; goto _out; 
-		_out11: cps->cs = 11; goto _out; 
-		_out12: cps->cs = 12; goto _out; 
-		_out13: cps->cs = 13; goto _out; 
-		_out14: cps->cs = 14; goto _out; 
-		_out15: cps->cs = 15; goto _out; 
-		_out16: cps->cs = 16; goto _out; 
-		_out17: cps->cs = 17; goto _out; 
-		_out18: cps->cs = 18; goto _out; 
-		_out19: cps->cs = 19; goto _out; 
-		_out20: cps->cs = 20; goto _out; 
-		_out21: cps->cs = 21; goto _out; 
-		_out22: cps->cs = 22; goto _out; 
-		_out23: cps->cs = 23; goto _out; 
-		_out24: cps->cs = 24; goto _out; 
-		_out25: cps->cs = 25; goto _out; 
-		_out26: cps->cs = 26; goto _out; 
-		_out41: cps->cs = 41; goto _out; 
-		_out42: cps->cs = 42; goto _out; 
-		_out27: cps->cs = 27; goto _out; 
-		_out28: cps->cs = 28; goto _out; 
-		_out29: cps->cs = 29; goto _out; 
-		_out30: cps->cs = 30; goto _out; 
-		_out31: cps->cs = 31; goto _out; 
-		_out32: cps->cs = 32; goto _out; 
-		_out33: cps->cs = 33; goto _out; 
-		_out34: cps->cs = 34; goto _out; 
-		_out35: cps->cs = 35; goto _out; 
-		_out36: cps->cs = 36; goto _out; 
-		_out43: cps->cs = 43; goto _out; 
-		_out44: cps->cs = 44; goto _out; 
-		_out37: cps->cs = 37; goto _out; 
-		_out38: cps->cs = 38; goto _out; 
-		_out39: cps->cs = 39; goto _out; 
-		_out40: cps->cs = 40; goto _out; 
+		
+		if ( p == eof ) {
+			if ( cps->cs >= 41 )
+				goto _out;
+		}
+		else {
+			if ( cps->cs != 0 ) {
+				p += 1;
+				goto _resume;
+			}
+		}
 		_out: {}
 	}
 	

@@ -21,7 +21,7 @@ cleanragel:
 	rm -f dynlease.c cfg.c
 
 dynlease.c: dynlease.rl
-	ragel -G2 -o dynlease.c dynlease.rl
+	ragel -T0 -o dynlease.c dynlease.rl
 
 cfg.c: cfg.rl
 	ragel -T0 -o cfg.c cfg.rl
