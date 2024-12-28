@@ -10,6 +10,12 @@
     dprintf(2, __VA_ARGS__); \
     } while (0)
 
+#ifndef NDEBUG
+#define log_debug(...) log_line(__VA_ARGS__)
+#else
+#define log_debug(...) do {} while(0)
+#endif
+
 #define suicide(...) do { \
     dprintf(2, __VA_ARGS__); \
     exit(EXIT_FAILURE); } while (0)
