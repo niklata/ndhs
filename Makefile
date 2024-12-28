@@ -3,8 +3,8 @@ NDHS_OBJS = $(NDHS_C_SRCS:.c=.o)
 NDHS_DEP = $(NDHS_C_SRCS:.c=.d)
 INCL = -I.
 
-CFLAGS = -MMD -Os -s -flto -std=gnu99 -Wall -Wextra -Wimplicit-fallthrough=0 -Wformat=2 -Wformat-nonliteral -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -Wcast-qual -Wsign-conversion -Wno-discarded-qualifiers -Wstrict-overflow=5 -DNDHS_BUILD
-#CFLAGS = -MMD -Og -g -std=gnu99 -fsanitize=address,undefined -Wall -Wextra -Wimplicit-fallthrough=0 -Wformat=2 -Wformat-nonliteral -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -Wcast-qual -Wsign-conversion -Wno-discarded-qualifiers -Wstrict-overflow=5 -DNDHS_BUILD
+CFLAGS = -MMD -Os -s -flto -std=gnu99 -Wall -Wextra -Wimplicit-fallthrough=0 -Wformat=2 -Wformat-nonliteral -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -Wcast-qual -Wsign-conversion -Wno-discarded-qualifiers -DNDHS_BUILD
+#CFLAGS = -MMD -Og -g -std=gnu99 -fsanitize=address,undefined -Wall -Wextra -Wimplicit-fallthrough=0 -Wformat=2 -Wformat-nonliteral -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -Wcast-qual -Wsign-conversion -Wno-discarded-qualifiers -DNDHS_BUILD
 CPPFLAGS += $(INCL)
 
 all: ragel ndhs
