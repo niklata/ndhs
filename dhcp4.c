@@ -212,7 +212,8 @@ err:
     return NULL;
 }
 
-static void process_receive(struct D4Listener *self, const char *buf, size_t buflen);
+static void process_receive(struct D4Listener *self, const char *buf, size_t buflen,
+                            const struct sockaddr_in *sai);
 
 void D4Listener_process_input(struct D4Listener *self)
 {
@@ -227,7 +228,7 @@ void D4Listener_process_input(struct D4Listener *self)
             if (err == EAGAIN || err == EWOULDBLOCK) break;
             suicide("dhcp4: recvfrom failed on %s: %s\n", self->ifname_, strerror(err));
         }
-        process_receive(self, buf, (size_t)buflen);
+        process_receive(self, buf, (size_t)buflen, &sai);
     }
 }
 
@@ -498,8 +499,10 @@ static uint8_t validate_dhcp(const struct D4Listener *self, size_t len)
     return get_option_msgtype(&self->dhcpmsg_);
 }
 
-static void process_receive(struct D4Listener *self, const char *buf, size_t buflen)
+static void process_receive(struct D4Listener *self, const char *buf, size_t buflen,
+                            const struct sockaddr_in *sai)
 {
+    if (sai->sin_family != AF_INET) return;
     size_t msglen = buflen < sizeof self->dhcpmsg_ ? buflen : sizeof self->dhcpmsg_;
     self->dhcpmsg_ = (struct dhcpmsg){0};
     memcpy(&self->dhcpmsg_, buf, msglen);
