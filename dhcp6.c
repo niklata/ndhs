@@ -359,16 +359,10 @@ static bool attach_status_code(struct sbufs *ss, enum dhcp6_code scode)
     struct dhcp6_opt header = dhcp6_opt_create(13, OPT_STATUSCODE_SIZE);
     if (!dhcp6_opt_write(&header, ss)) return false;
     if (!dhcp6_statuscode_write(ss, scode)) return false;
-    if (scode == D6_CODE_SUCCESS) {
-        for (int i = 0; ok_str[i]; ++i) {
-            if (ss->si == ss->se) return false;
-            *ss->si++ = ok_str[i];
-        }
-    } else {
-        for (int i = 0; nak_str[i]; ++i) {
-            if (ss->si == ss->se) return false;
-            *ss->si++ = nak_str[i];
-        }
+    const char *rstr = scode == D6_CODE_SUCCESS ? ok_str : nak_str;
+    for (int i = 0; rstr[i]; ++i) {
+        if (ss->si == ss->se) return false;
+        *ss->si++ = rstr[i];
     }
     return true;
 }
