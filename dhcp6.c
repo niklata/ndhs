@@ -1,6 +1,7 @@
 // Copyright 2016-2024 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <stdbool.h>
+#include <stdlib.h>
 #include <net/if.h>
 #include <ipaddr.h>
 #include "nlsocket.h"
@@ -12,6 +13,7 @@
 #include "sbufs.h"
 #include <nk/netbits.h>
 #include "dhcp_state.h"
+#include "nk/log.h"
 #include "nk/io.h"
 #include "nk/random.h"
 #include "get_current_ts.h"
@@ -635,32 +637,23 @@ static bool serverid_incorrect(const struct d6msg_state *d6s)
 }
 
 static void process_receive(struct D6Listener *self, char *buf, size_t buflen,
-                            const struct sockaddr_storage *sai, socklen_t sailen)
+                            const struct sockaddr_in6 *sai)
 {
-    if (sailen < sizeof(struct sockaddr_in6)) {
-        log_line("dhcp6: Received too-short address family on %s: %u\n", self->ifname_, sailen);
-        return;
-    }
-    char sip_str[32];
-    if (!sa6_to_string(sip_str, sizeof sip_str, sai, sailen)) {
-        log_line("dhcp6: Failed to stringize sender ip on %s\n", self->ifname_);
-        return;
-    }
+    if (sai->sin6_family != AF_INET6) return;
 
+    char ip[32];
     struct sbufs rs = { buf, buf + buflen };
-    if (!self->using_bpf_) {
+    if (!self->using_bpf_ && buflen < DHCP6_HEADER_SIZE) {
         // Discard if the DHCP6 length < the size of a DHCP6 header.
-        if (buflen < DHCP6_HEADER_SIZE) {
-            log_line("dhcp6: Packet from %s is too short (%zu) on %s\n",
-                     sip_str, buflen, self->ifname_);
-            return;
-        }
+        ipaddr_to_string(ip, sizeof ip, &sai->sin6_addr);
+        log_line("dhcp6: Packet from %s is too short (%zu) on %s\n", ip, buflen, self->ifname_);
+        return;
     }
 
     struct d6msg_state d6s = {0};
     if (!dhcp6_header_read(&d6s.header, &rs)) {
-        log_line("dhcp6: Packet from %s has no valid option headers on %s\n",
-                 sip_str, self->ifname_);
+        ipaddr_to_string(ip, sizeof ip, &sai->sin6_addr);
+        log_line("dhcp6: Packet from %s has no valid option headers on %s\n", ip, self->ifname_);
         return;
     }
     OPTIONS_CONSUME(DHCP6_HEADER_SIZE);
@@ -905,7 +898,8 @@ static void process_receive(struct D6Listener *self, char *buf, size_t buflen,
      sao.sin6_port = htons(546);
      size_t slen = ss.si > sbuf ? (size_t)(ss.si - sbuf) : 0;
      if (safe_sendto(self->fd_, sbuf, slen, 0, (const struct sockaddr *)&sao, sizeof sao) < 0) {
-         log_line("dhcp6: sendto (%s) failed on %s: %s\n", sip_str, self->ifname_, strerror(errno));
+         ipaddr_to_string(ip, sizeof ip, &sai->sin6_addr);
+         log_line("dhcp6: sendto (%s) failed on %s: %s\n", ip, self->ifname_, strerror(errno));
          return;
      }
 }
@@ -914,7 +908,7 @@ void D6Listener_process_input(struct D6Listener *self)
 {
     char buf[8192];
     for (;;) {
-        struct sockaddr_storage sai;
+        struct sockaddr_in6 sai;
         socklen_t sailen = sizeof sai;
         ssize_t buflen = recvfrom(self->fd_, buf, sizeof buf, MSG_DONTWAIT, (struct sockaddr *)&sai, &sailen);
         if (buflen < 0) {
@@ -923,7 +917,7 @@ void D6Listener_process_input(struct D6Listener *self)
             if (err == EAGAIN || err == EWOULDBLOCK) break;
             suicide("dhcp6: recvfrom failed on %s: %s\n", self->ifname_, strerror(err));
         }
-        process_receive(self, buf, (size_t)buflen, &sai, sailen);
+        process_receive(self, buf, (size_t)buflen, &sai);
     }
 }
 

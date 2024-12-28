@@ -445,31 +445,23 @@ int RA6Listener_send_periodic_advert(struct RA6Listener *self)
     return 1000 + (self->advert_ts_.tv_sec - now.tv_sec) * 1000; // Always wait at least 1s
 }
 
-static bool ip6_is_unspecified(const struct sockaddr_storage *sa)
+static bool ip6_is_unspecified(const struct sockaddr_in6 *sa)
 {
-    struct sockaddr_in6 sai, t = {0};
-    memcpy(&sai, &sa, sizeof sai);
-    return memcmp(&sai.sin6_addr, &t.sin6_addr, sizeof t.sin6_addr) == 0;
+    struct sockaddr_in6 t = {0};
+    return memcmp(&sa->sin6_addr, &t.sin6_addr, sizeof t.sin6_addr) == 0;
 }
 
 static void process_receive(struct RA6Listener *self, char *buf, size_t buflen,
-                            const struct sockaddr_storage *sai, socklen_t sailen)
+                            const struct sockaddr_in6 *sai)
 {
-    if (sailen < sizeof(struct sockaddr_in6)) {
-        log_line("ra6: Received too-short address family on %s: %u\n", self->ifname_, sailen);
-        return;
-    }
-    char sip_str[32];
-    if (!sa6_to_string(sip_str, sizeof sip_str, sai, sailen)) {
-        log_line("ra6: Failed to stringize sender ip on %s\n", self->ifname_);
-        return;
-    }
-    bool sender_unspecified = ip6_is_unspecified(sai);
+    if (sai->sin6_family != AF_INET6) return;
 
     struct sbufs rs = { buf, buf + buflen };
     // Discard if the ICMP length < 8 octets.
     if (buflen < ICMP_HEADER_SIZE + RA6_SOLICIT_HEADER_SIZE) {
-        log_line("ra6: ICMP from %s is too short: %zu\n", sip_str, buflen);
+        char ip[32];
+        ipaddr_to_string(ip, sizeof ip, &sai->sin6_addr);
+        log_line("ra6: ICMP from %s is too short: %zu\n", ip, buflen);
         return;
     }
 
@@ -542,7 +534,7 @@ static void process_receive(struct RA6Listener *self, char *buf, size_t buflen,
 
     // Discard if the source address is unspecified and
     // there is no source link-layer address option included.
-    if (!got_macaddr && sender_unspecified) {
+    if (!got_macaddr && ip6_is_unspecified(sai)) {
         log_line("ra6: Solicitation provides no specified source address or option on %s\n", self->ifname_);
         return;
     }
@@ -557,7 +549,7 @@ void RA6Listener_process_input(struct RA6Listener *self)
 {
     char buf[8192];
     for (;;) {
-        struct sockaddr_storage sai;
+        struct sockaddr_in6 sai;
         socklen_t sailen = sizeof sai;
         ssize_t buflen = recvfrom(self->fd_, buf, sizeof buf, MSG_DONTWAIT, (struct sockaddr *)&sai, &sailen);
         if (buflen < 0) {
@@ -566,7 +558,7 @@ void RA6Listener_process_input(struct RA6Listener *self)
             if (err == EAGAIN || err == EWOULDBLOCK) break;
             suicide("ra6: recvfrom failed on %s: %s\n", self->ifname_, strerror(err));
         }
-        process_receive(self, buf, (size_t)buflen, &sai, sailen);
+        process_receive(self, buf, (size_t)buflen, &sai);
     }
 }
 

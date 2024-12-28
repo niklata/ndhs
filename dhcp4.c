@@ -218,7 +218,7 @@ void D4Listener_process_input(struct D4Listener *self)
 {
     char buf[8192];
     for (;;) {
-        struct sockaddr_storage sai;
+        struct sockaddr_in sai;
         socklen_t sailen = sizeof sai;
         ssize_t buflen = recvfrom(self->fd_, buf, sizeof buf, MSG_DONTWAIT, (struct sockaddr *)&sai, &sailen);
         if (buflen < 0) {

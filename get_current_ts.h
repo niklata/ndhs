@@ -2,6 +2,7 @@
 #define NDHS_GET_CURRENT_TS_H_
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <time.h>
 
 static inline int64_t get_current_ts(void)
