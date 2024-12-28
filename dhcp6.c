@@ -665,8 +665,8 @@ static void process_receive(struct D6Listener *self, char *buf, size_t buflen,
     }
     OPTIONS_CONSUME(DHCP6_HEADER_SIZE);
 
-    log_line("dhcp6: Message (%s) on %s\n",
-             dhcp6_msgtype_to_string((enum dhcp6_msgtype)d6s.header.type), self->ifname_);
+    enum dhcp6_msgtype msgtype = dhcp6_header_msgtype(&d6s.header);
+    log_line("dhcp6: Message (%s) on %s\n", dhcp6_msgtype_to_string(msgtype), self->ifname_);
 
     // These message types are not allowed to be sent to servers.
     if (!self->using_bpf_) {
@@ -828,7 +828,7 @@ static void process_receive(struct D6Listener *self, char *buf, size_t buflen,
          case D6_MSGTYPE_RENEW:
          case D6_MSGTYPE_REBIND:
          case D6_MSGTYPE_INFORMATION_REQUEST:
-             log_line("Client sent invalid %s -- no Option Request is present\n", dhcp6_msgtype_to_string(dhcp6_header_msgtype(&d6s.header)));
+             log_line("Client sent invalid %s -- no Option Request is present\n", dhcp6_msgtype_to_string(msgtype));
              return;
          default: break;
          }
@@ -838,12 +838,11 @@ static void process_receive(struct D6Listener *self, char *buf, size_t buflen,
      struct sbufs ss = { &sbuf[0], &sbuf[4096] };
 
      // Clients are required to send a client identifier.
-     if (!d6s.client_duid_str_size &&
-         dhcp6_header_msgtype(&d6s.header) != D6_MSGTYPE_INFORMATION_REQUEST) {
+     if (!d6s.client_duid_str_size && msgtype != D6_MSGTYPE_INFORMATION_REQUEST) {
          return;
      }
 
-     switch (dhcp6_header_msgtype(&d6s.header)) {
+     switch (msgtype) {
      case D6_MSGTYPE_SOLICIT: {
          if (d6s.server_duid_blob_size) return;
          if (!write_response_header(self, &d6s, &ss,
@@ -874,7 +873,7 @@ static void process_receive(struct D6Listener *self, char *buf, size_t buflen,
      case D6_MSGTYPE_RENEW:
          if (serverid_incorrect(&d6s)) return;
          if (!write_response_header(self, &d6s, &ss, D6_MSGTYPE_REPLY)) return;
-         if (!attach_address_info(self, &d6s, &ss, dhcp6_header_msgtype(&d6s.header) == D6_MSGTYPE_RENEW
+         if (!attach_address_info(self, &d6s, &ss, msgtype == D6_MSGTYPE_RENEW
                                   ? D6_CODE_NOBINDING
                                   : D6_CODE_NOADDRSAVAIL, NULL)) return;
          if (!attach_dns_ntp_info(self, &d6s, &ss)) return;
