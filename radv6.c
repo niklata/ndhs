@@ -90,7 +90,7 @@ struct icmp_header { uint8_t data_[4]; };
 static uint8_t icmp_header_type(const struct icmp_header *self) { return self->data_[0]; }
 static uint8_t icmp_header_code(const struct icmp_header *self) { return self->data_[1]; }
 static void icmp_header_set_type(struct icmp_header *self, uint8_t v) { self->data_[0] = v; }
-static void icmp_header_set_checksum(struct icmp_header *self, uint8_t v) { encode16be(v, self->data_ + 2); }
+static void icmp_header_set_checksum(struct icmp_header *self, uint8_t v) { encode16be(self->data_ + 2, v); }
 static bool icmp_header_read(struct icmp_header *self, struct sbufs *rbuf)
 {
     if (sbufs_brem(rbuf) < ICMP_HEADER_SIZE) return false;
@@ -127,11 +127,11 @@ static void ra6_advert_header_set_managed_addresses(struct ra6_advert_header *se
 static void ra6_advert_header_set_other_stateful(struct ra6_advert_header *self, bool v)
 { toggle_bit(v, self->data_, 1, 1 << 6); }
 static void ra6_advert_header_set_router_lifetime(struct ra6_advert_header *self, uint16_t v)
-{ encode16be(v, self->data_ + 2); }
+{ encode16be(self->data_ + 2, v); }
 static void ra6_advert_header_set_reachable_time(struct ra6_advert_header *self, uint32_t v)
-{ encode32be(v, self->data_ + 4); }
+{ encode32be(self->data_ + 4, v); }
 static void ra6_advert_header_set_retransmit_timer(struct ra6_advert_header *self, uint32_t v)
-{ encode32be(v, self->data_ + 8); }
+{ encode32be(self->data_ + 8, v); }
 static bool ra6_advert_header_write(const struct ra6_advert_header *self, struct sbufs *sbuf)
 {
     if (sbufs_brem(sbuf) < RA6_ADVERT_HEADER_SIZE) return false;
@@ -154,7 +154,7 @@ static bool ra6_source_lla_opt_write(const struct ra6_source_lla_opt *self, stru
 
 #define RA6_MTU_OPT_SIZE 8
 struct ra6_mtu_opt { uint8_t data_[8]; };
-static void ra6_mtu_opt_set_mtu(struct ra6_mtu_opt *self, uint32_t v) { encode32be(v, self->data_ + 4); }
+static void ra6_mtu_opt_set_mtu(struct ra6_mtu_opt *self, uint32_t v) { encode32be(self->data_ + 4, v); }
 static bool ra6_mtu_opt_write(const struct ra6_mtu_opt *self, struct sbufs *sbuf)
 {
     if (sbufs_brem(sbuf) < RA6_MTU_OPT_SIZE) return false;
@@ -190,9 +190,9 @@ static void ra6_prefix_info_opt_set_auto_addr_cfg(struct ra6_prefix_info_opt *se
 static void ra6_prefix_info_opt_set_router_addr_flag(struct ra6_prefix_info_opt *self, bool v)
 { toggle_bit(v, self->data_, 3, 1 << 5); }
 static void ra6_prefix_info_opt_set_valid_lifetime(struct ra6_prefix_info_opt *self, uint32_t v)
-{ encode32be(v, self->data_ + 4); }
+{ encode32be(self->data_ + 4, v); }
 static void ra6_prefix_info_opt_set_preferred_lifetime(struct ra6_prefix_info_opt *self, uint32_t v)
-{ encode32be(v, self->data_ + 8); }
+{ encode32be(self->data_ + 8, v); }
 static bool ra6_prefix_info_opt_write(const struct ra6_prefix_info_opt *self, struct sbufs *sbuf)
 {
     if (sbufs_brem(sbuf) < RA6_PREFIX_INFO_OPT_SIZE) return false;
@@ -204,7 +204,7 @@ static bool ra6_prefix_info_opt_write(const struct ra6_prefix_info_opt *self, st
 #define RA6_RDNS_OPT_SIZE 8
 struct ra6_rdns_opt { uint8_t data_[8]; };
 static void ra6_rdns_opt_set_length(struct ra6_rdns_opt *self, uint8_t numdns) { self->data_[1] = 1 + 2 * numdns; }
-static void ra6_rdns_opt_set_lifetime(struct ra6_rdns_opt *self, uint32_t v) { encode32be(v, self->data_ + 4); }
+static void ra6_rdns_opt_set_lifetime(struct ra6_rdns_opt *self, uint32_t v) { encode32be(self->data_ + 4, v); }
 static bool ra6_rdns_opt_write(const struct ra6_rdns_opt *self, struct sbufs *sbuf)
 {
     if (sbufs_brem(sbuf) < RA6_RDNS_OPT_SIZE) return false;
@@ -221,7 +221,7 @@ static size_t ra6_dns_search_opt_set_length(struct ra6_dns_search_opt *self, siz
     self->data_[1] += slack > 0 ? 1 : 0;
     return 8 * self->data_[1] - (8 + sz);
 }
-static void ra6_dns_search_opt_set_lifetime(struct ra6_dns_search_opt *self, uint32_t v) { encode32be(v, self->data_ + 4); }
+static void ra6_dns_search_opt_set_lifetime(struct ra6_dns_search_opt *self, uint32_t v) { encode32be(self->data_ + 4, v); }
 static bool ra6_dns_search_opt_write(const struct ra6_dns_search_opt *self, struct sbufs *sbuf)
 {
     if (sbufs_brem(sbuf) < RA6_DNS_SEARCH_OPT_SIZE) return false;

@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-static inline void encode32be(uint32_t v, void *dest)
+static inline void encode32be(void *dest, uint32_t v)
 {
     char *d = dest;
     d[0] = v >> 24;
@@ -12,7 +12,7 @@ static inline void encode32be(uint32_t v, void *dest)
     d[3] = v & 0xff;
 }
 
-static inline void encode16be(uint16_t v, void *dest)
+static inline void encode16be(void *dest, uint16_t v)
 {
     char *d = dest;
     d[0] = v >> 8;

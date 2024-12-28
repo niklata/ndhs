@@ -115,8 +115,8 @@ static uint16_t dhcp6_opt_type(const struct dhcp6_opt *self) { return decode16be
 static uint16_t dhcp6_opt_length(const struct dhcp6_opt *self) { return decode16be(self->data_ + 2); }
 static struct dhcp6_opt dhcp6_opt_create(uint16_t type, uint16_t length) {
     struct dhcp6_opt ret;
-    encode16be(type, ret.data_);
-    encode16be(length, ret.data_ + 2);
+    encode16be(ret.data_, type);
+    encode16be(ret.data_ + 2, length);
     return ret;
 }
 static bool dhcp6_opt_read(struct dhcp6_opt *self, struct sbufs *rbuf)
@@ -168,8 +168,8 @@ static bool dhcp6_ia_addr_write(const struct dhcp6_ia_addr *self, struct sbufs *
 {
     if (sbufs_brem(sbuf) < DHCP6_IA_ADDR_SIZE) return false;
     memcpy(sbuf->si, &self->addr, sizeof self->addr);
-    encode32be(self->prefer_lifetime, sbuf->si + 16);
-    encode32be(self->valid_lifetime, sbuf->si + 20);
+    encode32be(sbuf->si + 16, self->prefer_lifetime);
+    encode32be(sbuf->si + 20, self->valid_lifetime);
     sbuf->si += DHCP6_IA_ADDR_SIZE;
     return true;
 }
@@ -186,9 +186,9 @@ static bool dhcp6_ia_na_read(struct dhcp6_ia_na *self, struct sbufs *rbuf)
 static bool dhcp6_ia_na_write(const struct dhcp6_ia_na *self, struct sbufs *sbuf)
 {
     if (sbufs_brem(sbuf) < DHCP6_IA_NA_SIZE) return false;
-    encode32be(self->iaid, sbuf->si);
-    encode32be(self->t1_seconds, sbuf->si + 4);
-    encode32be(self->t2_seconds, sbuf->si + 8);
+    encode32be(sbuf->si, self->iaid);
+    encode32be(sbuf->si + 4, self->t1_seconds);
+    encode32be(sbuf->si + 8, self->t2_seconds);
     sbuf->si += DHCP6_IA_NA_SIZE;
     return true;
 }
@@ -347,7 +347,7 @@ static const char *dhcp6_msgtype_to_string(enum dhcp6_msgtype m)
 static bool dhcp6_statuscode_write(struct sbufs *ss, enum dhcp6_code status_code)
 {
     if (sbufs_brem(ss) < sizeof(uint16_t)) return false;
-    encode16be((uint16_t)status_code, ss->si);
+    encode16be(ss->si, (uint16_t)status_code);
     ss->si += sizeof(uint16_t);
     return true;
 }
