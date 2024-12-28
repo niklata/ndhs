@@ -36,20 +36,20 @@ enum SendReplyType {
 // things precisely.  We optimize for cache locality.
 struct D4State
 {
-    struct timespec ts_; // Set once at creation
-    uint64_t hwaddr_;
-    uint32_t xid_;
-    uint32_t state_;
+    struct timespec ts; // Set once at creation
+    uint64_t hwaddr;
+    uint32_t xid;
+    uint32_t state;
 };
 
 struct D4Listener
 {
-    int fd_;
-    int ifindex_;
-    struct dhcpmsg dhcpmsg_;
-    struct in6_addr local_ip_;
-    char ifname_[IFNAMSIZ];
-    struct D4State map_[D4_CLIENT_STATE_TABLESIZE];
+    int fd;
+    int ifindex;
+    struct dhcpmsg dhcpmsg;
+    struct in6_addr local_ip;
+    char ifname[IFNAMSIZ];
+    struct D4State map[D4_CLIENT_STATE_TABLESIZE];
 };
 
 // hwaddr must be exactly 6 bytes
@@ -71,10 +71,10 @@ static inline bool ip4_to_string(char *buf, size_t buflen, uint32_t addr)
 static struct D4State *find(struct D4State *self, uint64_t h)
 {
     for (size_t i = 0; i < D4_CLIENT_STATE_TABLESIZE; ++i) {
-        if (self[i].hwaddr_ == h) {
+        if (self[i].hwaddr == h) {
             struct timespec now;
             clock_gettime(CLOCK_BOOTTIME, &now);
-            if (now.tv_sec > self[i].ts_.tv_sec + D4_XID_LIFE_SECS) {
+            if (now.tv_sec > self[i].ts.tv_sec + D4_XID_LIFE_SECS) {
                 self[i] = (struct D4State){0};
                 break;
             }
@@ -93,11 +93,11 @@ static bool D4State_add(struct D4State *self, uint32_t xid, uint8_t *hwaddr, uin
     struct D4State *m = NULL, *e = NULL;
     struct D4State zi = {0};
     for (size_t i = 0; i < D4_CLIENT_STATE_TABLESIZE; ++i) {
-        if (self[i].ts_.tv_sec && now.tv_sec > self[i].ts_.tv_sec + D4_XID_LIFE_SECS) {
+        if (self[i].ts.tv_sec && now.tv_sec > self[i].ts.tv_sec + D4_XID_LIFE_SECS) {
             // Expire entries as we see them.
             self[i] = (struct D4State){0};
         } else {
-            if (self[i].hwaddr_ == key) {
+            if (self[i].hwaddr == key) {
                 m = &self[i];
                 break;
             }
@@ -109,10 +109,10 @@ static bool D4State_add(struct D4State *self, uint32_t xid, uint8_t *hwaddr, uin
         m = e;
     }
     *m = (struct D4State){
-        .ts_ = now,
-        .hwaddr_ = key,
-        .xid_ = xid,
-        .state_ = state,
+        .ts = now,
+        .hwaddr = key,
+        .xid = xid,
+        .state = state,
     };
     return true;
 }
@@ -121,8 +121,8 @@ static uint8_t D4State_get(struct D4State *self, uint32_t xid, uint8_t *hwaddr)
 {
     uint64_t key = hwaddr_to_int64(hwaddr);
     struct D4State *m = find(self, key);
-    if (!m || m->xid_ != xid) return DHCPNULL;
-    return m->state_;
+    if (!m || m->xid != xid) return DHCPNULL;
+    return m->state;
 }
 
 static void D4State_kill(struct D4State *self, uint8_t *hwaddr)
@@ -132,51 +132,51 @@ static void D4State_kill(struct D4State *self, uint8_t *hwaddr)
     if (m) *m = (struct D4State){0};
 }
 
-// Must be called after ifname_ is set and only should be called once.
+// Must be called after ifname is set and only should be called once.
 static bool create_dhcp4_socket(struct D4Listener *self)
 {
     struct ifreq ifr = {0};
     const int iv = 1;
-    size_t ifname_len = strlen(self->ifname_);
+    size_t ifname_len = strlen(self->ifname);
     struct sockaddr_in sai = {
         .sin_family = AF_INET,
         .sin_port = htons(67),
     };
-    self->fd_ = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, IPPROTO_UDP);
-    if (self->fd_ < 0) {
-        log_line("dhcp4: Failed to create v4 UDP socket on %s: %s\n", self->ifname_, strerror(errno));
+    self->fd = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, IPPROTO_UDP);
+    if (self->fd < 0) {
+        log_line("dhcp4: Failed to create v4 UDP socket on %s: %s\n", self->ifname, strerror(errno));
         goto err0;
     }
-    if (setsockopt(self->fd_, SOL_SOCKET, SO_BROADCAST, &iv, sizeof iv) == -1) {
-        log_line("dhcp4: Failed to set broadcast flag on %s: %s\n", self->ifname_, strerror(errno));
+    if (setsockopt(self->fd, SOL_SOCKET, SO_BROADCAST, &iv, sizeof iv) == -1) {
+        log_line("dhcp4: Failed to set broadcast flag on %s: %s\n", self->ifname, strerror(errno));
         goto err1;
     }
-    if (setsockopt(self->fd_, SOL_SOCKET, SO_DONTROUTE, &iv, sizeof iv) == -1) {
-        log_line("dhcp4: Failed to set do not route flag on %s: %s\n", self->ifname_, strerror(errno));
+    if (setsockopt(self->fd, SOL_SOCKET, SO_DONTROUTE, &iv, sizeof iv) == -1) {
+        log_line("dhcp4: Failed to set do not route flag on %s: %s\n", self->ifname, strerror(errno));
         goto err1;
     }
-    if (setsockopt(self->fd_, SOL_SOCKET, SO_REUSEADDR, &iv, sizeof iv) == -1) {
-        log_line("dhcp4: Failed to set reuse address flag on %s: %s\n", self->ifname_, strerror(errno));
+    if (setsockopt(self->fd, SOL_SOCKET, SO_REUSEADDR, &iv, sizeof iv) == -1) {
+        log_line("dhcp4: Failed to set reuse address flag on %s: %s\n", self->ifname, strerror(errno));
         goto err1;
     }
-    if (bind(self->fd_, (const struct sockaddr *)&sai, sizeof sai)) {
-        log_line("dhcp4: Failed to bind to UDP 67 on %s: %s\n", self->ifname_, strerror(errno));
+    if (bind(self->fd, (const struct sockaddr *)&sai, sizeof sai)) {
+        log_line("dhcp4: Failed to bind to UDP 67 on %s: %s\n", self->ifname, strerror(errno));
         goto err1;
     }
     if (ifname_len >= sizeof ifr.ifr_name) {
         log_line("dhcp4: Interface name '%s' is too long: %zu >= %zu\n",
-                 self->ifname_, ifname_len, sizeof ifr.ifr_name);
+                 self->ifname, ifname_len, sizeof ifr.ifr_name);
         goto err1;
     }
-    memcpy(ifr.ifr_name, self->ifname_, ifname_len);
-    if (setsockopt(self->fd_, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
-        log_line("dhcp4: Failed to bind socket to device on %s: %s\n", self->ifname_, strerror(errno));
+    memcpy(ifr.ifr_name, self->ifname, ifname_len);
+    if (setsockopt(self->fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
+        log_line("dhcp4: Failed to bind socket to device on %s: %s\n", self->ifname, strerror(errno));
         goto err1;
     }
     return true;
 err1:
-    close(self->fd_);
-    self->fd_ = -1;
+    close(self->fd);
+    self->fd = -1;
 err0:
     return false;
 }
@@ -186,7 +186,7 @@ struct D4Listener *D4Listener_create(const char *ifname, const struct netif_info
 {
     struct D4Listener *self;
     size_t ifname_src_size = strlen(ifname);
-    if (ifname_src_size >= sizeof self->ifname_) {
+    if (ifname_src_size >= sizeof self->ifname) {
         log_line("D4Listener: Interface name (%s) too long\n", ifname);
         return NULL;
     }
@@ -197,13 +197,13 @@ struct D4Listener *D4Listener_create(const char *ifname, const struct netif_info
     self = calloc(1, sizeof(struct D4Listener));
     if (!self) return NULL;
 
-    self->ifindex_ = ifinfo->index;
-    *(char *)(mempcpy(self->ifname_, ifname, ifname_src_size)) = 0;
-    self->local_ip_ = ifinfo->v4_address;
+    self->ifindex = ifinfo->index;
+    *(char *)(mempcpy(self->ifname, ifname, ifname_src_size)) = 0;
+    self->local_ip = ifinfo->v4_address;
 
     char abuf[48];
     if (!create_dhcp4_socket(self)) goto err;
-    if (!ipaddr_to_string(abuf, sizeof abuf, &self->local_ip_)) goto err;
+    if (!ipaddr_to_string(abuf, sizeof abuf, &self->local_ip)) goto err;
     log_line("dhcp4: IP address for %s is %s\n", ifname, abuf);
 
     return self;
@@ -221,12 +221,12 @@ void D4Listener_process_input(struct D4Listener *self)
     for (;;) {
         struct sockaddr_in sai;
         socklen_t sailen = sizeof sai;
-        ssize_t buflen = recvfrom(self->fd_, buf, sizeof buf, MSG_DONTWAIT, (struct sockaddr *)&sai, &sailen);
+        ssize_t buflen = recvfrom(self->fd, buf, sizeof buf, MSG_DONTWAIT, (struct sockaddr *)&sai, &sailen);
         if (buflen < 0) {
             int err = errno;
             if (err == EINTR) continue;
             if (err == EAGAIN || err == EWOULDBLOCK) break;
-            suicide("dhcp4: recvfrom failed on %s: %s\n", self->ifname_, strerror(err));
+            suicide("dhcp4: recvfrom failed on %s: %s\n", self->ifname, strerror(err));
         }
         process_receive(self, buf, (size_t)buflen, &sai);
     }
@@ -234,13 +234,13 @@ void D4Listener_process_input(struct D4Listener *self)
 
 int D4Listener_fd(const struct D4Listener *self)
 {
-    return self->fd_;
+    return self->fd;
 }
 
 static uint32_t local_ip(const struct D4Listener *self)
 {
     uint32_t ret;
-    memcpy(&ret, ipaddr_v4_bytes(&self->local_ip_), sizeof ret);
+    memcpy(&ret, ipaddr_v4_bytes(&self->local_ip), sizeof ret);
     return ret;
 }
 
@@ -254,7 +254,7 @@ static void dhcpmsg_init(const struct D4Listener *self, struct dhcpmsg *dm, uint
         .cookie = htonl(DHCP_MAGIC),
         .options[0] = DCODE_END,
     };
-    memcpy(dm->chaddr, &self->dhcpmsg_.chaddr, sizeof self->dhcpmsg_.chaddr);
+    memcpy(dm->chaddr, &self->dhcpmsg.chaddr, sizeof self->dhcpmsg.chaddr);
     add_option_msgtype(dm, type);
     add_option_serverid(dm, local_ip(self));
 }
@@ -277,27 +277,27 @@ static void send_reply_do(struct D4Listener *self, const struct dhcpmsg *dm, enu
     size_t dmlen = sizeof *dm - (sizeof dm->options - 1 - (size_t)endloc);
 
     switch (srt) {
-    case SRT_UnicastCi:   send_to(self->fd_, dm, dmlen, self->dhcpmsg_.ciaddr, 68); break;
+    case SRT_UnicastCi:   send_to(self->fd, dm, dmlen, self->dhcpmsg.ciaddr, 68); break;
     case SRT_Broadcast: {
-        const struct in6_addr *broadcast = query_broadcast(self->ifindex_);
+        const struct in6_addr *broadcast = query_broadcast(self->ifindex);
         if (!broadcast) suicide("dhcp4: misconfigured -- must have a broadcast address\n");
         uint32_t bcaddr;
         memcpy(&bcaddr, ipaddr_v4_bytes(broadcast), sizeof bcaddr);
-        send_to(self->fd_, dm, dmlen, bcaddr, 68);
+        send_to(self->fd, dm, dmlen, bcaddr, 68);
         break;
     }
-    case SRT_Relay:       send_to(self->fd_, dm, dmlen, self->dhcpmsg_.giaddr, 67); break;
-    case SRT_UnicastYiCh: send_to(self->fd_, dm, dmlen, self->dhcpmsg_.yiaddr, 68); break;
+    case SRT_Relay:       send_to(self->fd, dm, dmlen, self->dhcpmsg.giaddr, 67); break;
+    case SRT_UnicastYiCh: send_to(self->fd, dm, dmlen, self->dhcpmsg.yiaddr, 68); break;
     }
 }
 
 static void send_reply(struct D4Listener *self, const struct dhcpmsg *reply)
 {
-    if      (self->dhcpmsg_.giaddr)                 send_reply_do(self, reply, SRT_Relay);
-    else if (self->dhcpmsg_.ciaddr)                 send_reply_do(self, reply, SRT_UnicastCi);
-    else if (ntohs(self->dhcpmsg_.flags) & 0x8000u) send_reply_do(self, reply, SRT_Broadcast);
-    else if (self->dhcpmsg_.yiaddr)                 send_reply_do(self, reply, SRT_UnicastYiCh);
-    else                                            send_reply_do(self, reply, SRT_Broadcast);
+    if      (self->dhcpmsg.giaddr)                 send_reply_do(self, reply, SRT_Relay);
+    else if (self->dhcpmsg.ciaddr)                 send_reply_do(self, reply, SRT_UnicastCi);
+    else if (ntohs(self->dhcpmsg.flags) & 0x8000u) send_reply_do(self, reply, SRT_Broadcast);
+    else if (self->dhcpmsg.yiaddr)                 send_reply_do(self, reply, SRT_UnicastYiCh);
+    else                                           send_reply_do(self, reply, SRT_Broadcast);
 }
 
 static bool iplist_option(struct dhcpmsg *reply, uint8_t code, const struct addrlist *ipl)
@@ -327,19 +327,19 @@ static struct in6_addr u32_ipaddr(uint32_t v)
 static bool allot_dynamic_ip(struct D4Listener *self, struct dhcpmsg *reply, const uint8_t *hwaddr, bool do_assign)
 {
     uint32_t dynamic_lifetime;
-    if (!query_use_dynamic_v4(self->ifindex_, &dynamic_lifetime))
+    if (!query_use_dynamic_v4(self->ifindex, &dynamic_lifetime))
         return false;
 
     log_line("dhcp4: Checking dynamic IP.\n");
 
     struct in6_addr dr_lo, dr_hi;
-    if (!query_dynamic_range(self->ifindex_, &dr_lo, &dr_hi)) {
+    if (!query_dynamic_range(self->ifindex, &dr_lo, &dr_hi)) {
         log_line("dhcp4: No dynamic range is associated.  Can't assign an IP.\n");
         return false;
     }
     int64_t expire_time = get_current_ts() + dynamic_lifetime;
 
-    struct in6_addr v4a = dynlease4_query_refresh(self->ifindex_, hwaddr, expire_time);
+    struct in6_addr v4a = dynlease4_query_refresh(self->ifindex, hwaddr, expire_time);
     if (memcmp(&v4a, &in6addr_any, 16)) {
         if (!ipaddr_is_v4(&v4a)) {
             log_line("dhcp4: allot_dynamic_ip - bad address\n");
@@ -368,8 +368,8 @@ static bool allot_dynamic_ip(struct D4Listener *self, struct dhcpmsg *reply, con
     // If no success, then all IPs are taken, so return false.
     for (uint32_t i = al + rqs; i <= ah; ++i) {
         struct in6_addr iaddr = u32_ipaddr(htonl(i));
-        bool matched = do_assign ? dynlease4_add(self->ifindex_, &iaddr, hwaddr, expire_time)
-                                 : dynlease4_exists(self->ifindex_, &iaddr, hwaddr);
+        bool matched = do_assign ? dynlease4_add(self->ifindex, &iaddr, hwaddr, expire_time)
+                                 : dynlease4_exists(self->ifindex, &iaddr, hwaddr);
         if (matched) {
             reply->yiaddr = htonl(i);
             add_u32_option(reply, DCODE_LEASET, htonl(dynamic_lifetime));
@@ -378,8 +378,8 @@ static bool allot_dynamic_ip(struct D4Listener *self, struct dhcpmsg *reply, con
     }
     for (uint32_t i = al; i < al + rqs; ++i) {
         struct in6_addr iaddr = u32_ipaddr(htonl(i));
-        bool matched = do_assign ? dynlease4_add(self->ifindex_, &iaddr, hwaddr, expire_time)
-                                 : dynlease4_exists(self->ifindex_, &iaddr, hwaddr);
+        bool matched = do_assign ? dynlease4_add(self->ifindex, &iaddr, hwaddr, expire_time)
+                                 : dynlease4_exists(self->ifindex, &iaddr, hwaddr);
         if (matched) {
             reply->yiaddr = htonl(i);
             add_u32_option(reply, DCODE_LEASET, htonl(dynamic_lifetime));
@@ -391,7 +391,7 @@ static bool allot_dynamic_ip(struct D4Listener *self, struct dhcpmsg *reply, con
 
 static bool create_reply(struct D4Listener *self, struct dhcpmsg *reply, const uint8_t *hwaddr, bool do_assign)
 {
-    const struct dhcpv4_entry *dv4s = query_dhcp4_state(self->ifindex_, hwaddr);
+    const struct dhcpv4_entry *dv4s = query_dhcp4_state(self->ifindex, hwaddr);
     if (!dv4s) {
         if (!allot_dynamic_ip(self, reply, hwaddr, do_assign))
             return false;
@@ -399,32 +399,32 @@ static bool create_reply(struct D4Listener *self, struct dhcpmsg *reply, const u
         memcpy(&reply->yiaddr, ipaddr_v4_bytes(&dv4s->address), sizeof reply->yiaddr);
         add_u32_option(reply, DCODE_LEASET, htonl(dv4s->lifetime));
     }
-    const struct in6_addr *subnet = query_subnet(self->ifindex_);
+    const struct in6_addr *subnet = query_subnet(self->ifindex);
     if (!subnet) return false;
     uint32_t subnet_addr;
     memcpy(&subnet_addr, ipaddr_v4_bytes(subnet), sizeof subnet_addr);
     add_option_subnet_mask(reply, subnet_addr);
 
-    const struct in6_addr *broadcast = query_broadcast(self->ifindex_);
+    const struct in6_addr *broadcast = query_broadcast(self->ifindex);
     if (!broadcast) return false;
     uint32_t broadcast_addr;
     memcpy(&broadcast_addr, ipaddr_v4_bytes(broadcast), sizeof broadcast_addr);
     add_option_broadcast(reply, broadcast_addr);
 
-    const struct in6_addr *router = query_gateway_v4(self->ifindex_);
+    const struct in6_addr *router = query_gateway_v4(self->ifindex);
     if (router) {
         uint32_t router_addr;
         memcpy(&router_addr, ipaddr_v4_bytes(router), sizeof router_addr);
         add_option_router(reply, router_addr);
     }
 
-    struct addrlist dns_servers = query_dns_servers(self->ifindex_);
+    struct addrlist dns_servers = query_dns_servers(self->ifindex);
     if (dns_servers.n) iplist_option(reply, DCODE_DNS, &dns_servers);
 
-    struct addrlist ntp_servers = query_ntp_servers(self->ifindex_);
+    struct addrlist ntp_servers = query_ntp_servers(self->ifindex);
     if (ntp_servers.n) iplist_option(reply, DCODE_NTPSVR, &ntp_servers);
 
-    struct blob d4b = query_dns4_search_blob(self->ifindex_);
+    struct blob d4b = query_dns4_search_blob(self->ifindex);
     if (d4b.n && d4b.s) add_option_domain_name(reply, d4b.s, d4b.n);
 
     log_line("dhcp4: Sending reply %u.%u.%u.%u\n", reply->yiaddr & 255,
@@ -436,40 +436,40 @@ static bool create_reply(struct D4Listener *self, struct dhcpmsg *reply, const u
 static void reply_discover(struct D4Listener *self)
 {
     struct dhcpmsg reply;
-    dhcpmsg_init(self, &reply, DHCPOFFER, self->dhcpmsg_.xid);
-    if (create_reply(self, &reply, self->dhcpmsg_.chaddr, true))
+    dhcpmsg_init(self, &reply, DHCPOFFER, self->dhcpmsg.xid);
+    if (create_reply(self, &reply, self->dhcpmsg.chaddr, true))
         send_reply(self, &reply);
 }
 
 static void reply_request(struct D4Listener *self)
 {
     struct dhcpmsg reply;
-    dhcpmsg_init(self, &reply, DHCPACK, self->dhcpmsg_.xid);
-    if (create_reply(self, &reply, self->dhcpmsg_.chaddr, true)) {
+    dhcpmsg_init(self, &reply, DHCPACK, self->dhcpmsg.xid);
+    if (create_reply(self, &reply, self->dhcpmsg.chaddr, true)) {
         send_reply(self, &reply);
     }
-    D4State_kill(self->map_, self->dhcpmsg_.chaddr);
+    D4State_kill(self->map, self->dhcpmsg.chaddr);
 }
 
 static void reply_inform(struct D4Listener *self)
 {
     struct dhcpmsg reply;
-    dhcpmsg_init(self, &reply, DHCPACK, self->dhcpmsg_.xid);
-    if (create_reply(self, &reply, self->dhcpmsg_.chaddr, false)) {
+    dhcpmsg_init(self, &reply, DHCPACK, self->dhcpmsg.xid);
+    if (create_reply(self, &reply, self->dhcpmsg.chaddr, false)) {
         // http://tools.ietf.org/html/draft-ietf-dhc-dhcpinform-clarify-06
-        reply.htype = self->dhcpmsg_.htype;
-        reply.hlen = self->dhcpmsg_.hlen;
-        memcpy(&reply.chaddr, &self->dhcpmsg_.chaddr, sizeof reply.chaddr);
-        reply.ciaddr = self->dhcpmsg_.ciaddr;
+        reply.htype = self->dhcpmsg.htype;
+        reply.hlen = self->dhcpmsg.hlen;
+        memcpy(&reply.chaddr, &self->dhcpmsg.chaddr, sizeof reply.chaddr);
+        reply.ciaddr = self->dhcpmsg.ciaddr;
         // xid was already set equal
-        reply.flags = self->dhcpmsg_.flags;
+        reply.flags = self->dhcpmsg.flags;
         reply.hops = 0;
         reply.secs = 0;
         reply.yiaddr = 0;
         reply.siaddr = 0;
-        if (self->dhcpmsg_.ciaddr)
+        if (self->dhcpmsg.ciaddr)
             send_reply_do(self, &reply, SRT_UnicastCi);
-        else if (self->dhcpmsg_.giaddr) {
+        else if (self->dhcpmsg.giaddr) {
             uint16_t fl = ntohs(reply.flags);
             reply.flags = htons(fl | 0x8000u);
             send_reply_do(self, &reply, SRT_Relay);
@@ -480,43 +480,43 @@ static void reply_inform(struct D4Listener *self)
 
 static void do_release(struct D4Listener *self)
 {
-    struct in6_addr ciaddr = u32_ipaddr(self->dhcpmsg_.ciaddr);
-    if (!dynlease4_exists(self->ifindex_, &ciaddr, self->dhcpmsg_.chaddr)) {
+    struct in6_addr ciaddr = u32_ipaddr(self->dhcpmsg.ciaddr);
+    if (!dynlease4_exists(self->ifindex, &ciaddr, self->dhcpmsg.chaddr)) {
         char buf[32] = "invalid ip";
-        ip4_to_string(buf, sizeof buf, self->dhcpmsg_.ciaddr);
+        ip4_to_string(buf, sizeof buf, self->dhcpmsg.ciaddr);
         log_line("dhcp4: do_release: ignoring spoofed release request for %s.\n", buf);
         return;
     }
-    dynlease4_del(self->ifindex_, &ciaddr, self->dhcpmsg_.chaddr);
+    dynlease4_del(self->ifindex, &ciaddr, self->dhcpmsg.chaddr);
 }
 
 static uint8_t validate_dhcp(const struct D4Listener *self, size_t len)
 {
     if (len < offsetof(struct dhcpmsg, options))
         return DHCPNULL;
-    if (ntohl(self->dhcpmsg_.cookie) != DHCP_MAGIC)
+    if (ntohl(self->dhcpmsg.cookie) != DHCP_MAGIC)
         return DHCPNULL;
-    return get_option_msgtype(&self->dhcpmsg_);
+    return get_option_msgtype(&self->dhcpmsg);
 }
 
 static void process_receive(struct D4Listener *self, const char *buf, size_t buflen,
                             const struct sockaddr_in *sai)
 {
     if (sai->sin_family != AF_INET) return;
-    size_t msglen = buflen < sizeof self->dhcpmsg_ ? buflen : sizeof self->dhcpmsg_;
-    self->dhcpmsg_ = (struct dhcpmsg){0};
-    memcpy(&self->dhcpmsg_, buf, msglen);
+    size_t msglen = buflen < sizeof self->dhcpmsg ? buflen : sizeof self->dhcpmsg;
+    self->dhcpmsg = (struct dhcpmsg){0};
+    memcpy(&self->dhcpmsg, buf, msglen);
     uint8_t msgtype = validate_dhcp(self, msglen);
     if (!msgtype)
         return;
 
-    uint8_t cs = D4State_get(self->map_, self->dhcpmsg_.xid, self->dhcpmsg_.chaddr);
+    uint8_t cs = D4State_get(self->map, self->dhcpmsg.xid, self->dhcpmsg.chaddr);
     if (cs == DHCPNULL) {
         switch (msgtype) {
         case DHCPREQUEST:
         case DHCPDISCOVER:
             cs = msgtype;
-            if (!D4State_add(self->map_, self->dhcpmsg_.xid, self->dhcpmsg_.chaddr, cs))
+            if (!D4State_add(self->map, self->dhcpmsg.xid, self->dhcpmsg.chaddr, cs))
                 return; // Possible DoS; silently drop.
             break;
         case DHCPINFORM:

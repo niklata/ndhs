@@ -130,7 +130,7 @@ static void init_listeners(void)
 
     bound_interfaces_foreach(get_interface_addresses, NULL);
 
-    poll_array[0] = (struct pollfd){ .fd = nl_socket.fd_, .events = POLLIN|POLLHUP|POLLERR };
+    poll_array[0] = (struct pollfd){ .fd = nl_socket.fd, .events = POLLIN|POLLHUP|POLLERR };
     poll_meta[0] = (struct pfd_meta){ .pfdt = PFD_TYPE_NETLINK };
 
     size_t pfdc = 1;

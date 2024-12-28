@@ -35,11 +35,11 @@ struct netif_info
 
 struct NLSocket
 {
-    struct netif_info interfaces_[MAX_NL_INTERFACES];
-    int query_ifindex_;
-    int fd_;
-    uint32_t nlseq_;
-    bool got_newlink_:1;
+    struct netif_info interfaces[MAX_NL_INTERFACES];
+    int query_ifindex;
+    int fd;
+    uint32_t nlseq;
+    bool got_newlink:1;
 };
 
 void NLSocket_init(struct NLSocket *self);
@@ -49,7 +49,7 @@ void NLSocket_process_input(struct NLSocket *self);
 
 static inline int NLSocket_get_ifindex(const struct NLSocket *self, const char *name) {
     for (int i = 0; i < MAX_NL_INTERFACES; ++i) {
-        if (!strcmp(name, self->interfaces_[i].name)) return i;
+        if (!strcmp(name, self->interfaces[i].name)) return i;
     }
     return -1;
 }
@@ -59,12 +59,12 @@ static inline int NLSocket_get_ifindex(const struct NLSocket *self, const char *
 static inline struct netif_info *NLSocket_get_ifinfo(struct NLSocket *self, int ifindex)
 {
     if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) return NULL;
-    return &self->interfaces_[ifindex];
+    return &self->interfaces[ifindex];
 }
 static inline struct netif_info *NLSocket_get_ifinfo_by_name(struct NLSocket *self, const char *name)
 {
     for (size_t i = 0; i < MAX_NL_INTERFACES; ++i) {
-        if (!strcmp(name, self->interfaces_[i].name)) return &self->interfaces_[i];
+        if (!strcmp(name, self->interfaces[i].name)) return &self->interfaces[i];
     }
     return NULL;
 }

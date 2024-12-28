@@ -32,17 +32,17 @@ static void process_receive(struct NLSocket *self, const char *buf, size_t bytes
 
 void NLSocket_init(struct NLSocket *self)
 {
-    self->nlseq_ = nk_random_u64(&g_rngstate);
-    self->got_newlink_ = false;
-    self->query_ifindex_ = -1;
+    self->nlseq = nk_random_u64(&g_rngstate);
+    self->got_newlink = false;
+    self->query_ifindex = -1;
 
-    self->fd_ = nl_open(NETLINK_ROUTE, RTMGRP_LINK, 0);
-    if (self->fd_ < 0) suicide("NLSocket: failed to create netlink socket\n");
+    self->fd = nl_open(NETLINK_ROUTE, RTMGRP_LINK, 0);
+    if (self->fd < 0) suicide("NLSocket: failed to create netlink socket\n");
 
     request_links(self);
 
-    struct pollfd pfd = { .fd = self->fd_, .events = POLLIN|POLLHUP|POLLERR };
-    for (;(self->got_newlink_ == false);) {
+    struct pollfd pfd = { .fd = self->fd, .events = POLLIN|POLLHUP|POLLERR };
+    for (;(self->got_newlink == false);) {
         if (poll(&pfd, 1, -1) < 0) {
             if (errno == EINTR) continue;
             suicide("poll failed\n");
@@ -58,12 +58,12 @@ void NLSocket_init(struct NLSocket *self)
 
 bool NLSocket_get_interface_addresses(struct NLSocket *self, int ifindex)
 {
-    self->query_ifindex_ = ifindex;
-    if (self->query_ifindex_ < 0) return false;
-    request_addrs(self, self->query_ifindex_);
+    self->query_ifindex = ifindex;
+    if (self->query_ifindex < 0) return false;
+    request_addrs(self, self->query_ifindex);
 
-    struct pollfd pfd = { .fd = self->fd_, .events = POLLIN|POLLHUP|POLLERR };
-    while (self->query_ifindex_ >= 0) {
+    struct pollfd pfd = { .fd = self->fd, .events = POLLIN|POLLHUP|POLLERR };
+    while (self->query_ifindex >= 0) {
         if (poll(&pfd, 1, -1) < 0) {
             if (errno == EINTR) continue;
             suicide("poll failed\n");
@@ -82,7 +82,7 @@ void NLSocket_process_input(struct NLSocket *self)
 {
     char buf[8192];
     for (;;) {
-        ssize_t buflen = recv(self->fd_, buf, sizeof buf, MSG_DONTWAIT);
+        ssize_t buflen = recv(self->fd, buf, sizeof buf, MSG_DONTWAIT);
         if (buflen < 0) {
             int err = errno;
             if (err == EINTR) continue;
@@ -95,15 +95,15 @@ void NLSocket_process_input(struct NLSocket *self)
 
 static void request_links(struct NLSocket *self)
 {
-    uint32_t link_seq = self->nlseq_++;
-    if (nl_sendgetlinks(self->fd_, link_seq) < 0)
+    uint32_t link_seq = self->nlseq++;
+    if (nl_sendgetlinks(self->fd, link_seq) < 0)
         suicide("nlsocket: failed to get initial rtlink state\n");
 }
 
 static void request_addrs(struct NLSocket *self, int ifidx)
 {
-    uint32_t addr_seq = self->nlseq_++;
-    if (nl_sendgetaddr(self->fd_, addr_seq, (uint32_t)ifidx) < 0)
+    uint32_t addr_seq = self->nlseq++;
+    if (nl_sendgetaddr(self->fd, addr_seq, (uint32_t)ifidx) < 0)
         suicide("nlsocket: failed to get initial rtaddr state\n");
 }
 
@@ -167,9 +167,9 @@ static void process_rt_addr_msgs(struct NLSocket *self, const struct nlmsghdr *n
 
     switch (nlh->nlmsg_type) {
     case RTM_NEWADDR: {
-        if (self->query_ifindex_ == nia.if_index) self->query_ifindex_ = -1;
+        if (self->query_ifindex == nia.if_index) self->query_ifindex = -1;
         if (nia.if_index >= 0 && nia.if_index < MAX_NL_INTERFACES) {
-            struct netif_info *n = &self->interfaces_[nia.if_index];
+            struct netif_info *n = &self->interfaces[nia.if_index];
             if (nia.addr_type == AF_INET || ipaddr_is_v4(&nia.address)) {
                 n->has_v4_address = true;
                 n->v4_address = nia.address;
@@ -201,7 +201,7 @@ static void process_rt_addr_msgs(struct NLSocket *self, const struct nlmsghdr *n
     }
     case RTM_DELADDR: {
         if (nia.if_index >= 0 && nia.if_index < MAX_NL_INTERFACES) {
-            struct netif_info *n = &self->interfaces_[nia.if_index];
+            struct netif_info *n = &self->interfaces[nia.if_index];
             if (n->has_v4_address && (nia.addr_type == AF_INET || ipaddr_is_v4(&nia.address))) {
                 if (!memcmp(&n->v4_address, &nia.address, sizeof nia.address)) {
                     memset(&n->v4_address, 0, sizeof n->v4_address);
@@ -272,10 +272,10 @@ static void process_rt_link_msgs(struct NLSocket *self, const struct nlmsghdr *n
             break;
         }
         bool update = false;
-        if (!strcmp(self->interfaces_[ifm->ifi_index].name, nii.name)) {
+        if (!strcmp(self->interfaces[ifm->ifi_index].name, nii.name)) {
             // We don't alter name or index, and addresses are not
             // sent in this message, so don't alter those.
-            struct netif_info *n = &self->interfaces_[ifm->ifi_index];
+            struct netif_info *n = &self->interfaces[ifm->ifi_index];
             n->family = nii.family;
             n->device_type = nii.device_type;
             n->flags = nii.flags;
@@ -287,7 +287,7 @@ static void process_rt_link_msgs(struct NLSocket *self, const struct nlmsghdr *n
             n->is_active = nii.is_active;
             update = true;
         }
-        if (!update) memcpy(&self->interfaces_[ifm->ifi_index], &nii, sizeof self->interfaces_[0]);
+        if (!update) memcpy(&self->interfaces[ifm->ifi_index], &nii, sizeof self->interfaces[0]);
         log_line("nlsocket: Adding link info: %s\n", nii.name);
         break;
     }
@@ -296,7 +296,7 @@ static void process_rt_link_msgs(struct NLSocket *self, const struct nlmsghdr *n
             log_line("nlsocket: Attempt to delete interface with out-of-range index (%d)\n", ifm->ifi_index);
             break;
         }
-        memset(&self->interfaces_[ifm->ifi_index], 0, sizeof self->interfaces_[0]);
+        memset(&self->interfaces[ifm->ifi_index], 0, sizeof self->interfaces[0]);
         break;
     }
     default:
@@ -349,7 +349,7 @@ static void process_receive(struct NLSocket *self, const char *buf, size_t bytes
             }
             case NLMSG_OVERRUN: log_line("nlsocket: Received a NLMSG_OVERRUN.\n");
             case NLMSG_NOOP: break;
-            case NLMSG_DONE: self->got_newlink_ = true; break;
+            case NLMSG_DONE: self->got_newlink = true; break;
             default: break;
             }
         }
