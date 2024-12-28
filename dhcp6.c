@@ -344,37 +344,6 @@ static const char *dhcp6_msgtype_to_string(enum dhcp6_msgtype m)
     return pp[m < D6_MSGTYPE_END && m >= 0 ? m : 0];
 }
 
-static const char * dhcp6_opt_to_string(uint16_t opttype)
-{
-    switch (opttype) {
-    case  1: return "Client Identifier";
-    case  2: return "Server Identifier";
-    case  3: return "Identity Association (IA) Non-Temporary";
-    case  4: return "Identity Association (IA) Temporary";
-    case  5: return "Identity Association (IA) Address";
-    case  6: return "Option Request";
-    case  7: return "Preference";
-    case  8: return "Elapsed Time";
-    case  9: return "Relay Message";
-    case 11: return "Authentication";
-    case 12: return "Server Unicast";
-    case 13: return "Status Code";
-    case 14: return "Rapid Commit";
-    case 15: return "User Class";
-    case 16: return "Vendor Class";
-    case 17: return "Vendor Options";
-    case 18: return "Interface ID";
-    case 19: return "Reconfigure Message";
-    case 20: return "Reconfigure Accept";
-    case 23: return "DNS Recursive Servers"; // RFC3646
-    case 24: return "DNS Domain Search List"; // RFC3646
-    case 39: return "Client FQDN"; // RFC4704
-    case 56: return "NTP Server"; // RFC5908
-    default: log_line("Unknown DHCP Option type %u\n", opttype);
-             return "Unknown";
-    }
-}
-
 static bool dhcp6_statuscode_write(struct sbufs *ss, enum dhcp6_code status_code)
 {
     if (sbufs_brem(ss) < sizeof(uint16_t)) return false;
@@ -723,8 +692,6 @@ static void process_receive(struct D6Listener *self, char *buf, size_t buflen,
          OPTIONS_CONSUME(DHCP6_OPT_SIZE);
          uint16_t l = dhcp6_opt_length(&opt);
          uint16_t ot = dhcp6_opt_type(&opt);
-         log_line("dhcp6: Option '%s' length=%d on %s\n",
-                  dhcp6_opt_to_string(ot), l, self->ifname_);
 
          if (l > sbufs_brem(&rs)) {
              log_line("dhcp6: Option is too long on %s\n", self->ifname_);
@@ -745,8 +712,6 @@ static void process_receive(struct D6Listener *self, char *buf, size_t buflen,
                           "%.2hhx", (uint8_t)d6s.client_duid_blob[j]);
                  d6s.client_duid_str_size += 2;
              }
-             if (d6s.client_duid_blob_size > 0)
-                log_line("dhcp6: DUID %s on %s\n", d6s.client_duid_str, self->ifname_);
          } else if (ot == 2) { // ServerID
              if (l > sizeof d6s.server_duid_blob) {
                  log_line("dhcp6: server DUID is too long on %s\n", self->ifname_);
@@ -780,9 +745,6 @@ static void process_receive(struct D6Listener *self, char *buf, size_t buflen,
                  d6s.prev_opt_code[d6s.prev_opt_n] = 3;
                  d6s.prev_opt_remlen[d6s.prev_opt_n++] = na_options_len;
              }
-
-             log_line("dhcp6: IA_NA: iaid=%u opt_len=%u on %s\n",
-                      d6s.ias[d6s.ias_n - 1].iaid, na_options_len, self->ifname_);
          } else if (ot == 5) { // Address
              if (l < 24) {
                  log_line("dhcp6: Client-sent option IAADDR has a bad length (%u) on %s\n", l, self->ifname_);
@@ -814,10 +776,6 @@ static void process_receive(struct D6Listener *self, char *buf, size_t buflen,
                  d6s.prev_opt_code[d6s.prev_opt_n] = 5;
                  d6s.prev_opt_remlen[d6s.prev_opt_n++] = iaa_options_len;
              }
-
-             char abuf[48];
-             if (!ipaddr_to_string(abuf, sizeof abuf, &d6s.ias[d6s.ias_n - 1].ia_na_addrs[niana].addr)) abort();
-             log_line("dhcp6: IA Address: %s opt_len=%d on %s\n", abuf, iaa_options_len, self->ifname_);
              d6s.ias[d6s.ias_n - 1].ia_na_addrs_n++;
          } else if (ot == 6) { // OptionRequest
              if (l % 2) {
@@ -838,13 +796,6 @@ static void process_receive(struct D6Listener *self, char *buf, size_t buflen,
                  default: break;
                  }
              }
-             log_line("dhcp6: Option Request%s%s%s%s%s on %s\n",
-                      d6s.optreq_dns ? " DNS" : "",
-                      d6s.optreq_dns_search ? " DNS_SEARCH" : "",
-                      d6s.optreq_sntp ? " SNTP" : "",
-                      d6s.optreq_info_refresh_time ? " INFO_REFRESH" : "",
-                      d6s.optreq_ntp ? " NTP" : "",
-                      self->ifname_);
          } else if (ot == 8) { // ElapsedTime
              // 16-bit hundreths of a second since start of exchange
              if (l != 2) {
@@ -860,7 +811,6 @@ static void process_receive(struct D6Listener *self, char *buf, size_t buflen,
              }
              d6s.use_rapid_commit = true;
          } else if (ot == 39) { // Client FQDN
-             log_line("dhcp6: FQDN Length: %d\n", l);
              if (l < 3) {
                  log_line("dhcp6: Client-sent option Client FQDN has a bad length on %s\n", self->ifname_);
                  return;
@@ -873,7 +823,6 @@ static void process_receive(struct D6Listener *self, char *buf, size_t buflen,
                  log_line("dhcp6: Client-sent option Client FQDN namelen disagrees with length on %s\n", self->ifname_);
                  return;
              }
-             log_line("dhcp6: FQDN Flags='%u', NameLen='%u' on %s\n", flags, namelen, self->ifname_);
              log_line("dhcp6: Client FQDN: flags='%u' '%.*s' on %s\n", flags, namelen, rs.si, self->ifname_);
              rs.si += l;
              OPTIONS_CONSUME(l);

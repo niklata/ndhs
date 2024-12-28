@@ -434,7 +434,6 @@ static bool create_reply(struct D4Listener *self, struct dhcpmsg *reply, const u
 
 static void reply_discover(struct D4Listener *self)
 {
-    log_line("dhcp4: Got DHCP4 discover message\n");
     struct dhcpmsg reply;
     dhcpmsg_init(self, &reply, DHCPOFFER, self->dhcpmsg_.xid);
     if (create_reply(self, &reply, self->dhcpmsg_.chaddr, true))
@@ -443,7 +442,6 @@ static void reply_discover(struct D4Listener *self)
 
 static void reply_request(struct D4Listener *self)
 {
-    log_line("dhcp4: Got DHCP4 request message\n");
     struct dhcpmsg reply;
     dhcpmsg_init(self, &reply, DHCPACK, self->dhcpmsg_.xid);
     if (create_reply(self, &reply, self->dhcpmsg_.chaddr, true)) {
@@ -454,7 +452,6 @@ static void reply_request(struct D4Listener *self)
 
 static void reply_inform(struct D4Listener *self)
 {
-    log_line("dhcp4: Got DHCP4 inform message\n");
     struct dhcpmsg reply;
     dhcpmsg_init(self, &reply, DHCPACK, self->dhcpmsg_.xid);
     if (create_reply(self, &reply, self->dhcpmsg_.chaddr, false)) {
