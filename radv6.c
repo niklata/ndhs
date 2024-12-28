@@ -468,14 +468,6 @@ static void process_receive(struct RA6Listener *self, char *buf, size_t buflen,
     struct icmp_header icmp_hdr;
     if (!icmp_header_read(&icmp_hdr, &rs)) return;
 
-    // XXX: Discard if the ip header hop limit field != 255
-#if 0
-    if (ipv6_hdr.hop_limit() != 255) {
-        log_line("ra6: Hop limit != 255\n");
-        return;
-    }
-#endif
-
     if (!self->using_bpf_) {
         // Discard if the ICMP code is not 0.
         if (icmp_header_code(&icmp_hdr) != 0) {
