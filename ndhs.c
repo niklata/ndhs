@@ -314,6 +314,6 @@ int main(int ac, char *av[])
 
     dynlease_serialize(LEASEFILE_PATH);
 
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
