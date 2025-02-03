@@ -120,7 +120,9 @@ static int dns_label(char *out, size_t outlen, const char *ds)
         if (len > 63) return -2; // label too long
         if (outlen < 1 + en - st) return -1; // out of space
         *out++ = len; --outlen;
-        memcpy(out, &ds[st], en - st); outlen -= en - st;
+        memcpy(out, &ds[st], en - st);
+        out += len;
+        outlen -= len;
     }
     // Terminating zero length label.
     if (outlen < 1) return -1; // out of space
