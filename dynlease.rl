@@ -65,7 +65,10 @@ void dynlease_gc(void)
                     ls4_freelist = p->next;
                     p = p->next;
                 }
-                prev = &p->next, p = p->next;
+                if (p) {
+                    prev = &p->next;
+                    p = p->next;
+                }
             }
         }
         if (dyn_leases_v6[i]) {
@@ -79,7 +82,10 @@ void dynlease_gc(void)
                     assert(n_leases_v6[i] > 0);
                     --n_leases_v6[i];
                 }
-                prev = &p->next, p = p->next;
+                if (p) {
+                    prev = &p->next;
+                    p = p->next;
+                }
             }
         }
     }
