@@ -151,10 +151,6 @@ static bool create_dhcp4_socket(struct D4Listener *self)
         log_line("dhcp4: Failed to set broadcast flag on %s: %s\n", self->ifname, strerror(errno));
         goto err1;
     }
-    if (setsockopt(self->fd, SOL_SOCKET, SO_DONTROUTE, &iv, sizeof iv) == -1) {
-        log_line("dhcp4: Failed to set do not route flag on %s: %s\n", self->ifname, strerror(errno));
-        goto err1;
-    }
     if (setsockopt(self->fd, SOL_SOCKET, SO_REUSEADDR, &iv, sizeof iv) == -1) {
         log_line("dhcp4: Failed to set reuse address flag on %s: %s\n", self->ifname, strerror(errno));
         goto err1;
