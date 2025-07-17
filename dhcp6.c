@@ -566,6 +566,7 @@ static bool attach_dns_ntp_info(struct D6Listener *self, const struct d6msg_stat
 static bool confirm_match(struct D6Listener *self, const struct d6msg_state *d6s, bool *confirmed)
 {
     *confirmed = false;
+    if (!d6s->ias_n) return false;
     for (size_t i = 0; i < d6s->ias_n; ++i) {
         log_line("dhcp6: Confirming match for duid='%s' iaid=%u...\n", d6s->client_duid_str, d6s->ias[i].iaid);
         if (!d6s->ias[i].ia_na_addrs_n) return false; // See RFC8415 18.3.3 p3
