@@ -1,5 +1,5 @@
 // -*- c -*-
-// Copyright 2016-2024 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2016-2025 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <unistd.h>
 #include <time.h>
@@ -487,14 +487,7 @@ bool dynlease_deserialize(const char *path)
         if (dyn_leases_v4[i]) abort();
         if (dyn_leases_v6[i]) abort();
     }
-    while (!feof(f)) {
-        if (!fgets(buf, sizeof buf, f)) {
-            if (!feof(f)) {
-                log_line("%s: io error fetching line of '%s'\n", __func__, path);
-                goto out1;
-            }
-            break;
-        }
+    while (fgets(buf, sizeof buf, f)) {
         size_t llen = strlen(buf);
         if (llen == 0)
             continue;
@@ -512,6 +505,10 @@ bool dynlease_deserialize(const char *path)
                          __func__, linenum);
             continue;
         }
+    }
+    if (ferror(f)) {
+        log_line("%s: io error fetching line of '%s'\n", __func__, path);
+        goto out1;
     }
     ret = true;
 out1:
