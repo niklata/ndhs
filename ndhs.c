@@ -163,6 +163,18 @@ void set_s6_notify_fd(int fd)
     s6_notify_fd = fd;
 }
 
+static void s6_notify_ready(void)
+{
+    if (s6_notify_fd >= 0) {
+        for (size_t i = 0, iend = poll_size; i < iend; ++i) {
+            if (poll_array[i].fd == s6_notify_fd) return;
+        }
+        const char buf[] = "\n";
+        safe_write(s6_notify_fd, buf, 1);
+        close(s6_notify_fd);
+    }
+}
+
 static volatile sig_atomic_t l_signal_exit;
 static void signal_handler(int signo)
 {
@@ -274,11 +286,7 @@ static void process_options(int ac, char *av[])
     dynlease_deserialize(LEASEFILE_PATH);
     nk_set_uidgid(ndhs_uid, ndhs_gid, NULL, 0);
 
-    if (s6_notify_fd >= 0) {
-        const char buf[] = "\n";
-        safe_write(s6_notify_fd, buf, 1);
-        close(s6_notify_fd);
-    }
+    s6_notify_ready();
 }
 
 int main(int ac, char *av[])
