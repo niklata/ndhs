@@ -88,6 +88,8 @@ static void get_interface_addresses(const struct netif_info *ifinfo, bool, bool,
     }
 }
 
+struct RA6Listener *ra6listener_obj = NULL;
+
 static void create_interface_listener(const struct netif_info *ifinfo,
                                       bool use_v4, bool use_v6,
                                       uint8_t preference, void *ud)
@@ -102,6 +104,7 @@ static void create_interface_listener(const struct netif_info *ifinfo,
                 poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = PFD_TYPE_DHCP6, .ld6 = d6l };
                 poll_array[*pfdc] = (struct pollfd){ .fd = RA6Listener_fd(r6l), .events = POLLIN|POLLHUP|POLLERR };
                 poll_meta[(*pfdc)++] = (struct pfd_meta){ .pfdt = PFD_TYPE_RADV6, .lr6 = r6l };
+                ra6listener_obj = r6l;
             } else {
                 log_line("Can't bind to rav6 interface: %s\n", ifinfo->name);
                 D6Listener_destroy(d6l);
@@ -282,31 +285,38 @@ int main(int ac, char *av[])
 {
     process_options(ac, av);
 
+    int npending = 0;
     for (;;) {
         int timeout = INT_MAX;
-        for (size_t i = 0, iend = poll_size; i < iend; ++i) {
-            if (poll_array[i].revents & (POLLHUP|POLLERR))
-                suicide("fd closed unexpectedly\n");
-            switch (poll_meta[i].pfdt) {
-            case PFD_TYPE_NETLINK:
-                if (poll_array[i].revents & POLLIN) NLSocket_process_input(&nl_socket);
-                break;
-            case PFD_TYPE_DHCP4:
-                if (poll_array[i].revents & POLLIN) D4Listener_process_input(poll_meta[i].ld4);
-                break;
-            case PFD_TYPE_DHCP6:
-                if (poll_array[i].revents & POLLIN) D6Listener_process_input(poll_meta[i].ld6);
-                break;
-            case PFD_TYPE_RADV6: {
-                if (poll_array[i].revents & POLLIN) RA6Listener_process_input(poll_meta[i].lr6);
-                int t = RA6Listener_send_periodic_advert(poll_meta[i].lr6);
-                timeout = timeout < t ? timeout : t;
-                break;
-            }
+        if (npending > 0) {
+            for (size_t i = 0, iend = poll_size; i < iend; ++i) {
+                if (poll_array[i].revents & (POLLHUP|POLLERR))
+                    suicide("fd closed unexpectedly\n");
+                if (poll_array[i].revents & POLLIN) {
+                    switch (poll_meta[i].pfdt) {
+                    case PFD_TYPE_NETLINK:
+                        NLSocket_process_input(&nl_socket);
+                        break;
+                    case PFD_TYPE_DHCP4:
+                        D4Listener_process_input(poll_meta[i].ld4);
+                        break;
+                    case PFD_TYPE_DHCP6:
+                        D6Listener_process_input(poll_meta[i].ld6);
+                        break;
+                    case PFD_TYPE_RADV6: {
+                        RA6Listener_process_input(poll_meta[i].lr6);
+                        break;
+                    }
+                    }
+                }
             }
         }
         dynlease_gc();
-        if (poll(poll_array, poll_size, timeout > 0 ? timeout : 0) < 0) {
+        if (ra6listener_obj) {
+            int t = RA6Listener_send_periodic_advert(ra6listener_obj);
+            timeout = timeout < t ? timeout : t;
+        }
+        if ((npending = poll(poll_array, poll_size, timeout > 0 ? timeout : -1)) < 0) {
             if (errno != EINTR) suicide("poll failed\n");
         }
         if (l_signal_exit) break;
