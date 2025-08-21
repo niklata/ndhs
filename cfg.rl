@@ -11,7 +11,6 @@
 
 extern void set_user_runas(const char *username, size_t len);
 extern void set_chroot_path(const char *path, size_t len);
-extern void set_s6_notify_fd(int fd);
 
 #define MAX_LINE 2048
 
@@ -126,21 +125,6 @@ static bool string_to_ipaddr(struct in6_addr *r, const char *s, size_t linenum)
     }
     action UserEn { set_user_runas(MARKED_STRING()); }
     action ChrootEn { set_chroot_path(MARKED_STRING()); }
-    action S6NotifyEn {
-        char buf[64];
-        ptrdiff_t blen = p - cps->st;
-        if (blen < 0 || blen >= (int)sizeof buf) {
-            cps->parse_error = true;
-            fbreak;
-        }
-        memcpy(buf, cps->st, (size_t)blen); buf[blen] = 0;
-        int fd;
-        if (sscanf(buf, "%d", &fd) != 1) {
-            cps->parse_error = true;
-            fbreak;
-        }
-        set_s6_notify_fd(fd);
-    }
     action DefLifeEn {
         char buf[64];
         ptrdiff_t blen = p - cps->st;
@@ -267,7 +251,6 @@ static bool string_to_ipaddr(struct in6_addr *r, const char *s, size_t linenum)
     bind6 = space* 'bind6' (space+ alnum+ >St %Bind6En)+ tcomment;
     user = space* 'user' space+ graph+ >St %UserEn tcomment;
     chroot = space* 'chroot' space+ graph+ >St %ChrootEn tcomment;
-    s6_notify = space* 's6_notify' space+ digit+ >St %S6NotifyEn tcomment;
     default_lifetime = space* 'default_lifetime' space+ digit+ >St %DefLifeEn tcomment;
     default_preference = space* 'default_preference' space+ digit+ >St %DefPrefEn tcomment;
     interface = space* 'interface' space+ alnum+ >St %InterfaceEn tcomment;
@@ -280,7 +263,7 @@ static bool string_to_ipaddr(struct in6_addr *r, const char *s, size_t linenum)
     v4_entry = space* 'v4' space+ macaddr space+ v4_addr tcomment;
     v6_entry = space* 'v6' space+ duid space+ iaid space+ v6_addr tcomment;
 
-    main := comment | bind4 | bind6 | user | chroot | s6_notify | default_lifetime | default_preference
+    main := comment | bind4 | bind6 | user | chroot | default_lifetime | default_preference
           | interface | dns_server | dns_search | ntp_server | gateway
           | dynamic_range | dynamic_v6 | v6_entry %V6EntryEn | v4_entry %V4EntryEn;
 }%%

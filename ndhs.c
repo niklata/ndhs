@@ -59,7 +59,6 @@ static const char *configfile = "/etc/ndhs.conf";
 static char *chroot_path;
 static uid_t ndhs_uid;
 static gid_t ndhs_gid;
-static int s6_notify_fd = -1;
 
 struct NLSocket nl_socket;
 
@@ -71,7 +70,6 @@ extern bool parse_config(const char *path);
 
 void set_user_runas(const char *username, size_t len);
 void set_chroot_path(const char *path, size_t len);
-void set_s6_notify_fd(int fd);
 
 static void count_bound_listeners(const struct netif_info *, bool use_v4, bool use_v6, uint8_t, void *)
 {
@@ -156,23 +154,6 @@ void set_user_runas(const char *username, size_t len)
 void set_chroot_path(const char *path, size_t len)
 {
     chroot_path = strndup(path, len);
-}
-
-void set_s6_notify_fd(int fd)
-{
-    s6_notify_fd = fd;
-}
-
-static void s6_notify_ready(void)
-{
-    if (s6_notify_fd >= 0) {
-        for (size_t i = 0, iend = poll_size; i < iend; ++i) {
-            if (poll_array[i].fd == s6_notify_fd) return;
-        }
-        const char buf[] = "\n";
-        safe_write(s6_notify_fd, buf, 1);
-        close(s6_notify_fd);
-    }
 }
 
 static volatile sig_atomic_t l_signal_exit;
@@ -285,8 +266,6 @@ static void process_options(int ac, char *av[])
     duid_load_from_file();
     dynlease_deserialize(LEASEFILE_PATH);
     nk_set_uidgid(ndhs_uid, ndhs_gid, NULL, 0);
-
-    s6_notify_ready();
 }
 
 int main(int ac, char *av[])

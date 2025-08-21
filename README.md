@@ -55,10 +55,11 @@ $ su -
 Set up a configure file.  See below for more information.  The default
 location for a configure file is `/etc/ndhs.conf`.
 
-Run ndhs.  Use `ndhs --help` to see all possible options.  I strongly suggest
-running ndhs under some sort of process supervision, such as
-[s6](http://www.skarnet.org/software/s6).  This will allow for reliable
-functioning in the case of unforseen or unrecoverable errors.
+Run ndhs.  Use `ndhs --help` to see all possible options.
+
+I suggest running ndhs under some sort of process supervisor.  OpenRC
+can do this via supervise-daemon.  Other inits such as runit, s6, or
+systemd can do this natively.
 
 ## Configuration Format
 
@@ -75,7 +76,6 @@ bind4 <interface_name>...
 bind6 <interface_name>...
 default_preference <value>
 default_lifetime <seconds>
-s6_notify <fdnum>
 ```
 
 `user` specifies the username of the account that ndhs will switch to
@@ -102,9 +102,6 @@ valid DHCP6 replies.  This statement takes effect for all subsequent
 
 `default_lifetime` specifies the duration in seconds for which dhcp
 leases will be valid.
-
-`s6_notify` specifies the file descriptor number to which a newline will be
-written after ndhs begins processing requests.
 
 ### Interface-specific Values
 ```
