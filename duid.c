@@ -1,4 +1,4 @@
-// Copyright 2016-2024 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2016-2025 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <stdint.h>
 #include <string.h>
@@ -21,13 +21,21 @@ char g_server_duid[SERVER_DUID_LEN];
 static void print_duid(void)
 {
     if (SERVER_DUID_LEN <= 0) return;
-    log_line("DUID is '");
-    char tbuf[16] = {0};
+    char tbuf[SERVER_DUID_LEN*3+10] = {0};
+    size_t l = 0;
+    int t;
+    t = snprintf(tbuf + l, sizeof tbuf - l, "DUID is ");
+    if (t < 0) abort();
+    l += (size_t)t;
     for (unsigned i = 0; i < SERVER_DUID_LEN; ++i) {
-        snprintf(tbuf, sizeof tbuf, "%.2hhx", (uint8_t)g_server_duid[i]);
-        log_line("%s", tbuf);
+        t = snprintf(tbuf + l, sizeof tbuf - l, "%.2hhx", (uint8_t)g_server_duid[i]);
+        if (t < 0) abort();
+        l += (size_t)t;
     }
-    log_line("'\n");
+    t = snprintf(tbuf + l, sizeof tbuf - l, "\n");
+    if (t < 0) abort();
+    l += (size_t)t;
+    log_line("%s", tbuf);
 }
 
 // Use DUID-UUID (RFC6355)
