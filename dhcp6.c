@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <net/if.h>
 #include <ipaddr.h>
 #include "nlsocket.h"
@@ -17,6 +18,12 @@
 #include "nk/io.h"
 #include "nk/random.h"
 #include "get_current_ts.h"
+
+#ifdef NDEBUG
+#define log_debug(...) do {} while (0)
+#else
+#define log_debug(...) log_line(__VA_ARGS__)
+#endif
 
 #define MAX_DYN_LEASES 1000u
 #define MAX_DYN_ATTEMPTS 100u

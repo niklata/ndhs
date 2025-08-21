@@ -1,4 +1,4 @@
-// Copyright 2014-2024 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2014-2025 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #define NDHS_VERSION "3.0"
 #define LEASEFILE_PATH "/store/dynlease.txt"
@@ -195,9 +195,10 @@ static void setup_signals_ndhs(void)
 static void usage(void)
 {
     printf("ndhs " NDHS_VERSION ", DHCPv4/DHCPv6 and IPv6 Router Advertisement server.\n");
-    printf("Copyright 2014-2024 Nicholas J. Kain\n");
+    printf("Copyright 2014-2025 Nicholas J. Kain\n");
     printf("ndhs [options] [configfile]...\n\nOptions:\n");
     printf("--config          -c []  Path to configuration file.\n");
+    printf("--syslog          -S     Log to syslog rather than stderr.\n");
     printf("--version         -v     Print version and exit.\n");
     printf("--help            -h     Print this help and exit.\n");
 }
@@ -205,7 +206,7 @@ static void usage(void)
 static void print_version(void)
 {
     log_line("ndhs " NDHS_VERSION ", ipv6 router advertisment and dhcp server.\n"
-             "Copyright 2014-2024 Nicholas J. Kain\n\n"
+             "Copyright 2014-2025 Nicholas J. Kain\n\n"
 "Permission is hereby granted, free of charge, to any person obtaining\n"
 "a copy of this software and associated documentation files (the\n"
 "\"Software\"), to deal in the Software without restriction, including\n"
@@ -229,15 +230,17 @@ static void process_options(int ac, char *av[])
 {
     static const struct option long_options[] = {
         {"config", 1, NULL, 'c'},
+        {"syslog", 0, NULL, 'S'},
         {"version", 0, NULL, 'v'},
         {"help", 0, NULL, 'h'},
         {NULL, 0, NULL, 0 }
     };
     for (;;) {
-        int c = getopt_long(ac, av, "c:vh", long_options, NULL);
+        int c = getopt_long(ac, av, "c:Svh", long_options, NULL);
         if (c == -1) break;
         switch (c) {
             case 'c': configfile = strdup(optarg); break;
+            case 'S': nk_set_is_daemon(); openlog("ndhs", LOG_CONS, LOG_DAEMON); break;
             case 'v': print_version(); exit(EXIT_SUCCESS); break;
             case 'h': usage(); exit(EXIT_SUCCESS); break;
             default: break;

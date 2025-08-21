@@ -1,4 +1,4 @@
-NDHS_C_SRCS = $(sort attach_bpf.c cfg.c dhcp4.c dhcp6.c dhcp_state.c duid.c dynlease.c multicast6.c ndhs.c nl.c nlsocket.c options.c radv6.c nk/hwrng.c nk/random.c nk/io.c nk/privs.c)
+NDHS_C_SRCS = $(sort attach_bpf.c cfg.c dhcp4.c dhcp6.c dhcp_state.c duid.c dynlease.c multicast6.c ndhs.c nl.c nlsocket.c options.c radv6.c nk/hwrng.c nk/random.c nk/io.c nk/privs.c nk/daemon.c)
 NDHS_OBJS = $(NDHS_C_SRCS:.c=.o)
 NDHS_DEP = $(NDHS_C_SRCS:.c=.d)
 INCL = -I.

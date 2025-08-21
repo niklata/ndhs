@@ -4,20 +4,14 @@
 #define NCM_LOG_H_
 
 #include <stdlib.h>
-#include <stdio.h>
+#include "nk/daemon.h"
 
 #define log_line(...) do { \
-    dprintf(2, __VA_ARGS__); \
+    nk_log(LOG_INFO, __VA_ARGS__); \
     } while (0)
 
-#ifndef NDEBUG
-#define log_debug(...) log_line(__VA_ARGS__)
-#else
-#define log_debug(...) do {} while(0)
-#endif
-
 #define suicide(...) do { \
-    dprintf(2, __VA_ARGS__); \
+    nk_log(LOG_CRIT, __VA_ARGS__); \
     exit(EXIT_FAILURE); } while (0)
 
 #endif
