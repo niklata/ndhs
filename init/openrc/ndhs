@@ -1,0 +1,15 @@
+#!/sbin/openrc-run
+# Copyright 2025 Gentoo Authors
+# Distributed under the terms of the GNU General Public License v2
+
+name="ndhs daemon"
+description="ndhs dhcp[46]/router advertisement server"
+command=/usr/local/sbin/ndhs
+command_background=true
+pidfile="/run/ndhs.pid"
+command_args="-S ${ndhs_args}"
+
+depend() {
+    need net.lan0 net.lan1
+    use logger
+}
