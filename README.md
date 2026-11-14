@@ -110,7 +110,7 @@ v4 <mac_address> <ipv4_address>
 v6 <duid> <iaid> <ipv6_address>
 gateway <ipv4_address>
 dns_server <ip_address>...
-dns_search <fully_qualified_hostname>...
+dns_search <fully_qualified_hostname>
 ntp_server <ip_address>...
 dynamic_range <ipv4_address> <ipv4_address>
 dynamic_v6
@@ -137,6 +137,9 @@ specified by the typical hexadecimal string delimited by `:`.
 addresses are in the typical string representations for ipv4 or ipv6
 addresses.  Multiple addresses are delimited by spaces or tabs.  Only
 the most recent `dns_server` option for an interface has any effect.
+
+`dns_search` specifies the local domain provided to the client.
+This must be a single domain, not a list of domains.
 
 `ntp_server` specifies a list of ntp servers for the address.  The ip
 addresses are in the typical string representations for ipv4 or ipv6

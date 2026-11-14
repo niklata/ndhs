@@ -1,4 +1,4 @@
-// Copyright 2016-2024 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2016-2026 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #ifndef NDHS_DHCP_STATE_H_
 #define NDHS_DHCP_STATE_H_
@@ -58,6 +58,7 @@ const struct dhcpv6_entry *query_dhcp6_state(int ifindex,
 const struct dhcpv4_entry *query_dhcp4_state(int ifindex, const uint8_t *hwaddr);
 struct addrlist query_dns_servers(int ifindex);
 struct addrlist query_ntp_servers(int ifindex);
+struct blob query_dns4_name_blob(int ifindex);
 struct blob query_dns4_search_blob(int ifindex);
 struct blob query_dns6_search_blob(int ifindex);
 const struct in6_addr *query_gateway_v4(int ifindex);

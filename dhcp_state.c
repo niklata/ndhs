@@ -1,4 +1,4 @@
-// Copyright 2016-2024 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2016-2026 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <assert.h>
 #include "dhcp_state.h"
@@ -49,8 +49,10 @@ struct interface_data
     struct in6_addr dynamic_range_lo;
     struct in6_addr dynamic_range_hi;
     struct str_slist *p_dns_search;
+    char *d4_dns_name_blob;
     char *d4_dns_search_blob;
     char *ra6_dns_search_blob;
+    size_t d4_dns_name_blob_size;
     size_t d4_dns_search_blob_size;
     size_t ra6_dns_search_blob_size;
     uint32_t dynamic_lifetime;
@@ -132,6 +134,40 @@ static int dns_label(char *out, size_t outlen, const char *ds)
     return out - out_st <= 255 ? out - out_st : -2;
 }
 
+static void create_d4_dns_name_blob(char **out, size_t *outlen,
+                                    struct str_slist *dns_name)
+{
+    size_t blen = 0;
+    char buf[256]; // must be >= 255 bytes
+
+    bool first = true;
+    for (struct str_slist *e = dns_name; e; e = e->next) {
+        if (!first) {
+            if (blen >= sizeof buf) {
+                log_line("dns_search is too long\n");
+                abort();
+            }
+            buf[blen++] = '.';
+        }
+        first = false;
+
+        size_t strsz = strlen(e->str);
+        if (strsz + blen >= sizeof buf) {
+            log_line("dns_search is too long\n");
+            abort();
+        }
+        memcpy(buf, e->str + blen, strsz);
+        blen += strsz;
+        buf[blen++] = 0;
+    }
+    assert(blen <= 255);
+    if (*out) { free(*out); *out = NULL; }
+    *out = malloc(blen);
+    if (!*out) abort();
+    *outlen = blen;
+    memcpy(*out, buf, blen);
+}
+
 static void create_d4_dns_search_blob(char **out, size_t *outlen,
                                       struct str_slist *dns_search)
 {
@@ -143,10 +179,10 @@ static void create_d4_dns_search_blob(char **out, size_t *outlen,
         if (r < 0) {
             if (r == -1) {
                 log_line("too many names in dns_search\n");
-                break;
+                abort();
             } else {
                 log_line("malformed input to dns_search\n");
-                continue;
+                abort();
             }
         }
         blen += (size_t)r;
@@ -170,10 +206,10 @@ static void create_ra6_dns_search_blob(char **out, size_t *outlen,
         if (r < 0) {
             if (r == -1) {
                 log_line("too many names in dns_search\n");
-                break;
+                abort();
             } else {
                 log_line("malformed input to dns_search\n");
-                continue;
+                abort();
             }
         }
         blen += (size_t)r;
@@ -191,6 +227,7 @@ void create_blobs(void)
     for (size_t i = 0; i < MAX_NL_INTERFACES; ++i) {
         struct interface_data *p = interface_state[i];
         if (p) {
+            create_d4_dns_name_blob(&p->d4_dns_name_blob, &p->d4_dns_name_blob_size, p->p_dns_search);
             create_d4_dns_search_blob(&p->d4_dns_search_blob, &p->d4_dns_search_blob_size, p->p_dns_search);
             create_ra6_dns_search_blob(&p->ra6_dns_search_blob, &p->ra6_dns_search_blob_size, p->p_dns_search);
             str_slist_destroy(&p->p_dns_search);
@@ -464,6 +501,16 @@ struct addrlist query_ntp_servers(int ifindex)
     struct interface_data *is = interface_state[ifindex];
     if (!is) goto err;
     return is->ntpaddrs;
+}
+
+struct blob query_dns4_name_blob(int ifindex)
+{
+    if (ifindex < 0 || ifindex >= MAX_NL_INTERFACES) {
+    err: return (struct blob){ .n = 0, .s = NULL };
+    }
+    struct interface_data *is = interface_state[ifindex];
+    if (!is) goto err;
+    return (struct blob){ .n = is->d4_dns_name_blob_size, .s = is->d4_dns_name_blob };
 }
 
 struct blob query_dns4_search_blob(int ifindex)

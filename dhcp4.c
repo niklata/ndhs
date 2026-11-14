@@ -1,4 +1,4 @@
-// Copyright 2011-2024 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2011-2026 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <unistd.h>
 #include <sys/types.h>
@@ -420,8 +420,11 @@ static bool create_reply(struct D4Listener *self, struct dhcpmsg *reply, const u
     struct addrlist ntp_servers = query_ntp_servers(self->ifindex);
     if (ntp_servers.n) iplist_option(reply, DCODE_NTPSVR, &ntp_servers);
 
-    struct blob d4b = query_dns4_search_blob(self->ifindex);
+    struct blob d4b = query_dns4_name_blob(self->ifindex);
     if (d4b.n && d4b.s) add_option_domain_name(reply, d4b.s, d4b.n);
+
+    struct blob d4s = query_dns4_search_blob(self->ifindex);
+    if (d4s.n && d4s.s) add_option_domain_search(reply, d4s.s, d4s.n);
 
     log_line("dhcp4: Sending reply %u.%u.%u.%u\n", reply->yiaddr & 255,
              (reply->yiaddr >> 8) & 255, (reply->yiaddr >> 16) & 255, (reply->yiaddr >> 24) & 255);
