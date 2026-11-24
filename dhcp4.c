@@ -135,7 +135,6 @@ static void D4State_kill(struct D4State *self, uint8_t *hwaddr)
 // Must be called after ifname is set and only should be called once.
 static bool create_dhcp4_socket(struct D4Listener *self)
 {
-    struct ifreq ifr = {0};
     const int iv = 1;
     size_t ifname_len = strlen(self->ifname);
     struct sockaddr_in sai = {
@@ -155,18 +154,17 @@ static bool create_dhcp4_socket(struct D4Listener *self)
         log_line("dhcp4: Failed to set reuse address flag on %s: %s\n", self->ifname, strerror(errno));
         goto err1;
     }
+    if (ifname_len >= IFNAMSIZ) {
+        log_line("dhcp4: Interface name '%s' is too long: %zu >= %d\n",
+                 self->ifname, ifname_len, IFNAMSIZ);
+        goto err1;
+    }
+    if (setsockopt(self->fd, SOL_SOCKET, SO_BINDTODEVICE, self->ifname, ifname_len + 1) < 0) {
+        log_line("dhcp4: Failed to bind socket to device on %s: %s\n", self->ifname, strerror(errno));
+        goto err1;
+    }
     if (bind(self->fd, (const struct sockaddr *)&sai, sizeof sai)) {
         log_line("dhcp4: Failed to bind to UDP 67 on %s: %s\n", self->ifname, strerror(errno));
-        goto err1;
-    }
-    if (ifname_len >= sizeof ifr.ifr_name) {
-        log_line("dhcp4: Interface name '%s' is too long: %zu >= %zu\n",
-                 self->ifname, ifname_len, sizeof ifr.ifr_name);
-        goto err1;
-    }
-    memcpy(ifr.ifr_name, self->ifname, ifname_len);
-    if (setsockopt(self->fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
-        log_line("dhcp4: Failed to bind socket to device on %s: %s\n", self->ifname, strerror(errno));
         goto err1;
     }
     return true;
