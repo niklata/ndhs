@@ -328,7 +328,7 @@ static struct in6_addr u32_ipaddr(uint32_t v)
     return ret;
 }
 
-static bool allot_dynamic_ip(struct D4Listener *self, struct dhcpmsg *reply, const uint8_t *hwaddr, bool do_assign)
+static bool allot_dynamic_ip(struct D4Listener *self, struct dhcpmsg *reply, const uint8_t *hwaddr)
 {
     uint32_t dynamic_lifetime;
     if (!query_use_dynamic_v4(self->ifindex, &dynamic_lifetime))
@@ -372,8 +372,7 @@ static bool allot_dynamic_ip(struct D4Listener *self, struct dhcpmsg *reply, con
     // If no success, then all IPs are taken, so return false.
     for (uint32_t i = al + rqs; i <= ah; ++i) {
         struct in6_addr iaddr = u32_ipaddr(htonl(i));
-        bool matched = do_assign ? dynlease4_add(self->ifindex, &iaddr, hwaddr, expire_time)
-                                 : dynlease4_exists(self->ifindex, &iaddr, hwaddr);
+        bool matched = dynlease4_add(self->ifindex, &iaddr, hwaddr, expire_time);
         if (matched) {
             reply->yiaddr = htonl(i);
             add_u32_option(reply, DCODE_LEASET, htonl(dynamic_lifetime));
@@ -382,8 +381,7 @@ static bool allot_dynamic_ip(struct D4Listener *self, struct dhcpmsg *reply, con
     }
     for (uint32_t i = al; i < al + rqs; ++i) {
         struct in6_addr iaddr = u32_ipaddr(htonl(i));
-        bool matched = do_assign ? dynlease4_add(self->ifindex, &iaddr, hwaddr, expire_time)
-                                 : dynlease4_exists(self->ifindex, &iaddr, hwaddr);
+        bool matched = dynlease4_add(self->ifindex, &iaddr, hwaddr, expire_time);
         if (matched) {
             reply->yiaddr = htonl(i);
             add_u32_option(reply, DCODE_LEASET, htonl(dynamic_lifetime));
@@ -393,16 +391,8 @@ static bool allot_dynamic_ip(struct D4Listener *self, struct dhcpmsg *reply, con
     return false;
 }
 
-static bool create_reply(struct D4Listener *self, struct dhcpmsg *reply, const uint8_t *hwaddr, bool do_assign)
+static bool add_interface_opts(struct D4Listener *self, struct dhcpmsg *reply)
 {
-    const struct dhcpv4_entry *dv4s = query_dhcp4_state(self->ifindex, hwaddr);
-    if (!dv4s) {
-        if (!allot_dynamic_ip(self, reply, hwaddr, do_assign))
-            return false;
-    } else {
-        memcpy(&reply->yiaddr, ipaddr_v4_bytes(&dv4s->address), sizeof reply->yiaddr);
-        add_u32_option(reply, DCODE_LEASET, htonl(dv4s->lifetime));
-    }
     const struct in6_addr *subnet = query_subnet(self->ifindex);
     if (!subnet) return false;
     uint32_t subnet_addr;
@@ -434,6 +424,21 @@ static bool create_reply(struct D4Listener *self, struct dhcpmsg *reply, const u
     struct blob d4s = query_dns4_search_blob(self->ifindex);
     if (d4s.n && d4s.s) add_option_domain_search(reply, d4s.s, d4s.n);
 
+    return true;
+}
+
+static bool create_reply(struct D4Listener *self, struct dhcpmsg *reply, const uint8_t *hwaddr)
+{
+    const struct dhcpv4_entry *dv4s = query_dhcp4_state(self->ifindex, hwaddr);
+    if (!dv4s) {
+        if (!allot_dynamic_ip(self, reply, hwaddr))
+            return false;
+    } else {
+        memcpy(&reply->yiaddr, ipaddr_v4_bytes(&dv4s->address), sizeof reply->yiaddr);
+        add_u32_option(reply, DCODE_LEASET, htonl(dv4s->lifetime));
+    }
+    if (!add_interface_opts(self, reply)) return false;
+
     log_line("dhcp4: Sending reply %u.%u.%u.%u\n", reply->yiaddr & 255,
              (reply->yiaddr >> 8) & 255, (reply->yiaddr >> 16) & 255, (reply->yiaddr >> 24) & 255);
 
@@ -444,7 +449,7 @@ static void reply_discover(struct D4Listener *self)
 {
     struct dhcpmsg reply;
     dhcpmsg_init(self, &reply, DHCPOFFER, self->dhcpmsg.xid);
-    if (create_reply(self, &reply, self->dhcpmsg.chaddr, true))
+    if (create_reply(self, &reply, self->dhcpmsg.chaddr))
         send_reply(self, &reply);
 }
 
@@ -452,7 +457,7 @@ static void reply_request(struct D4Listener *self)
 {
     struct dhcpmsg reply;
     dhcpmsg_init(self, &reply, DHCPACK, self->dhcpmsg.xid);
-    if (create_reply(self, &reply, self->dhcpmsg.chaddr, true)) {
+    if (create_reply(self, &reply, self->dhcpmsg.chaddr)) {
         send_reply(self, &reply);
     }
     D4State_kill(self->map, self->dhcpmsg.chaddr);
@@ -462,28 +467,28 @@ static void reply_inform(struct D4Listener *self)
 {
     struct dhcpmsg reply;
     dhcpmsg_init(self, &reply, DHCPACK, self->dhcpmsg.xid);
-    if (create_reply(self, &reply, self->dhcpmsg.chaddr, false)) {
-        // http://tools.ietf.org/html/draft-ietf-dhc-dhcpinform-clarify-06
-        reply.htype = self->dhcpmsg.htype;
-        reply.hlen = self->dhcpmsg.hlen;
-        memcpy(&reply.chaddr, &self->dhcpmsg.chaddr, sizeof reply.chaddr);
-        reply.ciaddr = self->dhcpmsg.ciaddr;
-        // xid was already set equal
-        reply.flags = self->dhcpmsg.flags;
-        reply.hops = 0;
-        reply.secs = 0;
-        reply.yiaddr = 0;
-        reply.siaddr = 0;
-        reply.giaddr = self->dhcpmsg.giaddr;
-        if (self->dhcpmsg.ciaddr)
-            send_reply_do(self, &reply, SRT_UnicastCi);
-        else if (self->dhcpmsg.giaddr) {
-            uint16_t fl = ntohs(reply.flags);
-            reply.flags = htons(fl | 0x8000u);
-            send_reply_do(self, &reply, SRT_Relay);
-        } else
-            send_reply_do(self, &reply, SRT_Broadcast);
-    }
+    // http://tools.ietf.org/html/draft-ietf-dhc-dhcpinform-clarify-06
+    reply.htype = self->dhcpmsg.htype;
+    reply.hlen = self->dhcpmsg.hlen;
+    memcpy(&reply.chaddr, &self->dhcpmsg.chaddr, sizeof reply.chaddr);
+    reply.ciaddr = self->dhcpmsg.ciaddr;
+    // xid was already set equal
+    reply.flags = self->dhcpmsg.flags;
+    reply.hops = 0;
+    reply.secs = 0;
+    reply.yiaddr = 0;
+    reply.siaddr = 0;
+    reply.giaddr = self->dhcpmsg.giaddr;
+    if (!add_interface_opts(self, &reply)) return;
+
+    if (self->dhcpmsg.ciaddr)
+        send_reply_do(self, &reply, SRT_UnicastCi);
+    else if (self->dhcpmsg.giaddr) {
+        uint16_t fl = ntohs(reply.flags);
+        reply.flags = htons(fl | 0x8000u);
+        send_reply_do(self, &reply, SRT_Relay);
+    } else
+        send_reply_do(self, &reply, SRT_Broadcast);
 }
 
 static void do_release(struct D4Listener *self)
