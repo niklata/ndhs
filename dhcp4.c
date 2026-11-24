@@ -284,7 +284,7 @@ static void send_reply_do(struct D4Listener *self, const struct dhcpmsg *dm, enu
     }
     case SRT_Broadcast:   send_to(self->fd, dm, dmlen, htonl(INADDR_BROADCAST), 68); break;
     case SRT_Relay:       send_to(self->fd, dm, dmlen, self->dhcpmsg.giaddr, 67); break;
-    case SRT_UnicastYiCh: send_to(self->fd, dm, dmlen, self->dhcpmsg.yiaddr, 68); break;
+    case SRT_UnicastYiCh: send_to(self->fd, dm, dmlen, dm->yiaddr, 68); break;
     }
 }
 
