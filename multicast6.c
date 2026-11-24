@@ -1,4 +1,4 @@
-// Copyright 2016-2024 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2016-2026 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include "multicast6.h"
 #include "nlsocket.h"
@@ -13,9 +13,8 @@ bool attach_multicast_sockaddr_in6(int fd, const char *ifname, const struct sock
         log_line("Failed to get interface index for %s\n", ifname);
         return false;
     }
-    struct ifreq ifr = {0};
-    memcpy(ifr.ifr_name, ifname, strlen(ifname));
-    if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
+    size_t ifname_len = strlen(ifname);
+    if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, ifname, ifname_len + 1) < 0) {
         log_line("failed to bind socket to device: %s\n", strerror(errno));
         return false;
     }
