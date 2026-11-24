@@ -287,13 +287,18 @@ static void send_reply_do(struct D4Listener *self, const struct dhcpmsg *dm, enu
     }
 }
 
+static enum SendReplyType get_reply_type(const struct dhcpmsg *req)
+{
+    if      (req->giaddr)                 return SRT_Relay;
+    else if (req->ciaddr)                 return SRT_UnicastCi;
+    else if (ntohs(req->flags) & 0x8000u) return SRT_Broadcast;
+    else if (req->yiaddr)                 return SRT_UnicastYiCh;
+    else                                  return SRT_Broadcast;
+}
+
 static void send_reply(struct D4Listener *self, const struct dhcpmsg *reply)
 {
-    if      (self->dhcpmsg.giaddr)                 send_reply_do(self, reply, SRT_Relay);
-    else if (self->dhcpmsg.ciaddr)                 send_reply_do(self, reply, SRT_UnicastCi);
-    else if (ntohs(self->dhcpmsg.flags) & 0x8000u) send_reply_do(self, reply, SRT_Broadcast);
-    else if (self->dhcpmsg.yiaddr)                 send_reply_do(self, reply, SRT_UnicastYiCh);
-    else                                           send_reply_do(self, reply, SRT_Broadcast);
+    send_reply_do(self, reply, get_reply_type(&self->dhcpmsg));
 }
 
 static bool iplist_option(struct dhcpmsg *reply, uint8_t code, const struct addrlist *ipl)
