@@ -134,6 +134,7 @@ static int dns_label(char *out, size_t outlen, const char *ds)
     return out - out_st <= 255 ? out - out_st : -2;
 }
 
+// Returns a non-NUL-terminated string for RFC compliance.
 static void create_d4_dns_name_blob(char **out, size_t *outlen,
                                     struct str_slist *dns_name)
 {
@@ -156,12 +157,15 @@ static void create_d4_dns_name_blob(char **out, size_t *outlen,
             log_line("dns_search is too long\n");
             abort();
         }
-        memcpy(buf, e->str + blen, strsz);
+        memcpy(buf + blen, e->str, strsz);
         blen += strsz;
-        buf[blen++] = 0;
     }
     assert(blen <= 255);
     if (*out) { free(*out); *out = NULL; }
+    if (!blen) {
+        *outlen = 0;
+        return;
+    }
     *out = malloc(blen);
     if (!*out) abort();
     *outlen = blen;
@@ -189,6 +193,10 @@ static void create_d4_dns_search_blob(char **out, size_t *outlen,
     }
     assert(blen <= 255);
     if (*out) { free(*out); *out = NULL; }
+    if (!blen) {
+        *outlen = 0;
+        return;
+    }
     *out = malloc(blen);
     if (!*out) abort();
     *outlen = blen;
@@ -216,6 +224,10 @@ static void create_ra6_dns_search_blob(char **out, size_t *outlen,
     }
     assert(blen <= 8 * 254);
     if (*out) { free(*out); *out = NULL; }
+    if (!blen) {
+        *outlen = 0;
+        return;
+    }
     *out = malloc(blen);
     if (!*out) abort();
     *outlen = blen;
