@@ -464,6 +464,7 @@ static void reply_inform(struct D4Listener *self)
         reply.secs = 0;
         reply.yiaddr = 0;
         reply.siaddr = 0;
+        reply.giaddr = self->dhcpmsg.giaddr;
         if (self->dhcpmsg.ciaddr)
             send_reply_do(self, &reply, SRT_UnicastCi);
         else if (self->dhcpmsg.giaddr) {
