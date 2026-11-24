@@ -273,7 +273,15 @@ static void send_reply_do(struct D4Listener *self, const struct dhcpmsg *dm, enu
     size_t dmlen = sizeof *dm - (sizeof dm->options - 1 - (size_t)endloc);
 
     switch (srt) {
-    case SRT_UnicastCi:   send_to(self->fd, dm, dmlen, self->dhcpmsg.ciaddr, 68); break;
+    case SRT_UnicastCi:   {
+        const struct in6_addr *subnet = query_subnet(self->ifindex);
+        if (!subnet) abort();
+        uint32_t subnet_addr;
+        memcpy(&subnet_addr, ipaddr_v4_bytes(subnet), sizeof subnet_addr);
+        if ((self->dhcpmsg.ciaddr & subnet_addr) == (local_ip(self) & subnet_addr))
+            send_to(self->fd, dm, dmlen, self->dhcpmsg.ciaddr, 68);
+        break;
+    }
     case SRT_Broadcast:   send_to(self->fd, dm, dmlen, htonl(INADDR_BROADCAST), 68); break;
     case SRT_Relay:       send_to(self->fd, dm, dmlen, self->dhcpmsg.giaddr, 67); break;
     case SRT_UnicastYiCh: send_to(self->fd, dm, dmlen, self->dhcpmsg.yiaddr, 68); break;
