@@ -274,14 +274,7 @@ static void send_reply_do(struct D4Listener *self, const struct dhcpmsg *dm, enu
 
     switch (srt) {
     case SRT_UnicastCi:   send_to(self->fd, dm, dmlen, self->dhcpmsg.ciaddr, 68); break;
-    case SRT_Broadcast: {
-        const struct in6_addr *broadcast = query_broadcast(self->ifindex);
-        if (!broadcast) suicide("dhcp4: misconfigured -- must have a broadcast address\n");
-        uint32_t bcaddr;
-        memcpy(&bcaddr, ipaddr_v4_bytes(broadcast), sizeof bcaddr);
-        send_to(self->fd, dm, dmlen, bcaddr, 68);
-        break;
-    }
+    case SRT_Broadcast:   send_to(self->fd, dm, dmlen, htonl(INADDR_BROADCAST), 68); break;
     case SRT_Relay:       send_to(self->fd, dm, dmlen, self->dhcpmsg.giaddr, 67); break;
     case SRT_UnicastYiCh: send_to(self->fd, dm, dmlen, self->dhcpmsg.yiaddr, 68); break;
     }
