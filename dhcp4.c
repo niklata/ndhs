@@ -247,6 +247,8 @@ static void dhcpmsg_init(const struct D4Listener *self, struct dhcpmsg *dm, uint
         .htype = 1,
         .hlen = 6,
         .xid = xid,
+        .flags  = self->dhcpmsg.flags,
+        .giaddr = self->dhcpmsg.giaddr,
         .cookie = htonl(DHCP_MAGIC),
         .options[0] = DCODE_END,
     };
@@ -473,12 +475,10 @@ static void reply_inform(struct D4Listener *self)
     memcpy(&reply.chaddr, &self->dhcpmsg.chaddr, sizeof reply.chaddr);
     reply.ciaddr = self->dhcpmsg.ciaddr;
     // xid was already set equal
-    reply.flags = self->dhcpmsg.flags;
     reply.hops = 0;
     reply.secs = 0;
     reply.yiaddr = 0;
     reply.siaddr = 0;
-    reply.giaddr = self->dhcpmsg.giaddr;
     if (!add_interface_opts(self, &reply)) return;
 
     if (self->dhcpmsg.ciaddr)
