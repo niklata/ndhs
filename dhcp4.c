@@ -292,8 +292,10 @@ static enum SendReplyType get_reply_type(const struct dhcpmsg *req)
 {
     if      (req->giaddr)                 return SRT_Relay;
     else if (req->ciaddr)                 return SRT_UnicastCi;
-    else if (ntohs(req->flags) & 0x8000u) return SRT_Broadcast;
-    else if (req->yiaddr)                 return SRT_UnicastYiCh;
+    // Intentionally use broadcast in the UnicastYiCh case; we use a normal UDP socket
+    // for sends and the peer will not yet reply to ARP queries.  Other approaches
+    // would require ndhs to hold CAP_NET_ADMIN for either use of raw/packet sockets
+    // or to seed the kernel ARP cache before trying to send via normal sockets.
     else                                  return SRT_Broadcast;
 }
 
