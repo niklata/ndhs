@@ -368,3 +368,16 @@ size_t get_option_clientid(const struct dhcpmsg * const packet, char *cbuf,
     return get_dhcp_opt(packet, DCODE_CLIENT_ID, (uint8_t *)cbuf, clen);
 }
 
+uint32_t get_option_reqip(const struct dhcpmsg *const packet, int *found)
+{
+    uint32_t ret = 0;
+    uint8_t buf[MAX_DOPT_SIZE];
+    *found = 0;
+    const size_t ol = get_dhcp_opt(packet, DCODE_REQIP, buf, sizeof buf);
+    if (ol == sizeof ret) {
+        *found = 1;
+        memcpy(&ret, buf, sizeof ret);
+    }
+    return ret;
+}
+

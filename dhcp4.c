@@ -501,6 +501,20 @@ static void do_release(struct D4Listener *self)
     dynlease4_del(self->ifindex, &ciaddr, self->dhcpmsg.chaddr);
 }
 
+static void do_decline(struct D4Listener *self)
+{
+    int found;
+    uint32_t reqip = get_option_reqip(&self->dhcpmsg, &found);
+    if (!found) return;
+    char buf[32] = "invalid ip";
+    ip4_to_string(buf, sizeof buf, reqip);
+    log_line("dhcp4: Received a DHCPDECLINE for %s.  Clients conflict?\n", buf);
+    struct in6_addr reqip_addr = u32_ipaddr(reqip);
+    if (!dynlease4_exists(self->ifindex, &reqip_addr, self->dhcpmsg.chaddr))
+        return;
+    dynlease4_del(self->ifindex, &reqip_addr, self->dhcpmsg.chaddr);
+}
+
 static uint8_t validate_dhcp(const struct D4Listener *self, size_t len)
 {
     if (len < offsetof(struct dhcpmsg, options))
@@ -520,35 +534,25 @@ static void process_receive(struct D4Listener *self, const char *buf, size_t buf
     uint8_t msgtype = validate_dhcp(self, msglen);
     if (!msgtype)
         return;
+    if (msgtype == DHCPINFORM) {
+        reply_inform(self);
+        return;
+    } else if (msgtype == DHCPDECLINE) {
+        do_decline(self);
+        return;
+    } else if (msgtype == DHCPRELEASE) {
+        do_release(self);
+        return;
+    }
 
     uint8_t cs = D4State_get(self->map, self->dhcpmsg.xid, self->dhcpmsg.chaddr);
-    if (cs == DHCPNULL) {
-        switch (msgtype) {
-        case DHCPREQUEST:
-        case DHCPDISCOVER:
-            cs = msgtype;
-            if (!D4State_add(self->map, self->dhcpmsg.xid, self->dhcpmsg.chaddr, cs))
-                return; // Possible DoS; silently drop.
-            break;
-        case DHCPINFORM:
-            // No need to track state since we just INFORM => ACK
-        case DHCPDECLINE:
-        case DHCPRELEASE:
-            cs = msgtype;
-            break;
-        default: return;
-        }
-    } else {
-        if (cs == DHCPDISCOVER && msgtype == DHCPREQUEST)
-            cs = DHCPREQUEST;
+    if (cs == DHCPNULL && (msgtype == DHCPREQUEST || msgtype == DHCPDISCOVER)) {
+        cs = msgtype;
+        if (!D4State_add(self->map, self->dhcpmsg.xid, self->dhcpmsg.chaddr, cs))
+            return; // Possible DoS; silently drop.
+    } else if (cs == DHCPDISCOVER && msgtype == DHCPREQUEST) {
+        cs = DHCPREQUEST;
     }
-
-    switch (cs) {
-    case DHCPDISCOVER: reply_discover(self); break;
-    case DHCPREQUEST:  reply_request(self); break;
-    case DHCPINFORM:   reply_inform(self); break;
-    case DHCPDECLINE:  log_line("dhcp4: Received a DHCPDECLINE.  Clients conflict?\n");
-    case DHCPRELEASE:  do_release(self); break;
-    }
+    if      (cs == DHCPDISCOVER) reply_discover(self);
+    else if (cs == DHCPREQUEST)  reply_request(self);
 }
-
